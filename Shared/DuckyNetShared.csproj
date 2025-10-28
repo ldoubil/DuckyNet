@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <Nullable>enable</Nullable>
+    <AssemblyName>DuckyNet.Shared</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="LiteNetLib" Version="1.2.0" />
+    <PackageReference Include="NetSerializer" Version="4.1.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 只编译Proxy文件，Dispatcher和TypeRegister用于服务器端 -->
+    <Compile Remove="Generated\*Dispatcher.cs" />
+    <Compile Remove="Generated\TypeRegister.gen.cs" />
+  </ItemGroup>
+
+</Project>

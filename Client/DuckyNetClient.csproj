@@ -1,0 +1,63 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <Nullable>enable</Nullable>
+    <AssemblyName>DuckyNet.Client</AssemblyName>
+    <DuckovPath>C:\Program Files (x86)\Steam\steamapps\common\Escape from Duckov</DuckovPath>
+  </PropertyGroup>
+  
+  <ItemGroup>
+    <Reference Include="$(DuckovPath)\Duckov_Data\Managed\TeamSoda.*" />
+    <Reference Include="$(DuckovPath)\Duckov_Data\Managed\Unity*" />
+    <Reference Include="$(DuckovPath)\Duckov_Data\Managed\TeamSoda*" />
+    <Reference Include="$(DuckovPath)\Duckov_Data\Managed\com.rlabrecque.steamworks.net.dll" />
+    <PackageReference Include="Lib.Harmony" Version="2.4.1" />
+    <PackageReference Include="LiteNetLib" Version="1.2.0" />
+    <PackageReference Include="NetSerializer" Version="4.1.1" />
+    <Reference Include="$(DuckovPath)\Duckov_Data\Managed\ItemStatsSystem.dll" />
+    <ProjectReference Include="..\Shared\DuckyNetShared.csproj" />
+  </ItemGroup>
+
+  <!-- 定义 res 目录 -->
+  <PropertyGroup>
+    <ResDir>$(MSBuildProjectDirectory)\res\</ResDir>
+  </PropertyGroup>
+
+  <!-- 编译后复制输出文件到 res 目录 -->
+  <Target Name="CopyOutputsToRes" AfterTargets="Build">
+    <ItemGroup>
+      <!-- DuckyNet.Client 主输出（使用 AssemblyName）-->
+      <OutputFiles Include="$(TargetPath)" />
+      <OutputFiles Include="$(TargetDir)$(AssemblyName).pdb" Condition="Exists('$(TargetDir)$(AssemblyName).pdb')" />
+      <OutputFiles Include="$(TargetDir)$(AssemblyName).xml" Condition="Exists('$(TargetDir)$(AssemblyName).xml')" />
+      <!-- 包含 DuckyNet.Shared.dll -->
+      <OutputFiles Include="$(TargetDir)DuckyNet.Shared.dll" Condition="Exists('$(TargetDir)DuckyNet.Shared.dll')" />
+      <OutputFiles Include="$(TargetDir)DuckyNet.Shared.pdb" Condition="Exists('$(TargetDir)DuckyNet.Shared.pdb')" />
+      <!-- 包含 LiteNetLib.dll -->
+      <OutputFiles Include="$(TargetDir)LiteNetLib.dll" Condition="Exists('$(TargetDir)LiteNetLib.dll')" />
+      <!-- 包含 NetSerializer.dll -->
+      <OutputFiles Include="$(TargetDir)NetSerializer.dll" Condition="Exists('$(TargetDir)NetSerializer.dll')" />
+      <!-- 包含 0Harmony.dll (HarmonyLib) -->
+      <OutputFiles Include="$(TargetDir)0Harmony.dll" Condition="Exists('$(TargetDir)0Harmony.dll')" />
+    </ItemGroup>
+    <Copy SourceFiles="@(OutputFiles)" DestinationFolder="$(ResDir)" SkipUnchangedFiles="false" />
+    <Message Text="[DuckyNet] 已复制输出文件到 res 目录" Importance="high" />
+  </Target>
+
+  <!-- 定义游戏 Mods 目录 -->
+  <PropertyGroup>
+    <ModsDir>$(DuckovPath)\Duckov_Data\Mods\DuckyNet\</ModsDir>
+  </PropertyGroup>
+
+  <!-- 复制 res 目录到游戏 Mods 目录 -->
+  <Target Name="CopyResToMods" AfterTargets="Build" DependsOnTargets="CopyOutputsToRes">
+    <MakeDir Directories="$(ModsDir)" />
+    <ItemGroup>
+      <ResFiles Include="$(ResDir)**\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(ResFiles)" DestinationFolder="$(ModsDir)\%(RecursiveDir)" SkipUnchangedFiles="false" />
+    <Message Text="[DuckyNet] 已复制文件到游戏 Mods 目录: $(ModsDir)" Importance="high" />
+  </Target>
+
+</Project>
