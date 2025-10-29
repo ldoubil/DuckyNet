@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using UnityEngine;
 using DuckyNet.Client.Core.Helpers;
 
+
 namespace DuckyNet.Client.Core
 {
     /// <summary>
@@ -63,9 +64,24 @@ namespace DuckyNet.Client.Core
                     await sceneManager.InitializeRoomDataAsync();
                 }
 
-                // 启动角色同步
-                StartSyncIfNeeded();
+                // 通过事件请求启动同步
+                if (GameContext.IsInitialized)
+                {
+                    _context.EventBus.Publish(SyncStartRequestEvent.Instance);
+                }
+                else
+                {
+                    // 如果 GameContext 还未初始化，直接调用（向后兼容）
+                    StartSyncIfNeeded();
+                }
 
+                // 发布 EventBus 事件
+                if (GameContext.IsInitialized)
+                {
+                    _context.EventBus.Publish(NetworkConnectedEvent.Instance);
+                }
+
+                // 保持向后兼容：同时触发原有事件
                 OnConnected?.Invoke();
             }
             catch (Exception ex)
@@ -84,16 +100,23 @@ namespace DuckyNet.Client.Core
             {
                 Debug.LogWarning($"[NetworkLifecycleManager] 与服务器断开连接: {reason}");
 
-                // 停止同步
-                _context.SyncManager?.StopSync();
-
-                // 清理场景数据
+                // 通过事件发布操作，而不是直接调用管理器方法
+                _context.EventBus.Publish(SyncStopRequestEvent.Instance);
+                
+                // 清理场景数据（内部方法，暂时保留直接调用）
                 _context.SceneManager.OnLeftRoom();
 
-                // 通知UI
+                // 通知UI（可以通过事件，但暂时保留直接调用，UI响应可能更及时）
                 var chatWindow = _context.UIManager.GetWindow<UI.ChatWindow>("Chat");
                 chatWindow?.AddSystemMessage($"与服务器断开连接: {reason}", Shared.Services.MessageType.Warning);
 
+                // 发布 EventBus 事件
+                if (GameContext.IsInitialized)
+                {
+                    _context.EventBus.Publish(new NetworkDisconnectedEvent(reason));
+                }
+
+                // 保持向后兼容：同时触发原有事件
                 OnDisconnected?.Invoke(reason);
             }
             catch (Exception ex)
@@ -115,9 +138,18 @@ namespace DuckyNet.Client.Core
                 // 初始化场景数据
                 await _context.SceneManager.InitializeRoomDataAsync();
 
-                // 启动同步（如果需要）
-                StartSyncIfNeeded();
+                // 通过事件请求启动同步
+                if (GameContext.IsInitialized)
+                {
+                    _context.EventBus.Publish(SyncStartRequestEvent.Instance);
+                    _context.EventBus.Publish(RoomJoinedEvent.Instance);
+                }
+                else
+                {
+                    StartSyncIfNeeded();
+                }
 
+                // 保持向后兼容：同时触发原有事件
                 OnJoinedRoom?.Invoke();
             }
             catch (Exception ex)
@@ -136,12 +168,26 @@ namespace DuckyNet.Client.Core
             {
                 Debug.Log("[NetworkLifecycleManager] 处理离开房间事件");
 
-                // 停止同步
-                _context.SyncManager?.StopSync();
+                // 通过事件发布操作
+                if (GameContext.IsInitialized)
+                {
+                    _context.EventBus.Publish(SyncStopRequestEvent.Instance);
+                }
+                else
+                {
+                    _context.SyncManager?.StopSync();
+                }
 
-                // 清理场景数据
+                // 清理场景数据（内部方法，暂时保留直接调用）
                 _context.SceneManager.OnLeftRoom();
 
+                // 发布 EventBus 事件
+                if (GameContext.IsInitialized)
+                {
+                    _context.EventBus.Publish(RoomLeftEvent.Instance);
+                }
+
+                // 保持向后兼容：同时触发原有事件
                 OnLeftRoom?.Invoke();
             }
             catch (Exception ex)
@@ -176,18 +222,28 @@ namespace DuckyNet.Client.Core
                 // 检查是否已有角色，如果有则立即启动，否则也会启动但等待角色创建
                 var hasCharacter = localCharacter != null;
 
-                var syncManager = _context.SyncManager;
-                if (syncManager != null)
+                // 通过事件请求启动同步
+                if (GameContext.IsInitialized)
                 {
-                    syncManager.StartSync();
-
+                    _context.EventBus.Publish(SyncStartRequestEvent.Instance);
+                    
                     if (hasCharacter)
                     {
-                        Debug.Log("[NetworkLifecycleManager] ✅ 角色同步已启动（已有角色）");
+                        Debug.Log("[NetworkLifecycleManager] ✅ 角色同步启动请求已发布（已有角色）");
                     }
                     else
                     {
-                        Debug.Log("[NetworkLifecycleManager] ✅ 角色同步已启动（等待角色创建）");
+                        Debug.Log("[NetworkLifecycleManager] ✅ 角色同步启动请求已发布（等待角色创建）");
+                    }
+                }
+                else
+                {
+                    // 向后兼容：直接调用
+                    var syncManager = _context.SyncManager;
+                    if (syncManager != null)
+                    {
+                        syncManager.StartSync();
+                        Debug.Log("[NetworkLifecycleManager] ✅ 角色同步已启动（向后兼容模式）");
                     }
                 }
             }
@@ -219,4 +275,5 @@ namespace DuckyNet.Client.Core
         }
     }
 }
+
 

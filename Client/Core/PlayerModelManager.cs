@@ -4,6 +4,8 @@ using System.Linq;
 using UnityEngine;
 using DuckyNet.Shared.Services;
 using DuckyNet.Client.Core.Helpers;
+using DuckyNet.Client.Core.Utils;
+
 
 namespace DuckyNet.Client.Core
 {
@@ -77,6 +79,7 @@ namespace DuckyNet.Client.Core
 
                 var unitManager = GameContext.Instance.UnitManager;
                 var position = Vector3.zero; // TODO: 从服务器同步位置
+                // 使用 UnitStats 默认值
                 var stats = UnitStats.Default;
 
                 var playerObject = unitManager.CreateUnit(

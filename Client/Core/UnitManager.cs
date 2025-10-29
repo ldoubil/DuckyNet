@@ -13,6 +13,7 @@ namespace DuckyNet.Client.Core
     {
         private readonly List<GameObject> _managedUnits = new List<GameObject>();
         private bool _typesInitialized = false;
+        private readonly Helpers.EventSubscriberHelper _eventSubscriber = new Helpers.EventSubscriberHelper();
         
         // 缓存的游戏类型
         private Type? _levelManagerType;
@@ -34,6 +35,81 @@ namespace DuckyNet.Client.Core
         public UnitManager()
         {
             InitializeTypes();
+            
+            // 延迟订阅事件（等待 GameContext 初始化）
+            if (GameContext.IsInitialized)
+            {
+                SubscribeToEvents();
+            }
+        }
+
+        /// <summary>
+        /// 订阅 EventBus 事件
+        /// </summary>
+        private void SubscribeToEvents()
+        {
+            // 订阅远程角色创建请求
+            _eventSubscriber.Subscribe<CreateRemoteCharacterRequestEvent>(OnCreateRemoteCharacterRequested);
+            
+            // 如果 GameContext 已初始化，立即完成订阅
+            _eventSubscriber.EnsureInitializedAndSubscribe();
+            
+            UnityEngine.Debug.Log("[UnitManager] 已订阅 EventBus 事件");
+        }
+
+        /// <summary>
+        /// 处理创建远程角色请求
+        /// </summary>
+        private void OnCreateRemoteCharacterRequested(CreateRemoteCharacterRequestEvent evt)
+        {
+            if (string.IsNullOrEmpty(evt.PlayerId))
+            {
+                UnityEngine.Debug.LogWarning("[UnitManager] 远程角色创建请求：PlayerId 为空");
+                PublishCharacterCreated(evt.PlayerId, null);
+                return;
+            }
+
+            try
+            {
+                UnityEngine.Debug.Log($"[UnitManager] 处理远程角色创建请求: {evt.PlayerId}");
+
+                // 创建远程玩家角色（team=1, 默认属性）
+                var character = CreateUnit(
+                    $"RemotePlayer_{evt.PlayerId}", 
+                    Vector3.zero, 
+                    team: 1, 
+                    stats: UnitStats.Default
+                );
+
+                if (character != null)
+                {
+                    UnityEngine.Debug.Log($"[UnitManager] ✅ 远程角色创建成功: {evt.PlayerId}");
+                }
+                else
+                {
+                    UnityEngine.Debug.LogWarning($"[UnitManager] 远程角色创建失败: {evt.PlayerId}");
+                }
+
+                // 发布角色创建完成事件
+                PublishCharacterCreated(evt.PlayerId, character);
+            }
+            catch (Exception ex)
+            {
+                UnityEngine.Debug.LogError($"[UnitManager] 处理远程角色创建请求失败: {ex.Message}");
+                UnityEngine.Debug.LogException(ex);
+                PublishCharacterCreated(evt.PlayerId, null);
+            }
+        }
+
+        /// <summary>
+        /// 发布角色创建完成事件
+        /// </summary>
+        private void PublishCharacterCreated(string playerId, GameObject? character)
+        {
+            if (GameContext.IsInitialized)
+            {
+                GameContext.Instance.EventBus.Publish(new RemoteCharacterCreatedEvent(playerId, character));
+            }
         }
 
         /// <summary>
@@ -389,8 +465,17 @@ namespace DuckyNet.Client.Core
             _managedUnits.Clear();
         }
 
+        /// <summary>
+        /// 确保已订阅事件（用于延迟初始化场景）
+        /// </summary>
+        public void EnsureSubscribed()
+        {
+            _eventSubscriber.EnsureInitializedAndSubscribe();
+        }
+
         public void Dispose()
         {
+            _eventSubscriber?.Dispose();
             DestroyAllUnits();
         }
     }
@@ -430,4 +515,5 @@ namespace DuckyNet.Client.Core
         };
     }
 }
+
 

@@ -30,12 +30,6 @@ namespace DuckyNet.Shared.Services
         void SendChatMessage(IClientContext client, string message);
 
         /// <summary>
-        /// 更新玩家状态
-        /// </summary>
-        [ClientToServer]
-        void UpdatePlayerStatus(IClientContext client, PlayerStatus status);
-
-        /// <summary>
         /// 获取全局在线玩家列表（所有玩家）
         /// </summary>
         [ClientToServer]
@@ -73,11 +67,6 @@ namespace DuckyNet.Shared.Services
         [ServerToClient]
         void OnPlayerLeft(PlayerInfo player);
 
-        /// <summary>
-        /// 玩家状态更新通知
-        /// </summary>
-        [ServerToClient]
-        void OnPlayerStatusChanged(PlayerInfo player, PlayerStatus status);
 
         /// <summary>
         /// 服务器消息通知
@@ -98,19 +87,6 @@ namespace DuckyNet.Shared.Services
         public string? SessionToken { get; set; }
     }
 
-    /// <summary>
-    /// 玩家状态枚举
-    /// </summary>
-    [Serializable]
-    public enum PlayerStatus
-    {
-        Offline,
-        Online,
-        InGame,
-        InLobby,
-        Away,
-        Busy
-    }
 
     /// <summary>
     /// 消息类型枚举
@@ -139,17 +115,7 @@ namespace DuckyNet.Shared.Services
         public string AvatarUrl { get; set; } = string.Empty;
 
         /// <summary>
-        /// 玩家状态
-        /// </summary>
-        public PlayerStatus Status { get; set; } = PlayerStatus.Offline;
-
-        /// <summary>
-        /// 是否在游戏场景中
-        /// </summary>
-        public bool IsInGame { get; set; }
-
-        /// <summary>
-        /// 当前场景ID
+        /// 当前场景ID（地图名，如果为空则表示不在任何场景中）
         /// </summary>
         public string CurrentSceneId { get; set; } = string.Empty;
 
@@ -164,21 +130,6 @@ namespace DuckyNet.Shared.Services
         public byte[]? AppearanceData { get; set; }
 
         /// <summary>
-        /// 登录时间
-        /// </summary>
-        public DateTime LoginTime { get; set; }
-
-        /// <summary>
-        /// 最后活动时间
-        /// </summary>
-        public DateTime LastActivityTime { get; set; }
-
-        /// <summary>
-        /// 玩家等级
-        /// </summary>
-        public int Level { get; set; }
-
-        /// <summary>
         /// 验证玩家信息是否有效
         /// </summary>
         public bool IsValid()
@@ -186,13 +137,6 @@ namespace DuckyNet.Shared.Services
             return !string.IsNullOrWhiteSpace(SteamId) && !string.IsNullOrWhiteSpace(SteamName);
         }
 
-        /// <summary>
-        /// 更新最后活动时间
-        /// </summary>
-        public void UpdateActivity()
-        {
-            LastActivityTime = DateTime.UtcNow;
-        }
     }
 
 

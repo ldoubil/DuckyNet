@@ -15,7 +15,6 @@ namespace DuckyNet.Shared.Services.Generated
         public Task<LoginResult> LoginAsync(PlayerInfo playerInfo) => _ctx.InvokeAsync<DuckyNet.Shared.Services.IPlayerService, LoginResult>("LoginAsync", playerInfo);
         public void Logout() => _ctx.Invoke<DuckyNet.Shared.Services.IPlayerService>("Logout");
         public void SendChatMessage(string message) => _ctx.Invoke<DuckyNet.Shared.Services.IPlayerService>("SendChatMessage", message);
-        public void UpdatePlayerStatus(PlayerStatus status) => _ctx.Invoke<DuckyNet.Shared.Services.IPlayerService>("UpdatePlayerStatus", status);
         public Task<PlayerInfo[]> GetAllOnlinePlayersAsync() => _ctx.InvokeAsync<DuckyNet.Shared.Services.IPlayerService, PlayerInfo[]>("GetAllOnlinePlayersAsync");
         public Task<PlayerInfo[]> GetCurrentRoomPlayersAsync() => _ctx.InvokeAsync<DuckyNet.Shared.Services.IPlayerService, PlayerInfo[]>("GetCurrentRoomPlayersAsync");
     }

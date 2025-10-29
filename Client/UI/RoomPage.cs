@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using DuckyNet.Client.RPC;
 using DuckyNet.Client.Core;
+using DuckyNet.Client.Core.Helpers;
 using DuckyNet.Shared.Services;
 
 namespace DuckyNet.Client.UI
@@ -10,7 +11,7 @@ namespace DuckyNet.Client.UI
     /// <summary>
     /// 房间页面
     /// </summary>
-    public class RoomPage
+    public class RoomPage : IDisposable
     {
         private readonly RpcClient _client;
         private readonly MainMenuWindow _mainWindow;
@@ -18,11 +19,59 @@ namespace DuckyNet.Client.UI
         private Vector2 _scrollPos;
         private List<PlayerInfo> _roomPlayers = new List<PlayerInfo>();
         private ChatWindow? _chatWindow;
+        private readonly EventSubscriberHelper _eventSubscriber = new EventSubscriberHelper();
 
         public RoomPage(RpcClient client, MainMenuWindow mainWindow)
         {
             _client = client;
             _mainWindow = mainWindow;
+
+            // 订阅房间玩家变化事件（自动更新玩家列表）
+            if (GameContext.IsInitialized)
+            {
+                SubscribeToEvents();
+            }
+        }
+
+        /// <summary>
+        /// 订阅 EventBus 事件
+        /// </summary>
+        private void SubscribeToEvents()
+        {
+            _eventSubscriber.EnsureInitializedAndSubscribe();
+            
+            // 订阅玩家加入/离开房间事件
+            _eventSubscriber.Subscribe<PlayerJoinedRoomEvent>(OnPlayerJoinedRoom);
+            _eventSubscriber.Subscribe<PlayerLeftRoomEvent>(OnPlayerLeftRoom);
+        }
+
+        /// <summary>
+        /// 处理玩家加入房间事件
+        /// </summary>
+        private void OnPlayerJoinedRoom(PlayerJoinedRoomEvent evt)
+        {
+            // 如果是当前房间的玩家，刷新列表
+            if (_currentRoom != null && evt.Room.RoomId == _currentRoom.RoomId)
+            {
+                RefreshPlayerListAsync();
+            }
+        }
+
+        /// <summary>
+        /// 处理玩家离开房间事件
+        /// </summary>
+        private void OnPlayerLeftRoom(PlayerLeftRoomEvent evt)
+        {
+            // 如果是当前房间的玩家，刷新列表
+            if (_currentRoom != null && evt.Room.RoomId == _currentRoom.RoomId)
+            {
+                RefreshPlayerListAsync();
+            }
+        }
+
+        public void Dispose()
+        {
+            _eventSubscriber?.Dispose();
         }
 
         public void SetChatWindow(ChatWindow chatWindow)
@@ -73,9 +122,7 @@ namespace DuckyNet.Client.UI
             foreach (var player in _roomPlayers)
             {
                 GUILayout.BeginHorizontal(GUI.skin.box);
-                GUILayout.Label($"{player.SteamName} (Lv.{player.Level})");
                 GUILayout.FlexibleSpace();
-                GUILayout.Label(player.Status.ToString());
                 GUILayout.EndHorizontal();
             }
             
@@ -130,15 +177,17 @@ namespace DuckyNet.Client.UI
                     // 通知聊天窗口已离开房间
                     _chatWindow?.SetRoomStatus(false);
                     
-                    // 清理场景数据和停止同步
+                    // 通过事件发布操作，而不是直接调用管理器方法
                     if (GameContext.IsInitialized)
                     {
-                        GameContext.Instance.SyncManager?.StopSync();
-                        GameContext.Instance.SceneManager.OnLeftRoom();
-                        UnityEngine.Debug.Log("[RoomPage] 已停止同步并清理场景数据");
+                        var eventBus = GameContext.Instance.EventBus;
+                        eventBus.Publish(SyncStopRequestEvent.Instance);
+                        // 注意：SceneManager.OnLeftRoom() 仍在内部使用，但离开房间通常由 NetworkLifecycleManager 处理
+                        // 这里可以发布 RoomLeftEvent，NetworkLifecycleManager 会处理
+                        UnityEngine.Debug.Log("[RoomPage] 已发布停止同步事件");
                     }
                     
-                    _mainWindow.SwitchToPage(MainMenuWindow.Page.Lobby);
+                    _mainWindow.SwitchToPage(MainMenuPage.Lobby);
                     UnityEngine.Debug.Log("[RoomPage] Successfully left room");
                 }
                 else

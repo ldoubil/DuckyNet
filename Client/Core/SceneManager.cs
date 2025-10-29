@@ -4,7 +4,8 @@ using System.Linq;
 using UnityEngine;
 using DuckyNet.Shared.Services;
 using DuckyNet.Client.RPC;
-using HarmonyLib;
+using DuckyNet.Client.Core.Helpers;
+
 
 namespace DuckyNet.Client.Core
 {
@@ -27,6 +28,11 @@ namespace DuckyNet.Client.Core
         /// 玩家模型管理器
         /// </summary>
         private readonly PlayerModelManager _playerModelManager;
+
+        /// <summary>
+        /// 事件订阅助手
+        /// </summary>
+        private readonly EventSubscriberHelper _eventSubscriber = new EventSubscriberHelper();
 
         /// <summary>
         /// 是否正在切换场景
@@ -53,198 +59,95 @@ namespace DuckyNet.Client.Core
         /// </summary>
         public event Action<string, string>? OnPlayerLeftScene; // steamId, sceneName
 
-        private Type? _levelManagerType;
-        private bool _typesInitialized = false;
-
         public SceneManager()
         {
             _playerModelManager = new PlayerModelManager();
-            InitializeTypes();
-            RegisterSceneCallbacks();
-        }
-
-        /// <summary>
-        /// 初始化游戏类型引用
-        /// </summary>
-        private void InitializeTypes()
-        {
-            try
+            
+            // 订阅外观更新事件和场景事件
+            if (GameContext.IsInitialized)
             {
-                _levelManagerType = AccessTools.TypeByName("LevelManager");
-                _typesInitialized = _levelManagerType != null;
-
-                if (_typesInitialized)
-                {
-                    Debug.Log("[SceneManager] 游戏类型初始化成功");
-                }
-                else
-                {
-                    Debug.LogWarning("[SceneManager] LevelManager类型未找到");
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[SceneManager] 类型初始化失败: {ex.Message}");
+                SubscribeToEvents();
             }
         }
 
         /// <summary>
-        /// 注册场景回调（通过LevelManager事件监听）
+        /// 订阅 EventBus 事件
         /// </summary>
-        private void RegisterSceneCallbacks()
+        private void SubscribeToEvents()
         {
-            try
-            {
-                // 获取 LevelManager 单例
-                var levelManagerType = AccessTools.TypeByName("LevelManager");
-                if (levelManagerType == null)
-                {
-                    Debug.LogWarning("[SceneManager] LevelManager 类型未找到");
-                    return;
-                }
-
-                var instanceProp = AccessTools.Property(levelManagerType, "Instance");
-                var levelManager = instanceProp?.GetValue(null);
-                if (levelManager == null)
-                {
-                    Debug.LogWarning("[SceneManager] LevelManager 实例未初始化");
-                    return;
-                }
-
-                // 订阅关卡开始初始化事件（离开旧场景）
-                var beginInitEvent = AccessTools.Field(levelManagerType, "OnLevelBeginInitializing");
-                if (beginInitEvent != null)
-                {
-                    var eventDelegate = Delegate.CreateDelegate(
-                        beginInitEvent.FieldType,
-                        this,
-                        typeof(SceneManager).GetMethod(nameof(OnLevelBeginInitializing), 
-                            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-                    );
-                    var currentDelegate = beginInitEvent.GetValue(levelManager) as Delegate;
-                    var combined = Delegate.Combine(currentDelegate, eventDelegate);
-                    beginInitEvent.SetValue(levelManager, combined);
-                    Debug.Log("[SceneManager] 已订阅 OnLevelBeginInitializing 事件");
-                }
-
-                // 订阅关卡初始化完成事件（进入新场景）
-                var initEvent = AccessTools.Field(levelManagerType, "OnLevelInitialized");
-                if (initEvent != null)
-                {
-                    var eventDelegate = Delegate.CreateDelegate(
-                        initEvent.FieldType,
-                        this,
-                        typeof(SceneManager).GetMethod(nameof(OnLevelInitialized),
-                            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-                    );
-                    var currentDelegate = initEvent.GetValue(levelManager) as Delegate;
-                    var combined = Delegate.Combine(currentDelegate, eventDelegate);
-                    initEvent.SetValue(levelManager, combined);
-                    Debug.Log("[SceneManager] 已订阅 OnLevelInitialized 事件");
-                }
-
-                Debug.Log("[SceneManager] 场景回调注册成功");
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[SceneManager] 注册场景回调失败: {ex.Message}");
-                Debug.LogException(ex);
-            }
+            _eventSubscriber.EnsureInitializedAndSubscribe();
+            
+            // 订阅玩家外观更新事件
+            _eventSubscriber.Subscribe<PlayerAppearanceUpdatedEvent>(OnPlayerAppearanceUpdated);
+            
+            // 订阅场景加载/卸载事件（来自 SceneListener）
+            _eventSubscriber.Subscribe<SceneLoadedEvent>(OnSceneLoadedEvent);
+            _eventSubscriber.Subscribe<SceneUnloadingEvent>(OnSceneUnloadingEvent);
         }
 
         /// <summary>
-        /// 关卡开始初始化事件处理（离开旧场景）
+        /// 处理玩家外观更新事件
         /// </summary>
-        private void OnLevelBeginInitializing()
+        private void OnPlayerAppearanceUpdated(PlayerAppearanceUpdatedEvent evt)
         {
-            try
-            {
-                if (string.IsNullOrEmpty(CurrentScene)) return;
+            UpdatePlayerAppearance(evt.SteamId, evt.AppearanceData);
+        }
 
-                Debug.Log($"[SceneManager] 关卡开始初始化，离开场景: {CurrentScene}");
+        /// <summary>
+        /// 处理场景加载事件（来自 SceneListener）
+        /// </summary>
+        private void OnSceneLoadedEvent(SceneLoadedEvent evt)
+        {
+            NotifySceneLoaded(evt.SceneName);
+        }
+
+        /// <summary>
+        /// 处理场景卸载事件（来自 SceneListener）
+        /// </summary>
+        private void OnSceneUnloadingEvent(SceneUnloadingEvent evt)
+        {
+            if (!string.IsNullOrEmpty(CurrentScene))
+            {
                 NotifySceneUnloading();
             }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[SceneManager] OnLevelBeginInitializing 处理失败: {ex.Message}");
-            }
         }
 
         /// <summary>
-        /// 关卡初始化完成事件处理（进入新场景）
-        /// </summary>
-        private void OnLevelInitialized()
-        {
-            try
-            {
-                var sceneName = GetCurrentLevelInfo();
-                if (string.IsNullOrEmpty(sceneName)) return;
-
-                Debug.Log($"[SceneManager] 关卡初始化完成: {sceneName}");
-                NotifySceneLoaded(sceneName);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[SceneManager] OnLevelInitialized 处理失败: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// 获取当前关卡信息（只返回场景名称）
+        /// 获取当前关卡信息（通过 SceneInfoProvider/SceneListener）
         /// </summary>
         public string? GetCurrentLevelInfo()
         {
-            if (!_typesInitialized) return null;
-
-            try
-            {
-                var instanceProp = AccessTools.Property(_levelManagerType, "Instance");
-                object? levelManager = instanceProp?.GetValue(null);
-                if (levelManager == null) return null;
-
-                var getLevelInfoMethod = AccessTools.Method(_levelManagerType, "GetCurrentLevelInfo");
-                if (getLevelInfoMethod == null) return null;
-
-                object? levelInfo = getLevelInfoMethod.Invoke(levelManager, null);
-                if (levelInfo == null) return null;
-
-                var levelInfoType = levelInfo.GetType();
-                var sceneNameField = AccessTools.Field(levelInfoType, "sceneName");
-
-                // 安全地获取字符串字段
-                string sceneName = string.Empty;
-                if (sceneNameField != null)
-                {
-                    var sceneNameValue = sceneNameField.GetValue(levelInfo);
-                    sceneName = sceneNameValue as string ?? sceneNameValue?.ToString() ?? string.Empty;
-                }
-
-                return string.IsNullOrEmpty(sceneName) ? null : sceneName;
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[SceneManager] 获取关卡信息失败: {ex.Message}");
-                return null;
-            }
+            return SceneInfoProvider.GetCurrentLevelInfo();
         }
 
         /// <summary>
-        /// 获取当前地图名称
+        /// 获取当前地图名称（工具方法，通过 SceneInfoProvider/SceneListener）
         /// </summary>
         public string? GetCurrentMapName()
         {
-            return GetCurrentLevelInfo();
+            return SceneInfoProvider.GetCurrentMapName();
         }
 
         /// <summary>
-        /// 通知场景加载完成
+        /// 通知场景加载完成（由 SceneListener 通过事件触发）
         /// </summary>
         public void NotifySceneLoaded(string sceneName)
         {
-            Debug.Log($"[SceneManager] 场景加载完成: {sceneName}");
+            UnityEngine.Debug.Log($"[SceneManager] 场景加载完成: {sceneName}");
+            
+            // 如果场景已经变化，先清理旧场景
+            if (!string.IsNullOrEmpty(CurrentScene) && CurrentScene != sceneName)
+            {
+                UnityEngine.Debug.Log($"[SceneManager] 场景变化: {CurrentScene} -> {sceneName}");
+                // 清理旧场景的模型
+                ClearSceneModels();
+            }
+            
             CurrentScene = sceneName;
             IsChangingScene = false;
 
+            // 注意：SceneListener 已经发布了 SceneLoadedEvent 和 SceneNameUpdatedEvent
+            // 这里保持向后兼容：同时触发原有事件
             OnSceneLoaded?.Invoke(sceneName);
 
             // 通知服务器进入场景
@@ -258,15 +161,17 @@ namespace DuckyNet.Client.Core
         }
 
         /// <summary>
-        /// 通知场景卸载前（游戏调用）
+        /// 通知场景卸载前（由 SceneListener 通过事件触发）
         /// </summary>
         public void NotifySceneUnloading()
         {
             if (string.IsNullOrEmpty(CurrentScene)) return;
 
-            Debug.Log($"[SceneManager] 场景卸载: {CurrentScene}");
+            UnityEngine.Debug.Log($"[SceneManager] 场景卸载: {CurrentScene}");
             IsChangingScene = true;
 
+            // 注意：SceneListener 已经发布了 SceneUnloadingEvent 和 SceneNameUpdatedEvent
+            // 这里保持向后兼容：同时触发原有事件
             OnSceneUnloading?.Invoke(CurrentScene);
 
             // 通知服务器离开场景
@@ -293,7 +198,7 @@ namespace DuckyNet.Client.Core
                 var success = await sceneService.EnterSceneAsync(sceneName);
                 if (success)
                 {
-                    Debug.Log($"[SceneManager] 已通知服务器进入场景: {sceneName}");
+                    UnityEngine.Debug.Log($"[SceneManager] 已通知服务器进入场景: {sceneName}");
                     
                     // 获取场景内的所有玩家
                     var players = await sceneService.GetScenePlayersAsync(sceneName);
@@ -307,12 +212,12 @@ namespace DuckyNet.Client.Core
                 }
                 else
                 {
-                    Debug.LogWarning($"[SceneManager] 进入场景失败: {sceneName}");
+                    UnityEngine.Debug.LogWarning($"[SceneManager] 进入场景失败: {sceneName}");
                 }
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[SceneManager] 通知服务器进入场景失败: {ex.Message}");
+                UnityEngine.Debug.LogError($"[SceneManager] 通知服务器进入场景失败: {ex.Message}");
             }
         }
 
@@ -328,11 +233,11 @@ namespace DuckyNet.Client.Core
                 var sceneService = new Shared.Services.Generated.SceneServiceClientProxy(context);
                 
                 await sceneService.LeaveSceneAsync();
-                Debug.Log("[SceneManager] 已通知服务器离开场景");
+                UnityEngine.Debug.Log("[SceneManager] 已通知服务器离开场景");
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[SceneManager] 通知服务器离开场景失败: {ex.Message}");
+                UnityEngine.Debug.LogError($"[SceneManager] 通知服务器离开场景失败: {ex.Message}");
             }
         }
 
@@ -342,9 +247,15 @@ namespace DuckyNet.Client.Core
         public void UpdatePlayerScene(PlayerSceneInfo playerSceneInfo)
         {
             _playerScenes[playerSceneInfo.SteamId] = playerSceneInfo;
-            Debug.Log($"[SceneManager] 更新玩家场景: {playerSceneInfo.SteamId} ({playerSceneInfo.PlayerInfo?.SteamName ?? "Unknown"}) -> {playerSceneInfo.SceneName} (HasCharacter: {playerSceneInfo.HasCharacter}, CurrentScene: {CurrentScene})");
+            UnityEngine.Debug.Log($"[SceneManager] 更新玩家场景: {playerSceneInfo.SteamId} ({playerSceneInfo.PlayerInfo?.SteamName ?? "Unknown"}) -> {playerSceneInfo.SceneName} (HasCharacter: {playerSceneInfo.HasCharacter}, CurrentScene: {CurrentScene})");
 
-            // 触发事件
+            // 发布 EventBus 事件
+            if (GameContext.IsInitialized)
+            {
+                GameContext.Instance.EventBus.Publish(new PlayerEnteredSceneEvent(playerSceneInfo));
+            }
+
+            // 保持向后兼容：同时触发原有事件
             OnPlayerEnteredScene?.Invoke(playerSceneInfo);
 
             // 如果是当前场景的玩家，且没有模型，则创建
@@ -352,7 +263,7 @@ namespace DuckyNet.Client.Core
             {
                 if (!playerSceneInfo.HasCharacter)
                 {
-                    Debug.Log($"[SceneManager] 玩家 {playerSceneInfo.SteamId} 尚未创建角色，等待角色创建完成后再创建模型");
+                    UnityEngine.Debug.Log($"[SceneManager] 玩家 {playerSceneInfo.SteamId} 尚未创建角色，等待角色创建完成后再创建模型");
                     // 即使没有角色，也触发创建流程，因为可能需要等待角色创建
                 }
                 
@@ -364,18 +275,18 @@ namespace DuckyNet.Client.Core
                     }
                     else
                     {
-                        Debug.Log($"[SceneManager] 玩家 {playerSceneInfo.SteamId} 还没有角色，等待角色创建完成");
+                        UnityEngine.Debug.Log($"[SceneManager] 玩家 {playerSceneInfo.SteamId} 还没有角色，等待角色创建完成");
                         // TODO: 可以订阅角色创建事件，当角色创建后自动创建模型
                     }
                 }
                 else
                 {
-                    Debug.Log($"[SceneManager] 玩家 {playerSceneInfo.SteamId} 的模型已存在，跳过创建");
+                    UnityEngine.Debug.Log($"[SceneManager] 玩家 {playerSceneInfo.SteamId} 的模型已存在，跳过创建");
                 }
             }
             else
             {
-                Debug.Log($"[SceneManager] 玩家 {playerSceneInfo.SteamId} 不在当前场景 ({CurrentScene ?? "null"})，跳过模型创建");
+                UnityEngine.Debug.Log($"[SceneManager] 玩家 {playerSceneInfo.SteamId} 不在当前场景 ({CurrentScene ?? "null"})，跳过模型创建");
             }
         }
 
@@ -386,9 +297,15 @@ namespace DuckyNet.Client.Core
         {
             if (_playerScenes.Remove(steamId))
             {
-                Debug.Log($"[SceneManager] 移除玩家场景: {steamId} <- {sceneName}");
+                UnityEngine.Debug.Log($"[SceneManager] 移除玩家场景: {steamId} <- {sceneName}");
                 
-                // 触发事件
+                // 发布 EventBus 事件
+                if (GameContext.IsInitialized)
+                {
+                    GameContext.Instance.EventBus.Publish(new PlayerLeftSceneEvent(steamId, sceneName));
+                }
+
+                // 保持向后兼容：同时触发原有事件
                 OnPlayerLeftScene?.Invoke(steamId, sceneName);
 
                 // 如果有模型，销毁它
@@ -403,7 +320,7 @@ namespace DuckyNet.Client.Core
         {
             try
             {
-                Debug.Log($"[SceneManager] 更新玩家外观: {steamId} ({appearanceData?.Length ?? 0} bytes)");
+                UnityEngine.Debug.Log($"[SceneManager] 更新玩家外观: {steamId} ({appearanceData?.Length ?? 0} bytes)");
 
                 // 如果玩家模型不存在，但玩家在当前场景中，则创建模型
                 if (!_playerModelManager.HasPlayerModel(steamId))
@@ -413,7 +330,7 @@ namespace DuckyNet.Client.Core
                     {
                         if (playerSceneInfo.SceneName == CurrentScene)
                         {
-                            Debug.Log($"[SceneManager] 收到外观数据但模型不存在，尝试创建模型: {steamId}");
+                            UnityEngine.Debug.Log($"[SceneManager] 收到外观数据但模型不存在，尝试创建模型: {steamId}");
                             // 更新 PlayerSceneInfo 的 HasCharacter 状态
                             playerSceneInfo.HasCharacter = true;
                             _playerScenes[steamId] = playerSceneInfo;
@@ -428,16 +345,23 @@ namespace DuckyNet.Client.Core
                         }
                     }
                     
-                    Debug.Log($"[SceneManager] 玩家不在当前场景，跳过外观更新: {steamId}");
+                    UnityEngine.Debug.Log($"[SceneManager] 玩家不在当前场景，跳过外观更新: {steamId}");
                     return;
                 }
 
                 // 应用外观到现有模型
-                _playerModelManager.UpdatePlayerAppearance(steamId, appearanceData);
+                if (appearanceData != null)
+                {
+                    _playerModelManager.UpdatePlayerAppearance(steamId, appearanceData);
+                }
+                else
+                {
+                    UnityEngine.Debug.LogWarning($"[SceneManager] 外观数据为 null，跳过更新: {steamId}");
+                }
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[SceneManager] 更新玩家外观失败: {ex.Message}");
+                UnityEngine.Debug.LogError($"[SceneManager] 更新玩家外观失败: {ex.Message}");
             }
         }
 
@@ -450,7 +374,7 @@ namespace DuckyNet.Client.Core
             {
                 if (appearanceData == null || appearanceData.Length == 0)
                 {
-                    Debug.LogWarning($"[SceneManager] 延迟应用外观失败: 外观数据为空 - {steamId}");
+                    UnityEngine.Debug.LogWarning($"[SceneManager] 延迟应用外观失败: 外观数据为空 - {steamId}");
                     return;
                 }
 
@@ -458,14 +382,14 @@ namespace DuckyNet.Client.Core
                 await System.Threading.Tasks.Task.Delay(100);
                 
                 // 再次尝试应用外观
-                if (_playerModelManager.HasPlayerModel(steamId))
+                if (_playerModelManager.HasPlayerModel(steamId) && appearanceData != null)
                 {
                     _playerModelManager.UpdatePlayerAppearance(steamId, appearanceData);
                 }
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[SceneManager] 延迟应用外观失败: {ex.Message}");
+                UnityEngine.Debug.LogError($"[SceneManager] 延迟应用外观失败: {ex.Message}");
             }
         }
 
@@ -496,7 +420,7 @@ namespace DuckyNet.Client.Core
             if (!GameContext.IsInitialized) return;
 
             var playersInScene = GetPlayersInScene(CurrentScene);
-            Debug.Log($"[SceneManager] 为当前场景创建模型，玩家数: {playersInScene.Count}");
+            UnityEngine.Debug.Log($"[SceneManager] 为当前场景创建模型，玩家数: {playersInScene.Count}");
 
             foreach (var playerInfo in playersInScene)
             {
@@ -520,7 +444,7 @@ namespace DuckyNet.Client.Core
         /// </summary>
         public void OnLeftRoom()
         {
-            Debug.Log("[SceneManager] 离开房间，清理所有数据");
+            UnityEngine.Debug.Log("[SceneManager] 离开房间，清理所有数据");
             
             ClearSceneModels();
             _playerScenes.Clear();
@@ -528,8 +452,10 @@ namespace DuckyNet.Client.Core
             IsChangingScene = false;
         }
 
+
         /// <summary>
         /// 初始化房间数据（进入房间后调用）
+        /// 在启用 mod 时调用一次，获取当前场景并初始化
         /// </summary>
         public async System.Threading.Tasks.Task InitializeRoomDataAsync()
         {
@@ -544,7 +470,7 @@ namespace DuckyNet.Client.Core
                 // 获取所有玩家的场景信息
                 var allPlayerScenes = await sceneService.GetAllPlayerScenesAsync();
                 
-                Debug.Log($"[SceneManager] 初始化房间数据，玩家数: {allPlayerScenes.Length}");
+                UnityEngine.Debug.Log($"[SceneManager] 初始化房间数据，玩家数: {allPlayerScenes.Length}");
                 
                 _playerScenes.Clear();
                 foreach (var playerScene in allPlayerScenes)
@@ -552,29 +478,44 @@ namespace DuckyNet.Client.Core
                     _playerScenes[playerScene.SteamId] = playerScene;
                 }
 
-                // 获取当前地图名称
+                // 初始化时获取一次当前场景名称（通过 SceneInfoProvider/SceneListener）
                 var currentMapName = GetCurrentMapName();
                 if (!string.IsNullOrEmpty(currentMapName))
                 {
-                    // 如果场景变化了，需要通知服务器
-                    if (CurrentScene != currentMapName)
-                    {
-                        Debug.Log($"[SceneManager] 检测到场景变化，通知服务器: {CurrentScene ?? "null"} -> {currentMapName}");
-                        await NotifyServerEnterSceneAsync(currentMapName);
-                    }
-                    else
+                    // 如果当前场景为空，说明是第一次初始化，设置场景并通知服务器
+                    if (string.IsNullOrEmpty(CurrentScene))
                     {
                         CurrentScene = currentMapName;
-                        Debug.Log($"[SceneManager] 当前地图: {currentMapName}");
+                        UnityEngine.Debug.Log($"[SceneManager] 初始化时检测到场景: {currentMapName}，通知服务器");
                         
-                        // 为当前场景创建模型
+                        // 发布场景名称更新事件（用于 SyncManager 等更新缓存）
+                        var eventBus = GameContext.Instance.EventBus;
+                        eventBus.Publish(new SceneNameUpdatedEvent(currentMapName, isInScene: true));
+                        
+                        // 通知服务器进入场景
+                        await NotifyServerEnterSceneAsync(currentMapName);
+                        
+                        // 为当前场景的玩家创建模型
                         CreateModelsForCurrentScene();
                     }
+                    else if (CurrentScene != currentMapName)
+                    {
+                        // 如果场景已经变化（理论上不应该发生，因为应该通过事件处理）
+                        UnityEngine.Debug.LogWarning($"[SceneManager] 初始化时检测到场景变化: {CurrentScene} -> {currentMapName}");
+                    }
+                }
+                else
+                {
+                    UnityEngine.Debug.Log("[SceneManager] 初始化时未检测到场景（可能不在场景中）");
+                    
+                    // 即使没有场景，也发布事件通知其他系统
+                    var eventBus = GameContext.Instance.EventBus;
+                    eventBus.Publish(new SceneNameUpdatedEvent(string.Empty, isInScene: false));
                 }
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[SceneManager] 初始化房间数据失败: {ex.Message}");
+                UnityEngine.Debug.LogError($"[SceneManager] 初始化房间数据失败: {ex.Message}");
             }
         }
 
@@ -587,11 +528,15 @@ namespace DuckyNet.Client.Core
             {
                 _playerModelManager.SetUnitManager(GameContext.Instance.UnitManager);
                 _playerModelManager.SetLocalPlayerSteamId(GameContext.Instance.LocalPlayer.Info.SteamId);
+                
+                // 确保订阅事件（如果之前未订阅）
+                SubscribeToEvents();
             }
         }
 
         public void Dispose()
         {
+            _eventSubscriber?.Dispose();
             OnLeftRoom();
             _playerModelManager?.Dispose();
             OnSceneLoaded = null;

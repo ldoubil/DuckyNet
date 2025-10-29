@@ -15,7 +15,6 @@ namespace DuckyNet.Shared.Services.Generated
                 case "LoginAsync": return _impl.LoginAsync(ctx, (PlayerInfo)args[0]);
                 case "Logout": _impl.Logout(ctx); return null;
                 case "SendChatMessage": _impl.SendChatMessage(ctx, (string)args[0]); return null;
-                case "UpdatePlayerStatus": _impl.UpdatePlayerStatus(ctx, (PlayerStatus)args[0]); return null;
                 case "GetAllOnlinePlayersAsync": return _impl.GetAllOnlinePlayersAsync(ctx);
                 case "GetCurrentRoomPlayersAsync": return _impl.GetCurrentRoomPlayersAsync(ctx);
                 default: throw new Exception("Unknown method");

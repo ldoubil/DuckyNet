@@ -98,10 +98,6 @@ namespace DuckyNet.Server.Managers
                 // 从待登录列表移除
                 _pendingConnections.Remove(clientId);
 
-                // 添加到全局玩家表
-                playerInfo.Status = PlayerStatus.Online;
-                playerInfo.LoginTime = DateTime.UtcNow;
-                playerInfo.UpdateActivity();
                 _allPlayers[clientId] = playerInfo;
                 _playersBySteamId[playerInfo.SteamId] = playerInfo;
 
@@ -170,13 +166,24 @@ namespace DuckyNet.Server.Managers
         }
 
         /// <summary>
-        /// 获取玩家信息
+        /// 获取玩家信息（通过 ClientId）
         /// </summary>
         public PlayerInfo? GetPlayer(string clientId)
         {
             lock (_lock)
             {
                 return _allPlayers.TryGetValue(clientId, out var player) ? player : null;
+            }
+        }
+
+        /// <summary>
+        /// 通过 SteamId 获取玩家信息
+        /// </summary>
+        public PlayerInfo? GetPlayerBySteamId(string steamId)
+        {
+            lock (_lock)
+            {
+                return _playersBySteamId.TryGetValue(steamId, out var player) ? player : null;
             }
         }
 
@@ -263,20 +270,6 @@ namespace DuckyNet.Server.Managers
             }
         }
 
-        /// <summary>
-        /// 更新玩家状态
-        /// </summary>
-        public void UpdatePlayerStatus(string clientId, PlayerStatus status)
-        {
-            lock (_lock)
-            {
-                if (_allPlayers.TryGetValue(clientId, out var player))
-                {
-                    player.Status = status;
-                    player.UpdateActivity();
-                }
-            }
-        }
 
         /// <summary>
         /// 获取统计信息

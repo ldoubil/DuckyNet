@@ -31,10 +31,6 @@ namespace DuckyNet.Client.Services
             OnPlayerLeftEvent?.Invoke(player);
         }
 
-        public void OnPlayerStatusChanged(PlayerInfo player, PlayerStatus status)
-        {
-            Debug.Log($"[PlayerClientService] {player.SteamName} status: {status}");
-        }
 
         public void OnServerMessage(string message, MessageType messageType)
         {

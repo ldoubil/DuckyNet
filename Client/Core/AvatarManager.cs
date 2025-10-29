@@ -99,13 +99,13 @@ namespace DuckyNet.Client.Core
                 
                 // 垂直翻转（Steam 图像是上下颠倒的）
                 FlipTextureVertically(avatarTexture);
-                
-                Debug.Log($"[AvatarManager] 已加载 Steam 头像: {steamId} ({width}x{height})");
+
+                UnityEngine.Debug.Log($"[AvatarManager] 已加载 Steam 头像: {steamId} ({width}x{height})");
                 return avatarTexture;
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"[AvatarManager] 加载头像失败 {steamId}: {ex.Message}");
+                UnityEngine.Debug.LogWarning($"[AvatarManager] 加载头像失败 {steamId}: {ex.Message}");
                 return null;
             }
         }
@@ -176,7 +176,7 @@ namespace DuckyNet.Client.Core
                 }
             }
             _avatarCache.Clear();
-            Debug.Log("[AvatarManager] 头像缓存已清除");
+            UnityEngine.Debug.Log("[AvatarManager] 头像缓存已清除");
         }
 
         /// <summary>

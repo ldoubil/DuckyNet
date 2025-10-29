@@ -1,6 +1,6 @@
-using System;
 using UnityEngine;
 using DuckyNet.Shared.Services;
+using DuckyNet.Client.Core;
 
 namespace DuckyNet.Client.Services
 {
@@ -9,24 +9,37 @@ namespace DuckyNet.Client.Services
     /// </summary>
     public class RoomClientServiceImpl : IRoomClientService
     {
-        public event Action<PlayerInfo, RoomInfo>? OnPlayerJoinedRoomEvent;
-        public event Action<PlayerInfo, RoomInfo>? OnPlayerLeftRoomEvent;
-
         public void OnPlayerJoinedRoom(PlayerInfo player, RoomInfo room)
         {
             Debug.Log($"[RoomClientService] {player.SteamName} joined room {room.RoomName}");
-            OnPlayerJoinedRoomEvent?.Invoke(player, room);
+
+            // 发布到 EventBus
+            if (GameContext.IsInitialized)
+            {
+                GameContext.Instance.EventBus.Publish(new PlayerJoinedRoomEvent(player, room));
+            }
         }
 
         public void OnPlayerLeftRoom(PlayerInfo player, RoomInfo room)
         {
             Debug.Log($"[RoomClientService] {player.SteamName} left room {room.RoomName}");
-            OnPlayerLeftRoomEvent?.Invoke(player, room);
+
+            // 发布到 EventBus
+            if (GameContext.IsInitialized)
+            {
+                GameContext.Instance.EventBus.Publish(new PlayerLeftRoomEvent(player, room));
+            }
         }
 
         public void OnKickedFromRoom(string reason)
         {
             Debug.LogWarning($"[RoomClientService] Kicked from room: {reason}");
+
+            // 发布到 EventBus
+            if (GameContext.IsInitialized)
+            {
+                GameContext.Instance.EventBus.Publish(new KickedFromRoomEvent(reason));
+            }
         }
     }
 }

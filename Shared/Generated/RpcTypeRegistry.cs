@@ -44,7 +44,6 @@ namespace DuckyNet.Shared.RPC.Generated
                 typeof(DuckyNet.Shared.Services.PlayerInfo[]),
                 typeof(DuckyNet.Shared.Services.PlayerSceneInfo),
                 typeof(DuckyNet.Shared.Services.PlayerSceneInfo[]),
-                typeof(DuckyNet.Shared.Services.PlayerStatus),
                 typeof(DuckyNet.Shared.Services.RoomInfo),
                 typeof(DuckyNet.Shared.Services.RoomInfo[]),
                 typeof(DuckyNet.Shared.Services.RoomOperationResult),

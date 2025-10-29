@@ -66,13 +66,16 @@ namespace DuckyNet.Server.Services
                 // 进入新场景
                 _playerScenes[player.SteamId] = sceneName;
 
+                // 更新玩家的当前场景ID（地图名）
+                player.CurrentSceneId = sceneName;
+
                 if (!_scenePlayers.ContainsKey(sceneName))
                 {
                     _scenePlayers[sceneName] = new HashSet<string>();
                 }
                 _scenePlayers[sceneName].Add(player.SteamId);
 
-                Console.WriteLine($"[SceneService] 玩家进入场景: {player.SteamName} -> {sceneName}");
+                Console.WriteLine($"[SceneService] 玩家进入场景: {player.SteamName} -> {sceneName} (CurrentSceneId已更新)");
 
                 // 构造玩家场景信息
                 var playerSceneInfo = new PlayerSceneInfo
@@ -269,6 +272,13 @@ namespace DuckyNet.Server.Services
         {
             _playerScenes.Remove(steamId);
 
+            // 清除玩家的当前场景ID（地图名）
+            var player = _playerManager.GetPlayerBySteamId(steamId);
+            if (player != null)
+            {
+                player.CurrentSceneId = string.Empty;
+            }
+
             if (_scenePlayers.TryGetValue(sceneName, out var players))
             {
                 players.Remove(steamId);
@@ -278,8 +288,7 @@ namespace DuckyNet.Server.Services
                 }
             }
 
-            var player = _playerManager.GetPlayer(steamId);
-            Console.WriteLine($"[SceneService] 玩家离开场景: {player?.SteamName ?? steamId} <- {sceneName}");
+            Console.WriteLine($"[SceneService] 玩家离开场景: {player?.SteamName ?? steamId} <- {sceneName} (CurrentSceneId已清除)");
 
             // 通知房间内的所有其他玩家
             NotifyPlayerLeftScene(roomId, steamId, sceneName);

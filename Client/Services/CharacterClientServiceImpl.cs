@@ -29,11 +29,10 @@ namespace DuckyNet.Client.Services
                     return;
                 }
 
-                // 更新场景管理器中的玩家外观
+                // 发布外观更新事件（而不是直接调用 SceneManager）
                 if (appearanceData != null)
                 {
-                    var sceneManager = GameContext.Instance.SceneManager;
-                    sceneManager.UpdatePlayerAppearance(steamId, appearanceData);
+                    GameContext.Instance.EventBus.Publish(new PlayerAppearanceUpdatedEvent(steamId, appearanceData));
                 }
             }
             catch (Exception ex)

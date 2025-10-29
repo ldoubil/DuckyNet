@@ -19,6 +19,7 @@ namespace DuckyNet.Client.Core
         private readonly CharacterCustomizationManager _customizationManager;
         private readonly LocalPlayer _localPlayer;
         private SceneManager? _sceneManager;
+        private readonly Helpers.EventSubscriberHelper _eventSubscriber = new Helpers.EventSubscriberHelper();
 
         private IClientContext? _serverContext;
         private CancellationTokenSource? _syncCts;
@@ -50,7 +51,87 @@ namespace DuckyNet.Client.Core
             _localPlayer = localPlayer ?? throw new ArgumentNullException(nameof(localPlayer));
             _sceneManager = sceneManager; // 可选，允许在创建时传入
 
-            Debug.Log("[SyncManager] 同步管理器已创建");
+            // 订阅 EventBus 事件（延迟到 GameContext 初始化后）
+            if (GameContext.IsInitialized)
+            {
+                SubscribeToEvents();
+            }
+
+            UnityEngine.Debug.Log("[SyncManager] 同步管理器已创建");
+        }
+
+        /// <summary>
+        /// 订阅 EventBus 事件
+        /// </summary>
+        private void SubscribeToEvents()
+        {
+            // 订阅事件（如果 GameContext 未初始化，会延迟订阅）
+            _eventSubscriber.Subscribe<SceneLoadedEvent>(OnSceneLoaded);
+            _eventSubscriber.Subscribe<SceneUnloadingEvent>(OnSceneUnloading);
+            _eventSubscriber.Subscribe<SceneNameUpdatedEvent>(OnSceneNameUpdated);
+            
+            // 订阅同步请求事件
+            _eventSubscriber.Subscribe<SyncStartRequestEvent>(OnSyncStartRequested);
+            _eventSubscriber.Subscribe<SyncStopRequestEvent>(OnSyncStopRequested);
+            
+            // 如果 GameContext 已初始化，立即完成订阅；否则等待后续调用
+            _eventSubscriber.EnsureInitializedAndSubscribe();
+            
+            UnityEngine.Debug.Log("[SyncManager] 已订阅 EventBus 事件");
+        }
+
+        /// <summary>
+        /// 处理场景加载事件
+        /// </summary>
+        private void OnSceneLoaded(SceneLoadedEvent evt)
+        {
+            _cachedIsInScene = true;
+            _cachedSceneName = evt.SceneName;
+            _lastSceneCheckTime = Time.time;
+            UnityEngine.Debug.Log($"[SyncManager] 场景已加载: {evt.SceneName}");
+        }
+
+        /// <summary>
+        /// 处理场景卸载事件
+        /// </summary>
+        private void OnSceneUnloading(SceneUnloadingEvent evt)
+        {
+            _cachedIsInScene = false;
+            _cachedSceneName = null;
+            _lastSceneCheckTime = Time.time;
+            UnityEngine.Debug.Log($"[SyncManager] 场景卸载中: {evt.SceneName}");
+        }
+
+        /// <summary>
+        /// 处理场景名称更新事件（用于实时更新）
+        /// </summary>
+        private void OnSceneNameUpdated(SceneNameUpdatedEvent evt)
+        {
+            _cachedIsInScene = evt.IsInScene;
+            _cachedSceneName = evt.SceneName;
+            _lastSceneCheckTime = Time.time;
+        }
+
+        /// <summary>
+        /// 处理同步启动请求
+        /// </summary>
+        private void OnSyncStartRequested(SyncStartRequestEvent evt)
+        {
+            if (!_isEnabled)
+            {
+                StartSync();
+            }
+        }
+
+        /// <summary>
+        /// 处理同步停止请求
+        /// </summary>
+        private void OnSyncStopRequested(SyncStopRequestEvent evt)
+        {
+            if (_isEnabled)
+            {
+                StopSync();
+            }
         }
         
         /// <summary>
@@ -59,6 +140,8 @@ namespace DuckyNet.Client.Core
         public void SetSceneManager(SceneManager sceneManager)
         {
             _sceneManager = sceneManager ?? throw new ArgumentNullException(nameof(sceneManager));
+            // 确保事件已订阅（可能是延迟订阅）
+            _eventSubscriber.EnsureInitializedAndSubscribe();
         }
 
         /// <summary>
@@ -68,12 +151,15 @@ namespace DuckyNet.Client.Core
         {
             if (_isEnabled)
             {
-                Debug.LogWarning("[SyncManager] 同步已在运行");
+                UnityEngine.Debug.LogWarning("[SyncManager] 同步已在运行");
                 return;
             }
 
             try
             {
+                // 确保已订阅事件
+                SubscribeToEvents();
+
                 // 创建服务器上下文
                 _serverContext = new ClientServerContext(_rpcClient);
                 
@@ -85,12 +171,12 @@ namespace DuckyNet.Client.Core
                 _syncTask = SyncLoopAsync(_syncCts.Token);
                 _isEnabled = true;
 
-                Debug.Log($"[SyncManager] ✅ 同步已启动（间隔: {_syncInterval:F3}秒）");
+                UnityEngine.Debug.Log($"[SyncManager] ✅ 同步已启动（间隔: {_syncInterval:F3}秒）");
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[SyncManager] 启动同步失败: {ex.Message}");
-                Debug.LogException(ex);
+                UnityEngine.Debug.LogError($"[SyncManager] 启动同步失败: {ex.Message}");
+                UnityEngine.Debug.LogException(ex);
             }
         }
 
@@ -110,11 +196,11 @@ namespace DuckyNet.Client.Core
                 _syncTask?.Wait(1000); // 最多等待1秒
                 _isEnabled = false;
 
-                Debug.Log("[SyncManager] 同步已停止");
+                UnityEngine.Debug.Log("[SyncManager] 同步已停止");
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[SyncManager] 停止同步失败: {ex.Message}");
+                UnityEngine.Debug.LogError($"[SyncManager] 停止同步失败: {ex.Message}");
             }
         }
 
@@ -127,16 +213,16 @@ namespace DuckyNet.Client.Core
             {
                 if (_serverContext == null)
                 {
-                    Debug.LogWarning("[SyncManager] 服务器上下文未初始化");
+                    UnityEngine.Debug.LogWarning("[SyncManager] 服务器上下文未初始化");
                     return Task.CompletedTask;
                 }
 
-                Debug.Log("[SyncManager] 请求完整场景状态...");
+                UnityEngine.Debug.Log("[SyncManager] 请求完整场景状态...");
                 _serverContext.Invoke<ICharacterSyncService>("RequestFullState");
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[SyncManager] 请求完整状态失败: {ex.Message}");
+                UnityEngine.Debug.LogError($"[SyncManager] 请求完整状态失败: {ex.Message}");
             }
             
             return Task.CompletedTask;
@@ -147,7 +233,7 @@ namespace DuckyNet.Client.Core
         /// </summary>
         private async Task SyncLoopAsync(CancellationToken ct)
         {
-            Debug.Log("[SyncManager] 同步循环开始");
+            UnityEngine.Debug.Log("[SyncManager] 同步循环开始");
 
             while (!ct.IsCancellationRequested)
             {
@@ -165,12 +251,12 @@ namespace DuckyNet.Client.Core
                 }
                 catch (Exception ex)
                 {
-                    Debug.LogError($"[SyncManager] 同步循环错误: {ex.Message}");
+                    UnityEngine.Debug.LogError($"[SyncManager] 同步循环错误: {ex.Message}");
                     // 继续运行，不中断循环
                 }
             }
 
-            Debug.Log("[SyncManager] 同步循环结束");
+            UnityEngine.Debug.Log("[SyncManager] 同步循环结束");
         }
 
         /// <summary>
@@ -207,24 +293,20 @@ namespace DuckyNet.Client.Core
             // 使用缓存减少场景检查频率，但如果场景变化则立即更新缓存
             bool needSceneCheck = (currentTime - _lastSceneCheckTime) >= _sceneCheckInterval;
             
-            // 如果场景管理器有场景变化通知，检查场景名称是否变化
-            if (!needSceneCheck && _sceneManager != null)
-            {
-                var currentSceneName = _sceneManager.GetCurrentMapName();
-                if (currentSceneName != _cachedSceneName)
-                {
-                    // 场景名称变化，强制更新缓存
-                    needSceneCheck = true;
-                    Debug.Log($"[SyncManager] 检测到场景切换: {_cachedSceneName} -> {currentSceneName}");
-                }
-            }
-            
+            // 优先使用缓存（通过事件更新），减少直接访问 SceneManager
+            // 但如果缓存过期，仍然需要检查
             if (needSceneCheck)
             {
                 bool isInScene = false;
                 string? mapName = null;
                 
-                if (_sceneManager != null)
+                // 优先使用缓存（通过事件更新），如果缓存无效才直接访问
+                if (!string.IsNullOrEmpty(_cachedSceneName))
+                {
+                    isInScene = _cachedIsInScene;
+                    mapName = _cachedSceneName;
+                }
+                else if (_sceneManager != null)
                 {
                     mapName = _sceneManager.GetCurrentMapName();
                     isInScene = !string.IsNullOrEmpty(mapName);
@@ -290,7 +372,7 @@ namespace DuckyNet.Client.Core
                 // 验证同步数据的有效性
                 if (string.IsNullOrEmpty(syncData.PlayerId))
                 {
-                    Debug.LogWarning("[SyncManager] PlayerId 为空，跳过同步");
+                    UnityEngine.Debug.LogWarning("[SyncManager] PlayerId 为空，跳过同步");
                     return;
                 }
                 
@@ -308,7 +390,7 @@ namespace DuckyNet.Client.Core
                 // 减少日志噪音，只在关键错误时输出
                 if (!(ex is TaskCanceledException))
                 {
-                    Debug.LogWarning($"[SyncManager] 发送状态失败: {ex.Message}");
+                    UnityEngine.Debug.LogWarning($"[SyncManager] 发送状态失败: {ex.Message}");
                 }
             }
         }
@@ -321,11 +403,11 @@ namespace DuckyNet.Client.Core
             try
             {
                 await SendLocalStateAsync();
-                Debug.Log("[SyncManager] 手动同步完成");
+                UnityEngine.Debug.Log("[SyncManager] 手动同步完成");
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[SyncManager] 手动同步失败: {ex.Message}");
+                UnityEngine.Debug.LogError($"[SyncManager] 手动同步失败: {ex.Message}");
             }
         }
 
@@ -336,7 +418,7 @@ namespace DuckyNet.Client.Core
         {
             if (interval <= 0)
             {
-                Debug.LogWarning($"[SyncManager] 无效的同步间隔: {interval}，使用默认值 0.05");
+                UnityEngine.Debug.LogWarning($"[SyncManager] 无效的同步间隔: {interval}，使用默认值 0.05");
                 interval = 0.05f;
             }
             
@@ -347,11 +429,11 @@ namespace DuckyNet.Client.Core
             {
                 StopSync();
                 StartSync();
-                Debug.Log($"[SyncManager] 同步间隔已更新: {interval:F3}秒");
+                UnityEngine.Debug.Log($"[SyncManager] 同步间隔已更新: {interval:F3}秒");
             }
             else
             {
-                Debug.Log($"[SyncManager] 同步间隔已设置: {interval:F3}秒（将在启动时应用）");
+                UnityEngine.Debug.Log($"[SyncManager] 同步间隔已设置: {interval:F3}秒（将在启动时应用）");
             }
         }
 
@@ -359,6 +441,7 @@ namespace DuckyNet.Client.Core
 
         public void Dispose()
         {
+            _eventSubscriber?.Dispose();
             StopSync();
             _syncCts?.Dispose();
         }

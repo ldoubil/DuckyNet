@@ -62,17 +62,7 @@ namespace DuckyNet.Server.Services
             }
         }
 
-        public void UpdatePlayerStatus(IClientContext client, PlayerStatus status)
-        {
-            _playerManager.UpdatePlayerStatus(client.ClientId, status);
-            
-            var player = _playerManager.GetPlayer(client.ClientId);
-            if (player != null)
-            {
-                _server.Broadcast<IPlayerClientService>().OnPlayerStatusChanged(player, status);
-                Console.WriteLine($"[PlayerService] {player.SteamName} status changed to {status}");
-            }
-        }
+
 
         public async Task<PlayerInfo[]> GetAllOnlinePlayersAsync(IClientContext client)
         {

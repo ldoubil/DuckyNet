@@ -15,7 +15,6 @@ namespace DuckyNet.Shared.Services.Generated
         public void OnChatMessage(PlayerInfo sender, string message) => _ctx.Invoke<DuckyNet.Shared.Services.IPlayerClientService>("OnChatMessage", sender, message);
         public void OnPlayerJoined(PlayerInfo player) => _ctx.Invoke<DuckyNet.Shared.Services.IPlayerClientService>("OnPlayerJoined", player);
         public void OnPlayerLeft(PlayerInfo player) => _ctx.Invoke<DuckyNet.Shared.Services.IPlayerClientService>("OnPlayerLeft", player);
-        public void OnPlayerStatusChanged(PlayerInfo player, PlayerStatus status) => _ctx.Invoke<DuckyNet.Shared.Services.IPlayerClientService>("OnPlayerStatusChanged", player, status);
         public void OnServerMessage(string message, MessageType messageType) => _ctx.Invoke<DuckyNet.Shared.Services.IPlayerClientService>("OnServerMessage", message, messageType);
     }
 }

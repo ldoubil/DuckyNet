@@ -12,9 +12,12 @@ namespace RpcCodeGen
     {
         static void Main(string[] args)
         {
-            // 1. 加载目标程序集
+            // 0. 清理旧的生成文件
             var currentDir = AppDomain.CurrentDomain.BaseDirectory;
             var solutionDir = FindSolutionDirectory(currentDir);
+            CleanGeneratedFiles(solutionDir);
+            
+            // 1. 加载目标程序集
             var sharedDll = Path.Combine(solutionDir, "Shared", "bin", "Debug", "netstandard2.1", "DuckyNet.Shared.dll");
             if (!File.Exists(sharedDll))
             {
@@ -409,6 +412,46 @@ namespace RpcCodeGen
             if (!types.Contains(type))
             {
                 types.Add(type);
+            }
+        }
+
+        /// <summary>
+        /// 清理旧的生成文件
+        /// </summary>
+        static void CleanGeneratedFiles(string solutionDir)
+        {
+            var generatedDir = Path.Combine(solutionDir, "Shared", "Generated");
+            if (!Directory.Exists(generatedDir))
+            {
+                Console.WriteLine("[CodeGen] Generated 目录不存在，将创建");
+                Directory.CreateDirectory(generatedDir);
+                return;
+            }
+            
+            // 删除所有 .cs 文件（所有生成的文件都是 .cs 文件）
+            var files = Directory.GetFiles(generatedDir, "*.cs");
+            var deletedCount = 0;
+            foreach (var file in files)
+            {
+                try
+                {
+                    File.Delete(file);
+                    deletedCount++;
+                    Console.WriteLine($"[CodeGen] 已删除旧文件: {Path.GetFileName(file)}");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[CodeGen] 删除文件失败 {Path.GetFileName(file)}: {ex.Message}");
+                }
+            }
+            
+            if (deletedCount > 0)
+            {
+                Console.WriteLine($"[CodeGen] 已清理 {deletedCount} 个旧生成文件");
+            }
+            else
+            {
+                Console.WriteLine("[CodeGen] 没有找到需要清理的旧文件");
             }
         }
 

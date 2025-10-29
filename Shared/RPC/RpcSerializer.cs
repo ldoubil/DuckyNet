@@ -92,7 +92,6 @@ namespace DuckyNet.Shared.RPC
                 // 应用类型（需要手动添加，建议运行代码生成器）
                 typeof(PlayerInfo),
                 typeof(LoginResult),
-                typeof(PlayerStatus),
                 typeof(MessageType),
                 typeof(PlayerInfo[])
             };

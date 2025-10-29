@@ -17,8 +17,6 @@ namespace DuckyNet.Shared.Services.Generated
 
         public void OnPlayerLeft(PlayerInfo player) => _client.Invoke<DuckyNet.Shared.Services.IPlayerClientService>("OnPlayerLeft", player);
 
-        public void OnPlayerStatusChanged(PlayerInfo player, PlayerStatus status) => _client.Invoke<DuckyNet.Shared.Services.IPlayerClientService>("OnPlayerStatusChanged", player, status);
-
         public void OnServerMessage(string message, MessageType messageType) => _client.Invoke<DuckyNet.Shared.Services.IPlayerClientService>("OnServerMessage", message, messageType);
 
     }

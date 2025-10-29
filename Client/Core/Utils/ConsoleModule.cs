@@ -50,7 +50,7 @@ namespace DuckyNet.Client.Core.Utils
         {
             if (_isInitialized)
             {
-                Debug.LogWarning("[DuckyNet] ConsoleModule 已经初始化，跳过");
+                UnityEngine.Debug.LogWarning("[DuckyNet] ConsoleModule 已经初始化，跳过");
                 return;
             }
 
@@ -64,7 +64,7 @@ namespace DuckyNet.Client.Core.Utils
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[DuckyNet] ConsoleModule 初始化失败: {ex.Message}");
+                UnityEngine.Debug.LogError($"[DuckyNet] ConsoleModule 初始化失败: {ex.Message}");
             }
         }
 
@@ -100,7 +100,7 @@ namespace DuckyNet.Client.Core.Utils
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[DuckyNet] ConsoleModule 清理失败: {ex.Message}");
+                UnityEngine.Debug.LogError($"[DuckyNet] ConsoleModule 清理失败: {ex.Message}");
             }
         }
 
@@ -126,7 +126,7 @@ namespace DuckyNet.Client.Core.Utils
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[DuckyNet] 控制台写入失败: {ex.Message}");
+                UnityEngine.Debug.LogError($"[DuckyNet] 控制台写入失败: {ex.Message}");
             }
         }
 
@@ -162,7 +162,7 @@ namespace DuckyNet.Client.Core.Utils
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[DuckyNet] 控制台分隔线输出失败: {ex.Message}");
+                UnityEngine.Debug.LogError($"[DuckyNet] 控制台分隔线输出失败: {ex.Message}");
             }
         }
 
@@ -229,7 +229,7 @@ namespace DuckyNet.Client.Core.Utils
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[DuckyNet] 创建控制台窗口失败: {ex.Message}");
+                UnityEngine.Debug.LogError($"[DuckyNet] 创建控制台窗口失败: {ex.Message}");
                 throw;
             }
         }
@@ -246,7 +246,7 @@ namespace DuckyNet.Client.Core.Utils
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[DuckyNet] 设置 Unity 日志重定向失败: {ex.Message}");
+                UnityEngine.Debug.LogError($"[DuckyNet] 设置 Unity 日志重定向失败: {ex.Message}");
                 throw;
             }
         }

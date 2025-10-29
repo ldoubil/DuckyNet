@@ -3,10 +3,20 @@ using UnityEngine;
 using DuckyNet.Client.RPC;
 using DuckyNet.Client.Core;
 using DuckyNet.Shared.Services;
-using Debug = UnityEngine.Debug;
+
 
 namespace DuckyNet.Client.UI
 {
+    /// <summary>
+    /// 主菜单页面枚举
+    /// </summary>
+    public enum MainMenuPage
+    {
+        Connect,
+        Lobby,
+        Room
+    }
+
     /// <summary>
     /// 主菜单窗口
     /// </summary>
@@ -23,8 +33,8 @@ namespace DuckyNet.Client.UI
         private bool _isConnecting = false;
 
         // 当前页面
-        public enum Page { Connect, Lobby, Room }
-        private Page _currentPage = Page.Connect;
+        
+        private MainMenuPage _currentPage = MainMenuPage.Connect;
 
         // 子页面
         public LobbyPage LobbyPage { get; private set; }
@@ -65,7 +75,7 @@ namespace DuckyNet.Client.UI
             _isVisible = false;
         }
 
-        public void SwitchToPage(Page page)
+        public void SwitchToPage(MainMenuPage page)
         {
             _currentPage = page;
         }
@@ -83,7 +93,7 @@ namespace DuckyNet.Client.UI
         {
             UnityEngine.Debug.Log($"[MainMenu] Disconnected: {reason}");
             _isConnecting = false;
-            _currentPage = Page.Connect;
+            _currentPage = MainMenuPage.Connect;
             
             // 如果不是主动断开，显示断开原因
             if (_connectionStatus != "")
@@ -115,13 +125,13 @@ namespace DuckyNet.Client.UI
 
             switch (_currentPage)
             {
-                case Page.Connect:
+                case MainMenuPage.Connect:
                     DrawConnectPage();
                     break;
-                case Page.Lobby:
+                case MainMenuPage.Lobby:
                     LobbyPage.Draw();
                     break;
-                case Page.Room:
+                case MainMenuPage.Room:
                     RoomPage.Draw();
                     break;
             }
@@ -276,8 +286,7 @@ namespace DuckyNet.Client.UI
                 if (result.Success)
                 {
                     UnityEngine.Debug.Log("[MainMenu] 登录成功！");
-                    localPlayer.UpdateStatus(PlayerStatus.InLobby);
-                    _currentPage = Page.Lobby;
+                    _currentPage = MainMenuPage.Lobby;
                 }
                 else
                 {
@@ -295,6 +304,9 @@ namespace DuckyNet.Client.UI
             _client.Connected -= OnConnected;
             _client.Disconnected -= OnDisconnectedHandler;
             _client.ConnectionFailed -= OnConnectionFailed;
+            
+            // 清理子页面资源
+            RoomPage?.Dispose();
         }
     }
 }

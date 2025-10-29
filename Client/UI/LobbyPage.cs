@@ -4,7 +4,7 @@ using UnityEngine;
 using DuckyNet.Client.RPC;
 using DuckyNet.Client.Core;
 using DuckyNet.Shared.Services;
-using Debug = UnityEngine.Debug;
+
 
 namespace DuckyNet.Client.UI
 {
@@ -150,7 +150,7 @@ namespace DuckyNet.Client.UI
                         }
                     }
                     
-                    _mainWindow.SwitchToPage(MainMenuWindow.Page.Room);
+                    _mainWindow.SwitchToPage(MainMenuPage.Room);
                 }
                 else
                 {
@@ -203,7 +203,7 @@ namespace DuckyNet.Client.UI
                         }
                     }
                     
-                    _mainWindow.SwitchToPage(MainMenuWindow.Page.Room);
+                    _mainWindow.SwitchToPage(MainMenuPage.Room);
                 }
                 else
                 {

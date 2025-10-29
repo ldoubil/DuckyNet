@@ -4,7 +4,7 @@ using System.Linq;
 using UnityEngine;
 using DuckyNet.Client.RPC;
 using DuckyNet.Client.Core;
-using DuckyNet.Client.UI.Debug;
+using DuckyNet.Client.Core.Deb;
 
 namespace DuckyNet.Client.UI
 {
@@ -107,11 +107,6 @@ namespace DuckyNet.Client.UI
         {
             GUILayout.BeginVertical();
 
-            // 显示连接状态
-            DrawConnectionStatus();
-            
-            GUILayout.Space(10);
-
             // 按分类显示所有模块
             var categories = _moduleManager.GetAllCategories();
             
@@ -192,28 +187,6 @@ namespace DuckyNet.Client.UI
             GUILayout.Label($"分类数量: {_moduleManager.GetAllCategories().Count}");
 
             GUILayout.EndVertical();
-        }
-
-        /// <summary>
-        /// 绘制连接状态
-        /// </summary>
-        private void DrawConnectionStatus()
-        {
-            GUILayout.Label("=== 连接状态 ===", GetHeaderStyle());
-            
-            var statusStyle = new GUIStyle(GUI.skin.label);
-            if (_client.IsConnected)
-            {
-                statusStyle.normal.textColor = Color.green;
-                GUILayout.Label("● 已连接", statusStyle);
-            }
-            else
-            {
-                statusStyle.normal.textColor = Color.red;
-                GUILayout.Label("● 未连接", statusStyle);
-            }
-            
-            GUILayout.Label($"连接状态: {_client.ConnectionState}");
         }
 
         /// <summary>

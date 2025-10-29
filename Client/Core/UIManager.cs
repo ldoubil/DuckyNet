@@ -22,8 +22,6 @@ namespace DuckyNet.Client.Core
         private ChatWindow? _chatWindow;
         private PlayerListWindow? _playerListWindow;
         private DebugWindow? _debugWindow;
-        private AnimationDebugWindow? _animationDebugWindow;
-        private AnimatorStateViewer? _animatorStateViewer;
 
         // 服务实现
         private PlayerClientServiceImpl? _playerClientService;
@@ -42,7 +40,7 @@ namespace DuckyNet.Client.Core
         {
             try
             {
-                Debug.Log("[UIManager] 开始初始化 UI 系统...");
+                UnityEngine.Debug.Log("[UIManager] 开始初始化 UI 系统...");
 
                 // 注册客户端服务
                 RegisterClientServices();
@@ -65,26 +63,16 @@ namespace DuckyNet.Client.Core
                 _mainMenuWindow = new MainMenuWindow(_rpcClient, _chatWindow);
                 RegisterWindow("MainMenu", _mainMenuWindow);
 
-                // 创建调试窗口
+                // 创建调试窗口（包含所有调试模块）
                 _debugWindow = new DebugWindow(_rpcClient);
                 RegisterWindow("Debug", _debugWindow);
 
-            // 创建动画调试窗口
-            _animationDebugWindow = new AnimationDebugWindow();
-            RegisterWindow("AnimationDebug", _animationDebugWindow);
-            Debug.Log("[UIManager] 动画调试窗口已创建");
-
-            // 创建动画状态机可视化窗口
-            _animatorStateViewer = new AnimatorStateViewer();
-            RegisterWindow("AnimatorStateViewer", _animatorStateViewer);
-            Debug.Log("[UIManager] 动画状态机可视化窗口已创建");
-
-                Debug.Log($"[UIManager] UI 系统初始化完成，共注册 {_windows.Count} 个窗口");
+                UnityEngine.Debug.Log($"[UIManager] UI 系统初始化完成，共注册 {_windows.Count} 个窗口");
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[UIManager] UI 系统初始化失败: {ex.Message}");
-                Debug.LogException(ex);
+                UnityEngine.Debug.LogError($"[UIManager] UI 系统初始化失败: {ex.Message}");
+                UnityEngine.Debug.LogException(ex);
                 throw;
             }
         }
@@ -100,7 +88,7 @@ namespace DuckyNet.Client.Core
             _roomClientService = new RoomClientServiceImpl();
             _rpcClient.RegisterClientService<IRoomClientService>(_roomClientService);
 
-            Debug.Log("[UIManager] 客户端服务已注册");
+            UnityEngine.Debug.Log("[UIManager] 客户端服务已注册");
         }
 
         /// <summary>
@@ -110,10 +98,10 @@ namespace DuckyNet.Client.Core
         {
             if (_windows.ContainsKey(name))
             {
-                Debug.LogWarning($"[UIManager] 窗口 '{name}' 已存在，将被覆盖");
+                UnityEngine.Debug.LogWarning($"[UIManager] 窗口 '{name}' 已存在，将被覆盖");
             }
             _windows[name] = window;
-            Debug.Log($"[UIManager] 窗口 '{name}' 已注册");
+            UnityEngine.Debug.Log($"[UIManager] 窗口 '{name}' 已注册");
         }
 
         /// <summary>
@@ -136,11 +124,11 @@ namespace DuckyNet.Client.Core
             if (_windows.TryGetValue(name, out var window))
             {
                 window.Show();
-                Debug.Log($"[UIManager] 窗口 '{name}' 已显示");
+                UnityEngine.Debug.Log($"[UIManager] 窗口 '{name}' 已显示");
             }
             else
             {
-                Debug.LogWarning($"[UIManager] 窗口 '{name}' 不存在");
+                UnityEngine.Debug.LogWarning($"[UIManager] 窗口 '{name}' 不存在");
             }
         }
 
@@ -152,11 +140,11 @@ namespace DuckyNet.Client.Core
             if (_windows.TryGetValue(name, out var window))
             {
                 window.Hide();
-                Debug.Log($"[UIManager] 窗口 '{name}' 已隐藏");
+                UnityEngine.Debug.Log($"[UIManager] 窗口 '{name}' 已隐藏");
             }
             else
             {
-                Debug.LogWarning($"[UIManager] 窗口 '{name}' 不存在");
+                UnityEngine.Debug.LogWarning($"[UIManager] 窗口 '{name}' 不存在");
             }
         }
 
@@ -167,12 +155,12 @@ namespace DuckyNet.Client.Core
         {
             if (_windows.TryGetValue(name, out var window))
             {
-                Debug.Log($"[UIManager] 切换窗口: {name}");
+                UnityEngine.Debug.Log($"[UIManager] 切换窗口: {name}");
                 window.Toggle();
             }
             else
             {
-                Debug.LogWarning($"[UIManager] 窗口 '{name}' 不存在，已注册窗口: {string.Join(", ", _windows.Keys)}");
+                UnityEngine.Debug.LogWarning($"[UIManager] 窗口 '{name}' 不存在，已注册窗口: {string.Join(", ", _windows.Keys)}");
             }
         }
 
@@ -185,7 +173,7 @@ namespace DuckyNet.Client.Core
             {
                 window.Hide();
             }
-            Debug.Log("[UIManager] 所有窗口已隐藏");
+            UnityEngine.Debug.Log("[UIManager] 所有窗口已隐藏");
         }
 
         /// <summary>
@@ -200,7 +188,7 @@ namespace DuckyNet.Client.Core
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[UIManager] 更新窗口时出错: {ex.Message}");
+                UnityEngine.Debug.LogError($"[UIManager] 更新窗口时出错: {ex.Message}");
             }
         }
 
@@ -218,7 +206,7 @@ namespace DuckyNet.Client.Core
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[UIManager] 渲染窗口时出错: {ex.Message}");
+                UnityEngine.Debug.LogError($"[UIManager] 渲染窗口时出错: {ex.Message}");
             }
         }
 
@@ -244,7 +232,7 @@ namespace DuckyNet.Client.Core
                     }
                     catch (Exception ex)
                     {
-                        Debug.LogError($"[UIManager] 清理窗口 '{kvp.Key}' 失败: {ex.Message}");
+                        UnityEngine.Debug.LogError($"[UIManager] 清理窗口 '{kvp.Key}' 失败: {ex.Message}");
                     }
                 }
 
@@ -257,11 +245,11 @@ namespace DuckyNet.Client.Core
                 _playerClientService = null;
                 _roomClientService = null;
 
-                Debug.Log("[UIManager] UI 管理器已清理");
+                UnityEngine.Debug.Log("[UIManager] UI 管理器已清理");
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[UIManager] 清理失败: {ex.Message}");
+                UnityEngine.Debug.LogError($"[UIManager] 清理失败: {ex.Message}");
             }
         }
     }

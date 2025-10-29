@@ -73,6 +73,11 @@ namespace DuckyNet.Client.Core
         public SyncManager? SyncManager { get; private set; }
 
         /// <summary>
+        /// 全局事件总线
+        /// </summary>
+        public EventBus EventBus { get; private set; }
+
+        /// <summary>
         /// 是否已初始化
         /// </summary>
         public static bool IsInitialized => _instance != null;
@@ -88,6 +93,7 @@ namespace DuckyNet.Client.Core
             CharacterCustomizationManager = null!;
             SceneManager = null!;
             SyncManager = null;
+            EventBus = EventBus.Instance;
         }
 
         /// <summary>
@@ -97,70 +103,87 @@ namespace DuckyNet.Client.Core
         {
             if (_instance != null)
             {
-                Debug.LogWarning("[GameContext] 已经初始化，跳过重复初始化");
+                UnityEngine.Debug.LogWarning("[GameContext] 已经初始化，跳过重复初始化");
                 return;
             }
 
             _instance = new GameContext();
-            Debug.Log("[GameContext] 游戏上下文已创建");
+            UnityEngine.Debug.Log("[GameContext] 游戏上下文已创建");
         }
 
-        /// <summary>
-        /// 内部辅助方法：注册服务并记录日志
-        /// </summary>
-        private void RegisterService<T>(ref T field, T value, string serviceName) where T : class
-        {
-            field = value ?? throw new ArgumentNullException(nameof(value));
-            Debug.Log($"[GameContext] {serviceName}已注册");
-        }
+        // RegisterService 方法已移除，改为在每个注册方法中直接实现
 
         /// <summary>
         /// 注册本地玩家服务
         /// </summary>
         public void RegisterLocalPlayer(LocalPlayer localPlayer)
-            => RegisterService(ref LocalPlayer, localPlayer, "本地玩家服务");
+        {
+            LocalPlayer = localPlayer ?? throw new ArgumentNullException(nameof(localPlayer));
+            UnityEngine.Debug.Log("[GameContext] 本地玩家服务已注册");
+        }
 
         /// <summary>
         /// 注册 RPC 客户端服务
         /// </summary>
         public void RegisterRpcClient(RpcClient rpcClient)
-            => RegisterService(ref RpcClient, rpcClient, "RPC 客户端服务");
+        {
+            RpcClient = rpcClient ?? throw new ArgumentNullException(nameof(rpcClient));
+            UnityEngine.Debug.Log("[GameContext] RPC 客户端服务已注册");
+        }
 
         /// <summary>
         /// 注册 UI 管理器
         /// </summary>
         public void RegisterUIManager(UIManager uiManager)
-            => RegisterService(ref UIManager, uiManager, "UI 管理器");
+        {
+            UIManager = uiManager ?? throw new ArgumentNullException(nameof(uiManager));
+            UnityEngine.Debug.Log("[GameContext] UI 管理器已注册");
+        }
 
         /// <summary>
         /// 注册输入管理器
         /// </summary>
         public void RegisterInputManager(InputManager inputManager)
-            => RegisterService(ref InputManager, inputManager, "输入管理器");
+        {
+            InputManager = inputManager ?? throw new ArgumentNullException(nameof(inputManager));
+            UnityEngine.Debug.Log("[GameContext] 输入管理器已注册");
+        }
 
         /// <summary>
         /// 注册头像管理器
         /// </summary>
         public void RegisterAvatarManager(AvatarManager avatarManager)
-            => RegisterService(ref AvatarManager, avatarManager, "头像管理器");
+        {
+            AvatarManager = avatarManager ?? throw new ArgumentNullException(nameof(avatarManager));
+            UnityEngine.Debug.Log("[GameContext] 头像管理器已注册");
+        }
 
         /// <summary>
         /// 注册单位管理器
         /// </summary>
         public void RegisterUnitManager(UnitManager unitManager)
-            => RegisterService(ref UnitManager, unitManager, "单位管理器");
+        {
+            UnitManager = unitManager ?? throw new ArgumentNullException(nameof(unitManager));
+            UnityEngine.Debug.Log("[GameContext] 单位管理器已注册");
+        }
 
         /// <summary>
         /// 注册角色自定义管理器
         /// </summary>
         public void RegisterCharacterCustomizationManager(CharacterCustomizationManager customizationManager)
-            => RegisterService(ref CharacterCustomizationManager, customizationManager, "角色自定义管理器");
+        {
+            CharacterCustomizationManager = customizationManager ?? throw new ArgumentNullException(nameof(customizationManager));
+            UnityEngine.Debug.Log("[GameContext] 角色自定义管理器已注册");
+        }
 
         /// <summary>
         /// 注册场景管理器
         /// </summary>
         public void RegisterSceneManager(SceneManager sceneManager)
-            => RegisterService(ref SceneManager, sceneManager, "场景管理器");
+        {
+            SceneManager = sceneManager ?? throw new ArgumentNullException(nameof(sceneManager));
+            UnityEngine.Debug.Log("[GameContext] 场景管理器已注册");
+        }
 
         /// <summary>
         /// 注册同步管理器
@@ -168,7 +191,7 @@ namespace DuckyNet.Client.Core
         public void RegisterSyncManager(SyncManager syncManager)
         {
             SyncManager = syncManager ?? throw new ArgumentNullException(nameof(syncManager));
-            Debug.Log("[GameContext] 同步管理器已注册");
+            UnityEngine.Debug.Log("[GameContext] 同步管理器已注册");
         }
 
         /// <summary>
@@ -189,12 +212,13 @@ namespace DuckyNet.Client.Core
                 _instance.AvatarManager?.Dispose();
                 _instance.RpcClient?.Disconnect();
                 _instance.LocalPlayer?.Dispose();
+                _instance.EventBus?.Dispose();
 
-                Debug.Log("[GameContext] 游戏上下文已清理");
+                UnityEngine.Debug.Log("[GameContext] 游戏上下文已清理");
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[GameContext] 清理失败: {ex.Message}");
+                UnityEngine.Debug.LogError($"[GameContext] 清理失败: {ex.Message}");
             }
             finally
             {

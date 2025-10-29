@@ -42,9 +42,6 @@ namespace DuckyNet.Client
 
                 // 初始化游戏上下文
                 InitializeGameContext();
-                
-                // 验证事件订阅是否成功（在初始化后验证）
-                Patches.CharacterCreationListener.VerifySubscription();
 
                 ConsoleModule.WriteSeparator("DuckyNet 模组加载完成");
                 Debug.Log("[DuckyNet] Mod Loaded!");
@@ -70,7 +67,10 @@ namespace DuckyNet.Client
             context.RegisterRpcClient(new RPC.RpcClient());
             context.RegisterInputManager(new Core.InputManager());
             context.RegisterAvatarManager(new Core.AvatarManager());
-            context.RegisterUnitManager(new Core.UnitManager());
+            var unitManager = new Core.UnitManager();
+            context.RegisterUnitManager(unitManager);
+            // 确保 UnitManager 订阅事件
+            unitManager.EnsureSubscribed();
             context.RegisterCharacterCustomizationManager(new Core.CharacterCustomizationManager());
             // 注册场景管理器
             var sceneManager = new Core.SceneManager();
@@ -98,6 +98,12 @@ namespace DuckyNet.Client
             // 注册输入按键
             RegisterInputKeys();
 
+            // 创建并初始化场景监听器（通过 Harmony 监听游戏场景事件）
+            var sceneListener = new Patches.SceneListener();
+            sceneListener.Initialize();
+            // 初始化场景信息提供者（用于查询当前场景）
+            Core.Helpers.SceneInfoProvider.Initialize(sceneListener);
+
             // 创建网络生命周期管理器
             var lifecycleManager = new Core.NetworkLifecycleManager(context);
             
@@ -106,7 +112,6 @@ namespace DuckyNet.Client
             context.RpcClient.Disconnected += lifecycleManager.HandleDisconnected;
 
             // 启动角色外观自动上传
-            // 注意：CharacterCreationListener 的 Harmony Patch 会自动应用，无需手动初始化
             CharacterAppearanceHelper.StartAutoUpload();
 
             Debug.Log("[ModBehaviour] 游戏上下文初始化完成");
@@ -141,26 +146,12 @@ namespace DuckyNet.Client
                 Debug.Log($"[ModBehaviour] 玩家列表 {(window?.IsVisible == true ? "已显示" : "已隐藏")}");
             }, "切换玩家列表");
 
-            inputManager.RegisterKey(KeyCode.F8, () =>
+            inputManager.RegisterKey(KeyCode.F3, () =>
             {
                 uiManager.ToggleWindow("Debug");
                 var window = uiManager.GetWindow<UI.DebugWindow>("Debug");
                 Debug.Log($"[ModBehaviour] 调试窗口 {(window?.IsVisible == true ? "已显示" : "已隐藏")}");
-            }, "切换调试窗口");
-
-            inputManager.RegisterKey(KeyCode.F5, () =>
-            {
-                uiManager.ToggleWindow("AnimationDebug");
-                var window = uiManager.GetWindow<UI.AnimationDebugWindow>("AnimationDebug");
-                Debug.Log($"[ModBehaviour] 动画调试窗口 {(window?.IsVisible == true ? "已显示" : "已隐藏")}");
-            }, "切换动画调试窗口");
-
-            inputManager.RegisterKey(KeyCode.F2, () =>
-            {
-                uiManager.ToggleWindow("AnimatorStateViewer");
-                var window = uiManager.GetWindow<UI.AnimatorStateViewer>("AnimatorStateViewer");
-                Debug.Log($"[ModBehaviour] 动画状态机可视化窗口 {(window?.IsVisible == true ? "已显示" : "已隐藏")}");
-            }, "切换动画状态机可视化");
+            }, "切换调试窗口（包含所有调试模块）");
 
             Debug.Log("[ModBehaviour] 输入按键已注册");
         }

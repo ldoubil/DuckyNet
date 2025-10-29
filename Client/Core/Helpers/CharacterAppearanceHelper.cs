@@ -7,6 +7,8 @@ using DuckyNet.Client.RPC;
 using DuckyNet.Shared.RPC;
 using DuckyNet.Shared.Services;
 using CharacterServiceClientProxy = DuckyNet.Shared.Services.Generated.CharacterServiceClientProxy;
+using DuckyNet.Client.Core;
+
 
 namespace DuckyNet.Client.Core.Helpers
 {
@@ -170,7 +172,7 @@ namespace DuckyNet.Client.Core.Helpers
         }
 
         /// <summary>
-        /// 监听并自动上传角色外观（通过 Harmony 拦截）
+        /// 监听并自动上传角色外观（通过 EventBus 订阅）
         /// </summary>
         public static void StartAutoUpload()
         {
@@ -182,8 +184,9 @@ namespace DuckyNet.Client.Core.Helpers
 
             try
             {
-                // 订阅角色创建完成事件（由事件监听器触发）
-                Patches.CharacterCreationListener.OnMainCharacterCreated += OnMainCharacterCreated;
+                // 订阅主角色创建完成事件（通过 EventBus）
+                GameContext.Instance.EventBus.Subscribe<MainCharacterCreatedEvent>(OnMainCharacterCreated);
+                Debug.Log("[CharacterAppearanceHelper] 已订阅主角色创建事件（EventBus）");
             }
             catch (Exception ex)
             {
@@ -199,7 +202,7 @@ namespace DuckyNet.Client.Core.Helpers
         /// <summary>
         /// 主角色创建完成事件处理
         /// </summary>
-        private static async void OnMainCharacterCreated(object mainCharacter)
+        private static async void OnMainCharacterCreated(MainCharacterCreatedEvent evt)
         {
             try
             {
@@ -267,7 +270,11 @@ namespace DuckyNet.Client.Core.Helpers
         {
             try
             {
-                Patches.CharacterCreationListener.OnMainCharacterCreated -= OnMainCharacterCreated;
+                if (GameContext.IsInitialized)
+                {
+                    GameContext.Instance.EventBus.Unsubscribe<MainCharacterCreatedEvent>(OnMainCharacterCreated);
+                    Debug.Log("[CharacterAppearanceHelper] 已取消订阅主角色创建事件");
+                }
             }
             catch (Exception ex)
             {

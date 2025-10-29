@@ -28,7 +28,7 @@ namespace DuckyNet.Client.Core
             set
             {
                 _isEnabled = value;
-                Debug.Log($"[InputManager] 输入管理器已{(value ? "启用" : "禁用")}");
+               UnityEngine.Debug.Log($"[InputManager] 输入管理器已{(value ? "启用" : "禁用")}");
             }
         }
 
@@ -39,13 +39,13 @@ namespace DuckyNet.Client.Core
         {
             if (_keyBindings.ContainsKey(key))
             {
-                Debug.LogWarning($"[InputManager] 按键 {key} 已被注册，将被覆盖");
+                UnityEngine.Debug.LogWarning($"[InputManager] 按键 {key} 已被注册，将被覆盖");
             }
 
             _keyBindings[key] = action;
             
             var desc = string.IsNullOrEmpty(description) ? "" : $" ({description})";
-            Debug.Log($"[InputManager] 按键 {key} 已注册{desc}");
+            UnityEngine.Debug.Log($"[InputManager] 按键 {key} 已注册{desc}");
         }
 
         /// <summary>
@@ -55,7 +55,7 @@ namespace DuckyNet.Client.Core
         {
             if (_keyBindings.Remove(key))
             {
-                Debug.Log($"[InputManager] 按键 {key} 已取消注册");
+                UnityEngine.Debug.Log($"[InputManager] 按键 {key} 已取消注册");
             }
         }
 
@@ -65,7 +65,7 @@ namespace DuckyNet.Client.Core
         public void ClearAllBindings()
         {
             _keyBindings.Clear();
-            Debug.Log("[InputManager] 所有按键绑定已清除");
+            UnityEngine.Debug.Log("[InputManager] 所有按键绑定已清除");
         }
 
         /// <summary>
@@ -87,14 +87,14 @@ namespace DuckyNet.Client.Core
                         }
                         catch (Exception ex)
                         {
-                            Debug.LogError($"[InputManager] 执行按键 {kvp.Key} 的回调时出错: {ex.Message}");
+                            UnityEngine.Debug.LogError($"[InputManager] 执行按键 {kvp.Key} 的回调时出错: {ex.Message}");
                         }
                     }
                 }
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[InputManager] 更新输入时出错: {ex.Message}");
+                UnityEngine.Debug.LogError($"[InputManager] 更新输入时出错: {ex.Message}");
             }
         }
 
@@ -104,7 +104,7 @@ namespace DuckyNet.Client.Core
         public void Dispose()
         {
             ClearAllBindings();
-            Debug.Log("[InputManager] 输入管理器已清理");
+            UnityEngine.Debug.Log("[InputManager] 输入管理器已清理");
         }
     }
 }

@@ -28,12 +28,6 @@ namespace DuckyNet.Shared.Services.Generated
             method.Invoke(_server, new object[] { "OnPlayerLeft", new object[] { player } });
         }
 
-        public void OnPlayerStatusChanged(PlayerInfo player, PlayerStatus status)
-        {
-            var method = _server.GetType().GetMethod("BroadcastToAll").MakeGenericMethod(typeof(DuckyNet.Shared.Services.IPlayerClientService));
-            method.Invoke(_server, new object[] { "OnPlayerStatusChanged", new object[] { player, status } });
-        }
-
         public void OnServerMessage(string message, MessageType messageType)
         {
             var method = _server.GetType().GetMethod("BroadcastToAll").MakeGenericMethod(typeof(DuckyNet.Shared.Services.IPlayerClientService));

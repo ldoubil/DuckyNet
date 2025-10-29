@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using static UnityEngine.Debug;
 using Steamworks;
 using DuckyNet.Shared.Services;
 
@@ -41,7 +42,7 @@ namespace DuckyNet.Client.Core
             {
                 if (!SteamManager.Initialized)
                 {
-                    Debug.LogWarning("[LocalPlayer] Steam 未初始化，使用默认玩家信息");
+                    UnityEngine.Debug.LogWarning("[LocalPlayer] Steam 未初始化，使用默认玩家信息");
                     InitializeWithDefaultInfo();
                     return;
                 }
@@ -56,24 +57,22 @@ namespace DuckyNet.Client.Core
                     SteamId = steamId.ToString(),
                     SteamName = steamUsername,
                     AvatarUrl = avatarUrl,
-                    Level = 1,
-                    Status = PlayerStatus.Online
                 };
 
                 IsInitializedFromSteam = true;
 
-                Debug.Log($"[LocalPlayer] 玩家信息已初始化");
-                Debug.Log($"  - Steam ID: {Info.SteamId}");
-                Debug.Log($"  - 玩家名称: {Info.SteamName}");
-                Debug.Log($"  - 头像URL: {Info.AvatarUrl}");
+                UnityEngine.Debug.Log($"[LocalPlayer] 玩家信息已初始化");
+                UnityEngine.Debug.Log($"  - Steam ID: {Info.SteamId}");
+                UnityEngine.Debug.Log($"  - 玩家名称: {Info.SteamName}");
+                UnityEngine.Debug.Log($"  - 头像URL: {Info.AvatarUrl}");
 
                 // 异步加载头像纹理
                 LoadAvatarTexture(steamId);
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[LocalPlayer] 初始化失败: {ex.Message}");
-                Debug.LogException(ex);
+                UnityEngine.Debug.LogError($"[LocalPlayer] 初始化失败: {ex.Message}");
+                UnityEngine.Debug.LogException(ex);
                 InitializeWithDefaultInfo();
             }
         }
@@ -88,12 +87,10 @@ namespace DuckyNet.Client.Core
                 SteamId = "default_" + Guid.NewGuid().ToString().Substring(0, 8),
                 SteamName = "Player_" + UnityEngine.Random.Range(1000, 9999),
                 AvatarUrl = string.Empty,
-                Level = 1,
-                Status = PlayerStatus.Online
             };
 
             IsInitializedFromSteam = false;
-            Debug.LogWarning($"[LocalPlayer] 使用默认信息: ID={Info.SteamId}, Name={Info.SteamName}");
+            UnityEngine.Debug.LogWarning($"[LocalPlayer] 使用默认信息: ID={Info.SteamId}, Name={Info.SteamName}");
         }
 
         /// <summary>
@@ -108,7 +105,7 @@ namespace DuckyNet.Client.Core
                 
                 if (avatarHandle == -1 || avatarHandle == 0)
                 {
-                    Debug.LogWarning($"[LocalPlayer] 无法获取头像句柄");
+                    UnityEngine.Debug.LogWarning($"[LocalPlayer] 无法获取头像句柄");
                     return string.Empty;
                 }
 
@@ -123,7 +120,7 @@ namespace DuckyNet.Client.Core
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"[LocalPlayer] 获取头像 URL 失败: {ex.Message}");
+                UnityEngine.Debug.LogWarning($"[LocalPlayer] 获取头像 URL 失败: {ex.Message}");
                 return string.Empty;
             }
         }
@@ -140,7 +137,7 @@ namespace DuckyNet.Client.Core
                 
                 if (avatarHandle == -1 || avatarHandle == 0)
                 {
-                    Debug.LogWarning($"[LocalPlayer] 无效的头像句柄");
+                    UnityEngine.Debug.LogWarning($"[LocalPlayer] 无效的头像句柄");
                     return;
                 }
 
@@ -148,7 +145,7 @@ namespace DuckyNet.Client.Core
                 bool success = SteamUtils.GetImageSize(avatarHandle, out uint width, out uint height);
                 if (!success || width == 0 || height == 0)
                 {
-                    Debug.LogWarning($"[LocalPlayer] 无法获取头像尺寸");
+                    UnityEngine.Debug.LogWarning($"[LocalPlayer] 无法获取头像尺寸");
                     return;
                 }
 
@@ -158,7 +155,7 @@ namespace DuckyNet.Client.Core
                 
                 if (!success)
                 {
-                    Debug.LogWarning($"[LocalPlayer] 无法获取头像数据");
+                    UnityEngine.Debug.LogWarning($"[LocalPlayer] 无法获取头像数据");
                     return;
                 }
 
@@ -170,11 +167,11 @@ namespace DuckyNet.Client.Core
                 // 垂直翻转（Steam 图像是上下颠倒的）
                 FlipTextureVertically(AvatarTexture);
 
-                Debug.Log($"[LocalPlayer] 头像纹理已加载: {width}x{height}");
+                UnityEngine.Debug.Log($"[LocalPlayer] 头像纹理已加载: {width}x{height}");
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"[LocalPlayer] 加载头像纹理失败: {ex.Message}");
+                UnityEngine.Debug.LogWarning($"[LocalPlayer] 加载头像纹理失败: {ex.Message}");
             }
         }
 
@@ -201,15 +198,6 @@ namespace DuckyNet.Client.Core
             texture.Apply();
         }
 
-        /// <summary>
-        /// 更新玩家状态
-        /// </summary>
-        public void UpdateStatus(PlayerStatus status)
-        {
-            Info.Status = status;
-            Info.UpdateActivity();
-            Debug.Log($"[LocalPlayer] 状态已更新: {status}");
-        }
 
         /// <summary>
         /// 清理资源

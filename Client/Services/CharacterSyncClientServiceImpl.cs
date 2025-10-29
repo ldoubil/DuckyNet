@@ -4,7 +4,9 @@ using System.Threading.Tasks;
 using DuckyNet.Shared.Data;
 using DuckyNet.Shared.Services;
 using DuckyNet.Client.Core;
+using DuckyNet.Client.Core.Helpers;
 using UnityEngine;
+
 
 namespace DuckyNet.Client.Services
 {
@@ -26,9 +28,93 @@ namespace DuckyNet.Client.Services
         private readonly Dictionary<string, int> _lastAttackTriggerCount 
             = new Dictionary<string, int>();
 
+        // 等待创建的角色请求（<PlayerId, 是否已请求>）
+        private readonly HashSet<string> _pendingCharacterRequests = new HashSet<string>();
+        private readonly Core.Helpers.EventSubscriberHelper _eventSubscriber = new Core.Helpers.EventSubscriberHelper();
+
         public CharacterSyncClientServiceImpl()
         {
             Debug.Log("[CharacterSyncClient] 服务已创建");
+
+            // 延迟订阅事件（等待 GameContext 初始化）
+            if (GameContext.IsInitialized)
+            {
+                SubscribeToEvents();
+            }
+        }
+
+        /// <summary>
+        /// 订阅 EventBus 事件
+        /// </summary>
+        private void SubscribeToEvents()
+        {
+            // 订阅远程角色创建完成事件
+            _eventSubscriber.Subscribe<RemoteCharacterCreatedEvent>(OnRemoteCharacterCreated);
+            
+            // 如果 GameContext 已初始化，立即完成订阅
+            _eventSubscriber.EnsureInitializedAndSubscribe();
+            
+            Debug.Log("[CharacterSyncClient] 已订阅 EventBus 事件");
+        }
+
+        /// <summary>
+        /// 处理远程角色创建完成事件
+        /// </summary>
+        private void OnRemoteCharacterCreated(RemoteCharacterCreatedEvent evt)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(evt.PlayerId))
+                {
+                    return;
+                }
+
+                // 移除待处理标记
+                _pendingCharacterRequests.Remove(evt.PlayerId);
+
+                if (evt.Character != null)
+                {
+                    // 标记为远程角色（禁用本地控制）
+                    evt.Character.name = $"RemotePlayer_{evt.PlayerId}";
+                    
+                    // 禁用可能的输入控制组件
+                    DisableLocalControl(evt.Character);
+
+                    // 添加到缓存
+                    if (!_remoteCharacters.ContainsKey(evt.PlayerId))
+                    {
+                        _remoteCharacters[evt.PlayerId] = evt.Character;
+                        Debug.Log($"[CharacterSyncClient] ✅ 远程角色已创建并添加: {evt.PlayerId}");
+                    }
+                    else
+                    {
+                        // 如果已存在，销毁旧的，使用新的
+                        var oldCharacter = _remoteCharacters[evt.PlayerId];
+                        if (oldCharacter != null && oldCharacter != evt.Character)
+                        {
+                            UnityEngine.Object.Destroy(oldCharacter);
+                        }
+                        _remoteCharacters[evt.PlayerId] = evt.Character;
+                        Debug.Log($"[CharacterSyncClient] ✅ 远程角色已更新: {evt.PlayerId}");
+                    }
+
+                    // 如果有待应用的同步数据，立即应用（角色可能在创建过程中收到了同步数据）
+                    if (_lastSyncData.TryGetValue(evt.PlayerId, out var pendingSyncData))
+                    {
+                        Debug.Log($"[CharacterSyncClient] 应用待处理的同步数据: {evt.PlayerId}");
+                        pendingSyncData.ApplyToUnity(evt.Character, interpolate: false); // 初始状态不插值
+                    }
+                }
+                else
+                {
+                    Debug.LogWarning($"[CharacterSyncClient] 远程角色创建失败: {evt.PlayerId}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[CharacterSyncClient] 处理远程角色创建事件失败: {ex.Message}");
+                Debug.LogException(ex);
+            }
         }
 
         /// <summary>
@@ -147,7 +233,7 @@ namespace DuckyNet.Client.Services
         /// <summary>
         /// 获取或创建远程角色
         /// </summary>
-        private GameObject GetOrCreateRemoteCharacter(string playerId)
+        private GameObject? GetOrCreateRemoteCharacter(string playerId)
         {
             // 如果已存在，直接返回
             if (_remoteCharacters.TryGetValue(playerId, out var existing) && existing != null)
@@ -155,40 +241,42 @@ namespace DuckyNet.Client.Services
                 return existing;
             }
 
-            // 创建新的远程角色
+            // 如果正在等待创建，直接返回 null（避免重复请求）
+            if (_pendingCharacterRequests.Contains(playerId))
+            {
+                return null;
+            }
+
+            // 通过事件请求创建远程角色
             try
             {
-                Debug.Log($"[CharacterSyncClient] 为玩家 {playerId} 创建远程角色");
+                Debug.Log($"[CharacterSyncClient] 通过事件请求创建远程角色: {playerId}");
 
-                // 使用 UnitManager 创建角色
-                var unitManager = Core.GameContext.Instance?.UnitManager;
-                if (unitManager != null)
+                // 标记为待处理
+                _pendingCharacterRequests.Add(playerId);
+
+                // 发布创建请求事件
+                if (GameContext.IsInitialized)
                 {
-                    // 创建远程玩家角色（team=1, 默认属性）
-                    var character = unitManager.CreateUnit(playerId, Vector3.zero, team: 1, stats: new Core.UnitStats());
-                    if (character != null)
-                    {
-                        // 标记为远程角色（禁用本地控制）
-                        character.name = $"RemotePlayer_{playerId}";
-                        
-                        // 禁用可能的输入控制组件
-                        DisableLocalControl(character);
-
-                        _remoteCharacters[playerId] = character;
-                        Debug.Log($"[CharacterSyncClient] ✅ 远程角色创建成功: {playerId}");
-                        return character;
-                    }
+                    GameContext.Instance.EventBus.Publish(new CreateRemoteCharacterRequestEvent(playerId));
+                }
+                else
+                {
+                    Debug.LogWarning("[CharacterSyncClient] GameContext 未初始化，无法发布创建角色请求");
+                    _pendingCharacterRequests.Remove(playerId);
                 }
 
-                Debug.LogWarning($"[CharacterSyncClient] 无法创建远程角色: {playerId}");
+                // 注意：角色创建是异步的，需要通过 RemoteCharacterCreatedEvent 事件接收
+                // 这里返回 null，调用者需要等待事件
+                return null;
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[CharacterSyncClient] 创建远程角色失败: {ex.Message}");
+                _pendingCharacterRequests.Remove(playerId);
+                Debug.LogError($"[CharacterSyncClient] 请求创建远程角色失败: {ex.Message}");
                 Debug.LogException(ex);
+                return null;
             }
-
-            return null!;
         }
 
         /// <summary>
@@ -199,7 +287,7 @@ namespace DuckyNet.Client.Services
             try
             {
                 // 禁用动画控制脚本（重要！防止覆盖同步的动画参数）
-                if (!Core.Debug.AnimatorFixer.DisableAnimationControl(character))
+                if (!Core.Deb.AnimatorFixer.DisableAnimationControl(character))
                 {
                     Debug.LogWarning($"[CharacterSyncClient] 无法禁用动画控制: {character.name}");
                 }
@@ -247,6 +335,8 @@ namespace DuckyNet.Client.Services
 
             _remoteCharacters.Clear();
             _lastSyncData.Clear();
+            _pendingCharacterRequests.Clear();
+            _eventSubscriber?.Dispose();
         }
 
         /// <summary>

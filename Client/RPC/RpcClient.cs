@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using LiteNetLib;
 using LiteNetLib.Utils;
 using DuckyNet.Shared.RPC;
+using DuckyNet.Client.Core;
 
 namespace DuckyNet.Client.RPC
 {
@@ -97,7 +98,13 @@ namespace DuckyNet.Client.RPC
             {
                 RpcLog.Error($"[RpcClient] Connect failed: {ex.Message}");
                 _connectionManager.SetState(RpcConnectionState.Disconnected);
-                ConnectionFailed?.Invoke($"连接失败: {ex.Message}");
+                var reason = $"连接失败: {ex.Message}";
+                
+                // 发布 EventBus 事件
+                PublishConnectionFailedEvent(reason);
+                
+                // 保持向后兼容：同时触发原有事件
+                ConnectionFailed?.Invoke(reason);
             }
         }
 
@@ -129,8 +136,15 @@ namespace DuckyNet.Client.RPC
                     RpcLog.Error($"[RpcClient] Connection timeout after {CONNECTION_TIMEOUT_MS}ms");
                     _connectionManager.SetState(RpcConnectionState.Disconnected);
                     _netManager.Stop();
+                    var timeoutReason = "连接超时";
+                    
+                    // 发布 EventBus 事件
+                    PublishConnectionFailedEvent($"连接超时: 无法连接到服务器");
+                    PublishDisconnectedEvent(timeoutReason);
+                    
+                    // 保持向后兼容：同时触发原有事件
                     ConnectionFailed?.Invoke($"连接超时: 无法连接到服务器");
-                    Disconnected?.Invoke("连接超时");
+                    Disconnected?.Invoke(timeoutReason);
                 }
             }
         }
@@ -461,6 +475,9 @@ namespace DuckyNet.Client.RPC
             _serverPeer = peer;
             _connectionManager.SetState(RpcConnectionState.Connected);
             RpcLog.Info($"[RpcClient] Connected to server: {peer.Address}:{peer.Port}");
+            
+            // 发布 EventBus 事件（通过 NetworkLifecycleManager 来发布，这里只触发 RpcClient 事件）
+            // NetworkLifecycleManager 会监听 Connected 事件并发布 NetworkConnectedEvent
             Connected?.Invoke();
         }
 
@@ -477,7 +494,11 @@ namespace DuckyNet.Client.RPC
             _pendingCalls.Clear();
 
             RpcLog.Info($"[RpcClient] Disconnected: {disconnectInfo.Reason}");
-            Disconnected?.Invoke(disconnectInfo.Reason.ToString());
+            var reason = disconnectInfo.Reason.ToString();
+            
+            // 发布 EventBus 事件（通过 NetworkLifecycleManager 来发布）
+            // NetworkLifecycleManager 会监听 Disconnected 事件并发布 NetworkDisconnectedEvent
+            Disconnected?.Invoke(reason);
         }
 
         public void OnNetworkError(System.Net.IPEndPoint endPoint, System.Net.Sockets.SocketError socketError)
@@ -490,11 +511,53 @@ namespace DuckyNet.Client.RPC
                 _connectionManager.SetState(RpcConnectionState.Disconnected);
                 _netManager.Stop();
                 string errorMessage = GetSocketErrorMessage(socketError);
+                
+                // 发布 EventBus 事件
+                PublishConnectionFailedEvent(errorMessage);
+                PublishDisconnectedEvent(errorMessage);
+                
+                // 保持向后兼容：同时触发原有事件
                 ConnectionFailed?.Invoke(errorMessage);
                 Disconnected?.Invoke(errorMessage);
             }
         }
         
+        /// <summary>
+        /// 发布连接失败事件到 EventBus
+        /// </summary>
+        private void PublishConnectionFailedEvent(string reason)
+        {
+            try
+            {
+                if (GameContext.IsInitialized)
+                {
+                    GameContext.Instance.EventBus.Publish(new NetworkConnectionFailedEvent(reason));
+                }
+            }
+            catch (Exception ex)
+            {
+                RpcLog.Error($"[RpcClient] 发布连接失败事件失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 发布断开连接事件到 EventBus
+        /// </summary>
+        private void PublishDisconnectedEvent(string reason)
+        {
+            try
+            {
+                if (GameContext.IsInitialized)
+                {
+                    GameContext.Instance.EventBus.Publish(new NetworkDisconnectedEvent(reason));
+                }
+            }
+            catch (Exception ex)
+            {
+                RpcLog.Error($"[RpcClient] 发布断开连接事件失败: {ex.Message}");
+            }
+        }
+
         private string GetSocketErrorMessage(System.Net.Sockets.SocketError error)
         {
             return error switch
