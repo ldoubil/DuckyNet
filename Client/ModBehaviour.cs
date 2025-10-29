@@ -155,7 +155,7 @@ namespace DuckyNet.Client
                 Debug.Log($"[ModBehaviour] 动画调试窗口 {(window?.IsVisible == true ? "已显示" : "已隐藏")}");
             }, "切换动画调试窗口");
 
-            inputManager.RegisterKey(KeyCode.F6, () =>
+            inputManager.RegisterKey(KeyCode.F2, () =>
             {
                 uiManager.ToggleWindow("AnimatorStateViewer");
                 var window = uiManager.GetWindow<UI.AnimatorStateViewer>("AnimatorStateViewer");
