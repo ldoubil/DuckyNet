@@ -12,9 +12,9 @@ namespace DuckyNet.Shared.Services.Generated
         {
             switch (method)
             {
-                case "OnPlayerJoinedRoom": return _impl.OnPlayerJoinedRoom((PlayerInfo)args[0], (RoomInfo)args[1]);
-                case "OnPlayerLeftRoom": return _impl.OnPlayerLeftRoom((PlayerInfo)args[0], (RoomInfo)args[1]);
-                case "OnKickedFromRoom": return _impl.OnKickedFromRoom((string)args[0]);
+                case "OnPlayerJoinedRoom": _impl.OnPlayerJoinedRoom((PlayerInfo)args[0], (RoomInfo)args[1]); return null;
+                case "OnPlayerLeftRoom": _impl.OnPlayerLeftRoom((PlayerInfo)args[0], (RoomInfo)args[1]); return null;
+                case "OnKickedFromRoom": _impl.OnKickedFromRoom((string)args[0]); return null;
                 default: throw new Exception("Unknown method");
             }
         }

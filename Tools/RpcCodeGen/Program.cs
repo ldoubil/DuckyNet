@@ -54,10 +54,18 @@ namespace RpcCodeGen
             var sb = new StringBuilder();
             var ns = iface.Namespace + ".Generated";
             var className = iface.Name.TrimStart('I') + "ClientProxy";
+            
+            // 收集所有需要的命名空间
+            var namespaces = CollectNamespaces(iface);
+            
             sb.AppendLine($"using System;");
             sb.AppendLine($"using System.Linq;");
             sb.AppendLine($"using System.Threading.Tasks;");
             sb.AppendLine($"using DuckyNet.Shared.RPC;");
+            foreach (var n in namespaces.OrderBy(n => n))
+            {
+                sb.AppendLine($"using {n};");
+            }
             sb.AppendLine($"namespace {ns}");
             sb.AppendLine($"{{");
             sb.AppendLine($"    /// <summary>");
@@ -103,7 +111,18 @@ namespace RpcCodeGen
             var sb = new StringBuilder();
             var ns = iface.Namespace + ".Generated";
             var className = iface.Name.TrimStart('I') + "ServerDispatcher";
-            sb.AppendLine($"using System;\nusing System.Threading.Tasks;\nusing DuckyNet.Shared.RPC;\nnamespace {ns}\n{{");
+            
+            // 收集所有需要的命名空间
+            var namespaces = CollectNamespaces(iface);
+            
+            sb.AppendLine($"using System;");
+            sb.AppendLine($"using System.Threading.Tasks;");
+            sb.AppendLine($"using DuckyNet.Shared.RPC;");
+            foreach (var n in namespaces.OrderBy(n => n))
+            {
+                sb.AppendLine($"using {n};");
+            }
+            sb.AppendLine($"namespace {ns}\n{{");
             sb.AppendLine($"    public class {className}\n    {{");
             sb.AppendLine($"        private readonly {iface.FullName} _impl;\n        public {className}({iface.FullName} impl) => _impl = impl;\n");
             sb.AppendLine($"        public object Dispatch(string method, object[] args, IClientContext ctx)\n        {{");
@@ -128,7 +147,15 @@ namespace RpcCodeGen
                     }
                 }
                 
-                sb.AppendLine($"                case \"{m.Name}\": return _impl.{m.Name}({string.Join(", ", argList)});");
+                // 处理 void 返回类型
+                if (m.ReturnType == typeof(void))
+                {
+                    sb.AppendLine($"                case \"{m.Name}\": _impl.{m.Name}({string.Join(", ", argList)}); return null;");
+                }
+                else
+                {
+                    sb.AppendLine($"                case \"{m.Name}\": return _impl.{m.Name}({string.Join(", ", argList)});");
+                }
             }
             sb.AppendLine($"                default: throw new Exception(\"Unknown method\");\n            }}\n        }}");
             sb.AppendLine("    }\n}");
@@ -144,8 +171,15 @@ namespace RpcCodeGen
             var ns = iface.Namespace + ".Generated";
             var className = iface.Name.TrimStart('I') + "BroadcastProxy";
             
+            // 收集所有需要的命名空间
+            var namespaces = CollectNamespaces(iface);
+            
             sb.AppendLine("using System;");
             sb.AppendLine("using System.Threading.Tasks;");
+            foreach (var n in namespaces.OrderBy(n => n))
+            {
+                sb.AppendLine($"using {n};");
+            }
             sb.AppendLine($"namespace {ns}");
             sb.AppendLine("{");
             sb.AppendLine($"    /// <summary>");
@@ -208,9 +242,16 @@ namespace RpcCodeGen
             var ns = iface.Namespace + ".Generated";
             var className = iface.Name.TrimStart('I') + "ClientCallProxy";
             
+            // 收集所有需要的命名空间
+            var namespaces = CollectNamespaces(iface);
+            
             sb.AppendLine("using System;");
             sb.AppendLine("using System.Threading.Tasks;");
             sb.AppendLine("using DuckyNet.Shared.RPC;");
+            foreach (var n in namespaces.OrderBy(n => n))
+            {
+                sb.AppendLine($"using {n};");
+            }
             sb.AppendLine($"namespace {ns}");
             sb.AppendLine("{");
             sb.AppendLine($"    /// <summary>");
@@ -342,12 +383,17 @@ namespace RpcCodeGen
                 return;
             }
             
-            // 处理 Task<T>
-            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Task<>))
+            // 跳过所有 Task 类型（包括 Task 和 Task<T>）
+            if (type == typeof(Task) || 
+                (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Task<>)))
             {
-                // Task<T> 本身不能被序列化，只序列化其结果类型 T
-                var genericArg = type.GetGenericArguments()[0];
-                AddSerializableType(types, genericArg); // 只添加泛型参数类型
+                // Task 本身不能被序列化
+                // 对于 Task<T>，只序列化其结果类型 T
+                if (type.IsGenericType)
+                {
+                    var genericArg = type.GetGenericArguments()[0];
+                    AddSerializableType(types, genericArg);
+                }
                 return;
             }
             
@@ -451,6 +497,77 @@ namespace RpcCodeGen
             
             // 对于非泛型类型，直接返回完整名称
             return type.FullName ?? type.Name;
+        }
+        
+        /// <summary>
+        /// 收集接口中所有参数和返回值类型所需的命名空间
+        /// </summary>
+        static HashSet<string> CollectNamespaces(Type iface)
+        {
+            var namespaces = new HashSet<string>();
+            
+            foreach (var method in iface.GetMethods())
+            {
+                // 收集参数类型的命名空间
+                foreach (var param in method.GetParameters())
+                {
+                    AddNamespace(namespaces, param.ParameterType);
+                }
+                
+                // 收集返回值类型的命名空间
+                AddNamespace(namespaces, method.ReturnType);
+            }
+            
+            // 移除System命名空间（已经默认包含）和当前命名空间
+            namespaces.Remove("System");
+            namespaces.Remove("System.Threading.Tasks");
+            namespaces.Remove("DuckyNet.Shared.RPC");
+            namespaces.Remove(iface.Namespace);
+            namespaces.Remove(iface.Namespace + ".Generated");
+            
+            return namespaces;
+        }
+        
+        /// <summary>
+        /// 添加类型所属的命名空间
+        /// </summary>
+        static void AddNamespace(HashSet<string> namespaces, Type type)
+        {
+            if (type == null || type == typeof(void) || type.IsPrimitive || type == typeof(string))
+            {
+                return;
+            }
+            
+            // 处理数组类型
+            if (type.IsArray)
+            {
+                AddNamespace(namespaces, type.GetElementType());
+                return;
+            }
+            
+            // 处理泛型类型（如 Task<T>）
+            if (type.IsGenericType)
+            {
+                // 添加泛型定义的命名空间
+                var genericTypeDef = type.GetGenericTypeDefinition();
+                if (!string.IsNullOrEmpty(genericTypeDef.Namespace))
+                {
+                    namespaces.Add(genericTypeDef.Namespace);
+                }
+                
+                // 递归处理泛型参数
+                foreach (var arg in type.GetGenericArguments())
+                {
+                    AddNamespace(namespaces, arg);
+                }
+                return;
+            }
+            
+            // 添加类型的命名空间
+            if (!string.IsNullOrEmpty(type.Namespace))
+            {
+                namespaces.Add(type.Namespace);
+            }
         }
     }
 }

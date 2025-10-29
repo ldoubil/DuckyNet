@@ -51,10 +51,13 @@ namespace DuckyNet.Client.RPC
         private readonly RpcConfig _config;
         private NetPeer? _serverPeer;
         private int _nextMessageId = 1;
+        private DateTime _connectionStartTime;
+        private const int CONNECTION_TIMEOUT_MS = 5000; // 5秒连接超时
 
         public event Action? Connected;
         public event Action<string>? Disconnected;
-        public event Action<RpcConnectionState>? ConnectionStateChanged;
+        // public event Action<RpcConnectionState>? ConnectionStateChanged;  // 未使用，已注释
+        public event Action<string>? ConnectionFailed;
 
         public bool IsConnected => _connectionManager.State == RpcConnectionState.Connected;
         public RpcConnectionState ConnectionState => _connectionManager.State;
@@ -82,10 +85,20 @@ namespace DuckyNet.Client.RPC
 
         public void Connect(string address, int port)
         {
-            _netManager.Start();
-            _serverPeer = _netManager.Connect(address, port, string.Empty);
-            _connectionManager.SetState(RpcConnectionState.Connecting);
-            RpcLog.Info($"[RpcClient] Connecting to {address}:{port}...");
+            try
+            {
+                _netManager.Start();
+                _serverPeer = _netManager.Connect(address, port, string.Empty);
+                _connectionManager.SetState(RpcConnectionState.Connecting);
+                _connectionStartTime = DateTime.UtcNow;
+                RpcLog.Info($"[RpcClient] Connecting to {address}:{port}...");
+            }
+            catch (Exception ex)
+            {
+                RpcLog.Error($"[RpcClient] Connect failed: {ex.Message}");
+                _connectionManager.SetState(RpcConnectionState.Disconnected);
+                ConnectionFailed?.Invoke($"连接失败: {ex.Message}");
+            }
         }
 
         public void Disconnect()
@@ -106,6 +119,20 @@ namespace DuckyNet.Client.RPC
         public void Update()
         {
             _netManager.PollEvents();
+            
+            // 检查连接超时
+            if (_connectionManager.State == RpcConnectionState.Connecting)
+            {
+                var elapsed = (DateTime.UtcNow - _connectionStartTime).TotalMilliseconds;
+                if (elapsed > CONNECTION_TIMEOUT_MS)
+                {
+                    RpcLog.Error($"[RpcClient] Connection timeout after {CONNECTION_TIMEOUT_MS}ms");
+                    _connectionManager.SetState(RpcConnectionState.Disconnected);
+                    _netManager.Stop();
+                    ConnectionFailed?.Invoke($"连接超时: 无法连接到服务器");
+                    Disconnected?.Invoke("连接超时");
+                }
+            }
         }
 
         public void InvokeServer<TService>(string methodName, params object[] parameters) where TService : class
@@ -207,34 +234,103 @@ namespace DuckyNet.Client.RPC
         {
             try
             {
-                // 尝试反序列化为响应
-                RpcResponse? response = null;
-                RpcMessage? message = null;
-
-                try
+                // 使用类型标记检测消息类型（更可靠的方法）
+                var messageType = RpcSerializer.Instance.DetectMessageType(data);
+                
+                if (messageType == RpcMessageType.Response)
                 {
-                    response = RpcSerializer.Instance.Deserialize<RpcResponse>(data);
-                    if (response != null && _pendingCalls.TryRemove(response.MessageId, out var tcs))
+                    // 明确是响应消息
+                    try
                     {
-                        tcs.TrySetResult(response);
-                        return;
+                        var response = RpcSerializer.Instance.Deserialize<RpcResponse>(data);
+                        if (response != null)
+                        {
+                            if (_pendingCalls.TryRemove(response.MessageId, out var tcs))
+                            {
+                                tcs.TrySetResult(response);
+                                return; // 成功处理响应
+                            }
+                            else
+                            {
+                                // 响应消息但没有对应的 pending call（可能已超时或重复）
+                                if (_config.EnableVerboseLogging)
+                                {
+                                    RpcLog.Info($"[RpcClient] Received RpcResponse with MessageId {response.MessageId}, but no pending call found (may be timeout or duplicate)");
+                                }
+                                return; // 忽略无匹配的响应
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        RpcLog.Error($"[RpcClient] Failed to deserialize RpcResponse: {ex.Message}");
+                        if (ex.InnerException != null)
+                        {
+                            RpcLog.Error($"[RpcClient] Inner exception: {ex.InnerException.Message}");
+                        }
                     }
                 }
-                catch
+                else if (messageType == RpcMessageType.Request)
                 {
-                    // 不是响应消息，尝试作为请求消息处理
+                    // 明确是请求消息（服务器调用客户端）
+                    try
+                    {
+                        var message = RpcSerializer.Instance.Deserialize<RpcMessage>(data);
+                        if (message != null)
+                        {
+                            HandleServerCall(message);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        RpcLog.Error($"[RpcClient] Failed to deserialize RpcMessage: {ex.Message}");
+                        if (ex.InnerException != null)
+                        {
+                            RpcLog.Error($"[RpcClient] Inner exception: {ex.InnerException.Message}");
+                        }
+                    }
                 }
-
-                // 尝试反序列化为请求
-                message = RpcSerializer.Instance.Deserialize<RpcMessage>(data);
-                if (message != null)
+                else
                 {
-                    HandleServerCall(message);
+                    // 没有类型标记或类型未知，尝试兼容旧格式（向后兼容）
+                    // 先尝试作为响应（通常响应更常见）
+                    try
+                    {
+                        var response = RpcSerializer.Instance.Deserialize<RpcResponse>(data);
+                        if (response != null && _pendingCalls.TryRemove(response.MessageId, out var tcs))
+                        {
+                            tcs.TrySetResult(response);
+                            return;
+                        }
+                    }
+                    catch
+                    {
+                        // 不是响应，继续尝试作为请求
+                    }
+
+                    // 尝试作为请求消息
+                    try
+                    {
+                        var message = RpcSerializer.Instance.Deserialize<RpcMessage>(data);
+                        if (message != null)
+                        {
+                            HandleServerCall(message);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        RpcLog.Error($"[RpcClient] Failed to deserialize message (unknown type): {ex.Message}");
+                        RpcLog.Error($"[RpcClient] Data length: {data?.Length ?? 0} bytes");
+                    }
                 }
             }
             catch (Exception ex)
             {
                 RpcLog.Error($"[RpcClient] Error handling message: {ex.Message}");
+                if (ex.InnerException != null)
+                {
+                    RpcLog.Error($"[RpcClient] Inner exception: {ex.InnerException.Message}");
+                }
             }
         }
 
@@ -243,12 +339,70 @@ namespace DuckyNet.Client.RPC
             try
             {
                 // 反序列化参数
-                var parameters = message.Parameters != null
-                    ? RpcSerializer.Instance.DeserializeParameters(message.Parameters)
-                    : Array.Empty<object>();
+                object?[]? parameters;
+                try
+                {
+                    parameters = message.Parameters != null
+                        ? RpcSerializer.Instance.DeserializeParameters(message.Parameters)
+                        : Array.Empty<object>();
+                    
+                    // 调试日志：打印反序列化后的参数类型（仅在详细模式下）
+                    if (parameters != null && _config.EnableVerboseLogging)
+                    {
+                        for (int i = 0; i < parameters.Length; i++)
+                        {
+                            RpcLog.Info($"[RpcClient] 反序列化参数[{i}]: {parameters[i]?.GetType().FullName ?? "null"} = {parameters[i]}");
+                        }
+                    }
+                }
+                catch (Exception deserEx)
+                {
+                    RpcLog.Error($"[RpcClient] 反序列化参数失败: {deserEx.Message}");
+                    RpcLog.Error($"[RpcClient] 方法: {message.ServiceName}.{message.MethodName}");
+                    RpcLog.Error($"[RpcClient] 参数数据长度: {message.Parameters?.Length ?? 0} bytes");
+                    if (deserEx.InnerException != null)
+                    {
+                        RpcLog.Error($"[RpcClient] 内部异常: {deserEx.InnerException.Message}");
+                        if (deserEx.InnerException.StackTrace != null)
+                        {
+                            RpcLog.Error($"[RpcClient] 内部堆栈: {deserEx.InnerException.StackTrace}");
+                        }
+                    }
+                    if (deserEx.StackTrace != null)
+                    {
+                        RpcLog.Error($"[RpcClient] 堆栈跟踪: {deserEx.StackTrace}");
+                    }
+                    throw;
+                }
 
                 // 调用本地服务方法
-                var result = _invoker.Invoke(message.ServiceName, message.MethodName, parameters, null);
+                object? result;
+                try
+                {
+                    result = _invoker.Invoke(message.ServiceName, message.MethodName, parameters, null);
+                }
+                catch (Exception invokeEx)
+                {
+                    RpcLog.Error($"[RpcClient] 调用方法失败: {message.ServiceName}.{message.MethodName}");
+                    RpcLog.Error($"[RpcClient] 参数数量: {parameters?.Length ?? 0}");
+                    if (parameters != null)
+                    {
+                        for (int i = 0; i < parameters.Length; i++)
+                        {
+                            RpcLog.Error($"[RpcClient]   参数[{i}]: {parameters[i]?.GetType().FullName ?? "null"} = {parameters[i]}");
+                        }
+                    }
+                    RpcLog.Error($"[RpcClient] 错误: {invokeEx.Message}");
+                    RpcLog.Error($"[RpcClient] 堆栈: {invokeEx.StackTrace}");
+                    throw;
+                }
+
+                // 检查是否是 VoidTaskResult（不应该被序列化）
+                var resultType = result?.GetType();
+                if (resultType != null && resultType.Name == "VoidTaskResult")
+                {
+                    result = null;
+                }
 
                 // 发送响应
                 var response = new RpcResponse
@@ -263,7 +417,12 @@ namespace DuckyNet.Client.RPC
             }
             catch (Exception ex)
             {
-                RpcLog.Error($"[RpcClient] Error handling server call: {ex.Message}");
+                RpcLog.Error($"[RpcClient] Error handling server call '{message.ServiceName}.{message.MethodName}': {ex.Message}");
+                if (ex.InnerException != null)
+                {
+                    RpcLog.Error($"[RpcClient] 内部异常: {ex.InnerException.Message}");
+                }
+                RpcLog.Error($"[RpcClient] Stack trace: {ex.StackTrace}");
 
                 var errorResponse = new RpcResponse
                 {
@@ -324,6 +483,29 @@ namespace DuckyNet.Client.RPC
         public void OnNetworkError(System.Net.IPEndPoint endPoint, System.Net.Sockets.SocketError socketError)
         {
             RpcLog.Error($"[RpcClient] Network error: {socketError}");
+            
+            // 如果正在连接中，将网络错误视为连接失败
+            if (_connectionManager.State == RpcConnectionState.Connecting)
+            {
+                _connectionManager.SetState(RpcConnectionState.Disconnected);
+                _netManager.Stop();
+                string errorMessage = GetSocketErrorMessage(socketError);
+                ConnectionFailed?.Invoke(errorMessage);
+                Disconnected?.Invoke(errorMessage);
+            }
+        }
+        
+        private string GetSocketErrorMessage(System.Net.Sockets.SocketError error)
+        {
+            return error switch
+            {
+                System.Net.Sockets.SocketError.ConnectionRefused => "连接被拒绝: 服务器未运行或端口错误",
+                System.Net.Sockets.SocketError.HostNotFound => "主机未找到: 服务器地址无效",
+                System.Net.Sockets.SocketError.HostUnreachable => "主机不可达: 无法访问服务器",
+                System.Net.Sockets.SocketError.NetworkUnreachable => "网络不可达: 检查网络连接",
+                System.Net.Sockets.SocketError.TimedOut => "连接超时: 服务器无响应",
+                _ => $"网络错误: {error}"
+            };
         }
 
         public void OnNetworkReceive(NetPeer peer, NetPacketReader reader, byte channelNumber, DeliveryMethod deliveryMethod)

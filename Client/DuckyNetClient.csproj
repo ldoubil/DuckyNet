@@ -10,11 +10,11 @@
   <ItemGroup>
     <Reference Include="$(DuckovPath)\Duckov_Data\Managed\TeamSoda.*" />
     <Reference Include="$(DuckovPath)\Duckov_Data\Managed\Unity*" />
-    <Reference Include="$(DuckovPath)\Duckov_Data\Managed\TeamSoda*" />
     <Reference Include="$(DuckovPath)\Duckov_Data\Managed\com.rlabrecque.steamworks.net.dll" />
     <PackageReference Include="Lib.Harmony" Version="2.4.1" />
     <PackageReference Include="LiteNetLib" Version="1.2.0" />
     <PackageReference Include="NetSerializer" Version="4.1.1" />
+    <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
     <Reference Include="$(DuckovPath)\Duckov_Data\Managed\ItemStatsSystem.dll" />
     <ProjectReference Include="..\Shared\DuckyNetShared.csproj" />
   </ItemGroup>

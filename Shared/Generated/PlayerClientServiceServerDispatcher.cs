@@ -12,11 +12,11 @@ namespace DuckyNet.Shared.Services.Generated
         {
             switch (method)
             {
-                case "OnChatMessage": return _impl.OnChatMessage((PlayerInfo)args[0], (string)args[1]);
-                case "OnPlayerJoined": return _impl.OnPlayerJoined((PlayerInfo)args[0]);
-                case "OnPlayerLeft": return _impl.OnPlayerLeft((PlayerInfo)args[0]);
-                case "OnPlayerStatusChanged": return _impl.OnPlayerStatusChanged((PlayerInfo)args[0], (PlayerStatus)args[1]);
-                case "OnServerMessage": return _impl.OnServerMessage((string)args[0], (MessageType)args[1]);
+                case "OnChatMessage": _impl.OnChatMessage((PlayerInfo)args[0], (string)args[1]); return null;
+                case "OnPlayerJoined": _impl.OnPlayerJoined((PlayerInfo)args[0]); return null;
+                case "OnPlayerLeft": _impl.OnPlayerLeft((PlayerInfo)args[0]); return null;
+                case "OnPlayerStatusChanged": _impl.OnPlayerStatusChanged((PlayerInfo)args[0], (PlayerStatus)args[1]); return null;
+                case "OnServerMessage": _impl.OnServerMessage((string)args[0], (MessageType)args[1]); return null;
                 default: throw new Exception("Unknown method");
             }
         }

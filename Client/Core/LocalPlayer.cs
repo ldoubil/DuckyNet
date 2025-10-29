@@ -3,7 +3,7 @@ using UnityEngine;
 using Steamworks;
 using DuckyNet.Shared.Services;
 
-namespace DuckyNet.Client
+namespace DuckyNet.Client.Core
 {
     /// <summary>
     /// 本地玩家管理器

@@ -3,6 +3,15 @@ using System;
 namespace DuckyNet.Shared.RPC
 {
     /// <summary>
+    /// RPC 消息类型标识
+    /// </summary>
+    public enum RpcMessageType : byte
+    {
+        Request = 0x01,   // 请求消息 (RpcMessage)
+        Response = 0x02   // 响应消息 (RpcResponse)
+    }
+
+    /// <summary>
     /// RPC 消息基类
     /// </summary>
     [Serializable]

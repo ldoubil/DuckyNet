@@ -377,11 +377,11 @@ namespace DuckyNet.Client.UI
                 var playerService = new PlayerServiceClientProxy(serverContext);
                 playerService.SendChatMessage(message);
 
-                Debug.Log($"[ChatWindow] 发送消息: {message}");
+                UnityEngine.Debug.Log($"[ChatWindow] 发送消息: {message}");
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[ChatWindow] 发送消息失败: {ex.Message}");
+                UnityEngine.Debug.LogError($"[ChatWindow] 发送消息失败: {ex.Message}");
                 AddSystemMessage($"发送失败: {ex.Message}", MessageType.Error);
             }
         }

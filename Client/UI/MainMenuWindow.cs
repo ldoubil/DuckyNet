@@ -3,6 +3,7 @@ using UnityEngine;
 using DuckyNet.Client.RPC;
 using DuckyNet.Client.Core;
 using DuckyNet.Shared.Services;
+using Debug = UnityEngine.Debug;
 
 namespace DuckyNet.Client.UI
 {
@@ -18,6 +19,8 @@ namespace DuckyNet.Client.UI
         // 连接页面
         private string _serverAddress = "127.0.0.1";
         private string _serverPort = "2025";
+        private string _connectionStatus = "";
+        private bool _isConnecting = false;
 
         // 当前页面
         public enum Page { Connect, Lobby, Room }
@@ -44,6 +47,7 @@ namespace DuckyNet.Client.UI
             // 订阅连接事件
             _client.Connected += OnConnected;
             _client.Disconnected += OnDisconnectedHandler;
+            _client.ConnectionFailed += OnConnectionFailed;
         }
 
         public void Toggle()
@@ -68,15 +72,34 @@ namespace DuckyNet.Client.UI
 
         private void OnConnected()
         {
-            Debug.Log("[MainMenu] Connected to server");
+            UnityEngine.Debug.Log("[MainMenu] Connected to server");
+            _isConnecting = false;
+            _connectionStatus = "✓ 已连接，正在登录...";
             // 连接成功后自动登录
             LoginAsync();
         }
 
         private void OnDisconnectedHandler(string reason)
         {
-            Debug.Log($"[MainMenu] Disconnected: {reason}");
+            UnityEngine.Debug.Log($"[MainMenu] Disconnected: {reason}");
+            _isConnecting = false;
             _currentPage = Page.Connect;
+            
+            // 如果不是主动断开，显示断开原因
+            if (_connectionStatus != "")
+            {
+                _connectionStatus = $"✗ 已断开: {reason}";
+            }
+        }
+        
+        private void OnConnectionFailed(string errorMessage)
+        {
+            UnityEngine.Debug.LogError($"[MainMenu] Connection failed: {errorMessage}");
+            _isConnecting = false;
+            _connectionStatus = $"✗ {errorMessage}";
+            
+            // 在聊天窗口显示错误
+            _chatWindow?.AddSystemMessage($"连接失败: {errorMessage}", MessageType.Error);
         }
 
         public void OnGUI()
@@ -152,13 +175,46 @@ namespace DuckyNet.Client.UI
 
             GUILayout.Space(10);
 
+            // 显示连接状态
+            if (!string.IsNullOrEmpty(_connectionStatus))
+            {
+                var style = new GUIStyle(GUI.skin.box);
+                if (_connectionStatus.StartsWith("✓"))
+                {
+                    style.normal.textColor = Color.green;
+                }
+                else if (_connectionStatus.StartsWith("✗"))
+                {
+                    style.normal.textColor = Color.red;
+                }
+                else if (_connectionStatus.StartsWith("●"))
+                {
+                    style.normal.textColor = Color.yellow;
+                }
+                
+                GUILayout.Label(_connectionStatus, style);
+                GUILayout.Space(5);
+            }
+
             if (_client.IsConnected)
             {
                 GUILayout.Label("● 已连接并登录", GUI.skin.box);
 
                 if (GUILayout.Button("断开连接"))
                 {
+                    _connectionStatus = "";
                     _client.Disconnect();
+                }
+            }
+            else if (_isConnecting)
+            {
+                GUILayout.Label("● 正在连接...", GUI.skin.box);
+                
+                if (GUILayout.Button("取消"))
+                {
+                    _client.Disconnect();
+                    _isConnecting = false;
+                    _connectionStatus = "✗ 已取消连接";
                 }
             }
             else
@@ -176,16 +232,28 @@ namespace DuckyNet.Client.UI
             {
                 if (!int.TryParse(_serverPort, out int port))
                 {
-                    Debug.LogError("[MainMenu] Invalid port number");
+                    _connectionStatus = "✗ 端口号无效";
+                    UnityEngine.Debug.LogError("[MainMenu] Invalid port number");
                     return;
                 }
 
+                if (string.IsNullOrWhiteSpace(_serverAddress))
+                {
+                    _connectionStatus = "✗ 服务器地址不能为空";
+                    UnityEngine.Debug.LogError("[MainMenu] Server address is empty");
+                    return;
+                }
+
+                _isConnecting = true;
+                _connectionStatus = $"● 正在连接 {_serverAddress}:{port}...";
                 _client.Connect(_serverAddress, port);
-                Debug.Log($"[MainMenu] Connecting to {_serverAddress}:{port}...");
+                UnityEngine.Debug.Log($"[MainMenu] Connecting to {_serverAddress}:{port}...");
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[MainMenu] Connect failed: {ex.Message}");
+                _isConnecting = false;
+                _connectionStatus = $"✗ 连接失败: {ex.Message}";
+                UnityEngine.Debug.LogError($"[MainMenu] Connect failed: {ex.Message}");
             }
         }
 
@@ -196,7 +264,7 @@ namespace DuckyNet.Client.UI
                 // 使用本地玩家信息
                 if (!GameContext.IsInitialized)
                 {
-                    Debug.LogError("[MainMenu] 游戏上下文未初始化");
+                    UnityEngine.Debug.LogError("[MainMenu] 游戏上下文未初始化");
                     return;
                 }
 
@@ -207,18 +275,18 @@ namespace DuckyNet.Client.UI
 
                 if (result.Success)
                 {
-                    Debug.Log("[MainMenu] 登录成功！");
+                    UnityEngine.Debug.Log("[MainMenu] 登录成功！");
                     localPlayer.UpdateStatus(PlayerStatus.InLobby);
                     _currentPage = Page.Lobby;
                 }
                 else
                 {
-                    Debug.LogError($"[MainMenu] 登录失败: {result.ErrorMessage}");
+                    UnityEngine.Debug.LogError($"[MainMenu] 登录失败: {result.ErrorMessage}");
                 }
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[MainMenu] 登录错误: {ex.Message}");
+                UnityEngine.Debug.LogError($"[MainMenu] 登录错误: {ex.Message}");
             }
         }
 
@@ -226,6 +294,7 @@ namespace DuckyNet.Client.UI
         {
             _client.Connected -= OnConnected;
             _client.Disconnected -= OnDisconnectedHandler;
+            _client.ConnectionFailed -= OnConnectionFailed;
         }
     }
 }

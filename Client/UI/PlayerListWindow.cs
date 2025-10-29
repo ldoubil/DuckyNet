@@ -97,11 +97,11 @@ namespace DuckyNet.Client.UI
                     "GetAllOnlinePlayersAsync");
                 
                 _players = new List<PlayerInfo>(players);
-                Debug.Log($"[PlayerListWindow] Refreshed: {players.Length} players");
+                UnityEngine.Debug.Log($"[PlayerListWindow] Refreshed: {players.Length} players");
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[PlayerListWindow] Refresh failed: {ex.Message}");
+                UnityEngine.Debug.LogError($"[PlayerListWindow] Refresh failed: {ex.Message}");
             }
         }
 

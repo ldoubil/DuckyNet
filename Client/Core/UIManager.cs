@@ -21,6 +21,9 @@ namespace DuckyNet.Client.Core
         private MainMenuWindow? _mainMenuWindow;
         private ChatWindow? _chatWindow;
         private PlayerListWindow? _playerListWindow;
+        private DebugWindow? _debugWindow;
+        private AnimationDebugWindow? _animationDebugWindow;
+        private AnimatorStateViewer? _animatorStateViewer;
 
         // 服务实现
         private PlayerClientServiceImpl? _playerClientService;
@@ -61,6 +64,20 @@ namespace DuckyNet.Client.Core
                 // 创建主菜单窗口
                 _mainMenuWindow = new MainMenuWindow(_rpcClient, _chatWindow);
                 RegisterWindow("MainMenu", _mainMenuWindow);
+
+                // 创建调试窗口
+                _debugWindow = new DebugWindow(_rpcClient);
+                RegisterWindow("Debug", _debugWindow);
+
+            // 创建动画调试窗口
+            _animationDebugWindow = new AnimationDebugWindow();
+            RegisterWindow("AnimationDebug", _animationDebugWindow);
+            Debug.Log("[UIManager] 动画调试窗口已创建");
+
+            // 创建动画状态机可视化窗口
+            _animatorStateViewer = new AnimatorStateViewer();
+            RegisterWindow("AnimatorStateViewer", _animatorStateViewer);
+            Debug.Log("[UIManager] 动画状态机可视化窗口已创建");
 
                 Debug.Log($"[UIManager] UI 系统初始化完成，共注册 {_windows.Count} 个窗口");
             }
@@ -150,11 +167,12 @@ namespace DuckyNet.Client.Core
         {
             if (_windows.TryGetValue(name, out var window))
             {
+                Debug.Log($"[UIManager] 切换窗口: {name}");
                 window.Toggle();
             }
             else
             {
-                Debug.LogWarning($"[UIManager] 窗口 '{name}' 不存在");
+                Debug.LogWarning($"[UIManager] 窗口 '{name}' 不存在，已注册窗口: {string.Join(", ", _windows.Keys)}");
             }
         }
 
@@ -168,6 +186,22 @@ namespace DuckyNet.Client.Core
                 window.Hide();
             }
             Debug.Log("[UIManager] 所有窗口已隐藏");
+        }
+
+        /// <summary>
+        /// 更新所有窗口（每帧调用）
+        /// </summary>
+        public void Update()
+        {
+            try
+            {
+                // 更新调试窗口（模块需要 Update）
+                _debugWindow?.Update();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[UIManager] 更新窗口时出错: {ex.Message}");
+            }
         }
 
         /// <summary>
@@ -219,6 +253,7 @@ namespace DuckyNet.Client.Core
                 _mainMenuWindow = null;
                 _chatWindow = null;
                 _playerListWindow = null;
+                _debugWindow = null;
                 _playerClientService = null;
                 _roomClientService = null;
 

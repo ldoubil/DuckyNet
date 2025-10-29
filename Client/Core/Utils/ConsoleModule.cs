@@ -3,7 +3,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using UnityEngine;
 
-namespace DuckyNet.Client
+namespace DuckyNet.Client.Core.Utils
 {
     /// <summary>
     /// 独立的控制台模块，负责创建调试控制台窗口、日志重定向和彩色输出

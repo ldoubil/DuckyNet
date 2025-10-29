@@ -310,31 +310,66 @@ namespace DuckyNet.Server.RPC
             {
                 var data = reader.GetRemainingBytes();
 
-                // 尝试解析为 RpcMessage（客户端调用服务器）
-                try
+                // 使用类型标记检测消息类型（更可靠的方法）
+                var messageType = RpcSerializer.Instance.DetectMessageType(data);
+                
+                if (messageType == RpcMessageType.Request)
                 {
-                    var message = RpcSerializer.Instance.Deserialize<RpcMessage>(data);
-                    HandleClientCall(peer, message);
-                    return;
+                    // 明确是请求消息（客户端调用服务器）
+                    try
+                    {
+                        var message = RpcSerializer.Instance.Deserialize<RpcMessage>(data);
+                        HandleClientCall(peer, message);
+                        return;
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[RpcServer] Failed to deserialize RpcMessage: {ex.Message}");
+                    }
                 }
-                catch
+                else if (messageType == RpcMessageType.Response)
                 {
-                    // 忽略，继续尝试下一种类型
+                    // 明确是响应消息（客户端响应服务器调用）
+                    try
+                    {
+                        var response = RpcSerializer.Instance.Deserialize<RpcResponse>(data);
+                        HandleClientResponse(peer, response);
+                        return;
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[RpcServer] Failed to deserialize RpcResponse: {ex.Message}");
+                    }
                 }
+                else
+                {
+                    // 没有类型标记或类型未知，尝试兼容旧格式（向后兼容）
+                    // 先尝试作为请求（服务器接收的通常是请求）
+                    try
+                    {
+                        var message = RpcSerializer.Instance.Deserialize<RpcMessage>(data);
+                        HandleClientCall(peer, message);
+                        return;
+                    }
+                    catch
+                    {
+                        // 不是请求，继续尝试作为响应
+                    }
 
-                // 尝试解析为 RpcResponse（客户端响应）
-                try
-                {
-                    var response = RpcSerializer.Instance.Deserialize<RpcResponse>(data);
-                    HandleClientResponse(peer, response);
-                    return;
-                }
-                catch (Exception ex2)
-                {
-                    Console.WriteLine($"[RpcServer] Failed to parse as RpcResponse: {ex2.Message}");
-                }
+                    // 尝试作为响应
+                    try
+                    {
+                        var response = RpcSerializer.Instance.Deserialize<RpcResponse>(data);
+                        HandleClientResponse(peer, response);
+                        return;
+                    }
+                    catch (Exception ex2)
+                    {
+                        Console.WriteLine($"[RpcServer] Failed to parse message: {ex2.Message}");
+                    }
 
-                Console.WriteLine("[RpcServer] Received unknown message type");
+                    Console.WriteLine("[RpcServer] Received unknown message type");
+                }
             }
             catch (Exception ex)
             {
@@ -364,8 +399,22 @@ namespace DuckyNet.Server.RPC
                     throw new InvalidOperationException($"Method '{message.MethodName}' returned a Task instead of the actual result. This should not happen.");
                 }
 
-                RpcLog.Info($"[RpcServer] Method '{message.MethodName}' returned type: {result?.GetType().FullName ?? "null"}");
+                // 检查是否是 VoidTaskResult（Task 的内部类型，不应该被序列化）
+                var resultType = result?.GetType();
+                if (resultType != null && resultType.Name == "VoidTaskResult")
+                {
+                    // VoidTaskResult 不应该被序列化，对于 void/Task 方法，返回 null
+                    result = null;
+                }
 
+                // 不记录返回类型日志（void/Task 方法返回 null 是正常的，不需要记录）
+                // 如果需要调试，可以临时取消注释下面这行：
+                // if (_config.EnableVerboseLogging && result != null)
+                // {
+                //     RpcLog.Info($"[RpcServer] Method '{message.MethodName}' returned type: {result.GetType().FullName}");
+                // }
+
+                // 对于 void 或 Task 方法，result 应该是 null，不需要序列化
                 var response = new RpcResponse
                 {
                     MessageId = message.MessageId,

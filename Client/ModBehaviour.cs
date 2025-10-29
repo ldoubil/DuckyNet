@@ -1,6 +1,9 @@
 ﻿using System;
 using UnityEngine;
 using DuckyNet.Client.Core;
+using DuckyNet.Client.Core.Helpers;
+using DuckyNet.Client.Core.Utils;
+using HarmonyLib;
 
 namespace DuckyNet.Client
 {
@@ -15,6 +18,11 @@ namespace DuckyNet.Client
         /// </summary>
         public static ModBehaviour? Instance { get; private set; }
 
+        /// <summary>
+        /// Harmony 实例
+        /// </summary>
+        private static Harmony? _harmony;
+
         void Awake()
         {
             try
@@ -28,9 +36,15 @@ namespace DuckyNet.Client
 
                 // 输出模组加载信息
                 LogModInfo();
+                
+                // 初始化 Harmony 并应用所有 Patch
+                InitializeHarmony();
 
                 // 初始化游戏上下文
                 InitializeGameContext();
+                
+                // 验证事件订阅是否成功（在初始化后验证）
+                Patches.CharacterCreationListener.VerifySubscription();
 
                 ConsoleModule.WriteSeparator("DuckyNet 模组加载完成");
                 Debug.Log("[DuckyNet] Mod Loaded!");
@@ -52,11 +66,31 @@ namespace DuckyNet.Client
             var context = GameContext.Instance;
 
             // 初始化并注册各个服务
-            context.RegisterLocalPlayer(new LocalPlayer());
+            context.RegisterLocalPlayer(new Core.LocalPlayer());
             context.RegisterRpcClient(new RPC.RpcClient());
             context.RegisterInputManager(new Core.InputManager());
             context.RegisterAvatarManager(new Core.AvatarManager());
+            context.RegisterUnitManager(new Core.UnitManager());
+            context.RegisterCharacterCustomizationManager(new Core.CharacterCustomizationManager());
+            // 注册场景管理器
+            var sceneManager = new Core.SceneManager();
+            context.RegisterSceneManager(sceneManager);
+            
+            // 初始化场景管理器的玩家模型管理器（需要先注册 UnitManager）
+            sceneManager.InitializePlayerModelManager();
             context.RegisterUIManager(new Core.UIManager(context.RpcClient));
+            context.RegisterSyncManager(new Core.SyncManager(
+                context.RpcClient, 
+                context.CharacterCustomizationManager, 
+                context.LocalPlayer,
+                context.SceneManager)); // 传入 SceneManager 用于场景状态检查
+
+            // 注册客户端服务
+            context.RpcClient.RegisterClientService<Shared.Services.IPlayerClientService>(new Services.PlayerClientServiceImpl());
+            context.RpcClient.RegisterClientService<Shared.Services.IRoomClientService>(new Services.RoomClientServiceImpl());
+            context.RpcClient.RegisterClientService<Shared.Services.ISceneClientService>(new Services.SceneClientServiceImpl());
+            context.RpcClient.RegisterClientService<Shared.Services.ICharacterClientService>(new Services.CharacterClientServiceImpl());
+            context.RpcClient.RegisterClientService<Shared.Services.ICharacterSyncClientService>(new Services.CharacterSyncClientServiceImpl());
 
             // 初始化 UI 系统
             context.UIManager.Initialize();
@@ -64,8 +98,16 @@ namespace DuckyNet.Client
             // 注册输入按键
             RegisterInputKeys();
 
-            // 订阅断开连接事件
-            context.RpcClient.Disconnected += OnDisconnected;
+            // 创建网络生命周期管理器
+            var lifecycleManager = new Core.NetworkLifecycleManager(context);
+            
+            // 订阅连接/断开连接事件
+            context.RpcClient.Connected += () => _ = lifecycleManager.HandleConnectedAsync();
+            context.RpcClient.Disconnected += lifecycleManager.HandleDisconnected;
+
+            // 启动角色外观自动上传
+            // 注意：CharacterCreationListener 的 Harmony Patch 会自动应用，无需手动初始化
+            CharacterAppearanceHelper.StartAutoUpload();
 
             Debug.Log("[ModBehaviour] 游戏上下文初始化完成");
         }
@@ -99,29 +141,30 @@ namespace DuckyNet.Client
                 Debug.Log($"[ModBehaviour] 玩家列表 {(window?.IsVisible == true ? "已显示" : "已隐藏")}");
             }, "切换玩家列表");
 
+            inputManager.RegisterKey(KeyCode.F8, () =>
+            {
+                uiManager.ToggleWindow("Debug");
+                var window = uiManager.GetWindow<UI.DebugWindow>("Debug");
+                Debug.Log($"[ModBehaviour] 调试窗口 {(window?.IsVisible == true ? "已显示" : "已隐藏")}");
+            }, "切换调试窗口");
+
+            inputManager.RegisterKey(KeyCode.F5, () =>
+            {
+                uiManager.ToggleWindow("AnimationDebug");
+                var window = uiManager.GetWindow<UI.AnimationDebugWindow>("AnimationDebug");
+                Debug.Log($"[ModBehaviour] 动画调试窗口 {(window?.IsVisible == true ? "已显示" : "已隐藏")}");
+            }, "切换动画调试窗口");
+
+            inputManager.RegisterKey(KeyCode.F6, () =>
+            {
+                uiManager.ToggleWindow("AnimatorStateViewer");
+                var window = uiManager.GetWindow<UI.AnimatorStateViewer>("AnimatorStateViewer");
+                Debug.Log($"[ModBehaviour] 动画状态机可视化窗口 {(window?.IsVisible == true ? "已显示" : "已隐藏")}");
+            }, "切换动画状态机可视化");
+
             Debug.Log("[ModBehaviour] 输入按键已注册");
         }
 
-        /// <summary>
-        /// 处理断开连接事件
-        /// </summary>
-        private void OnDisconnected(string reason)
-        {
-            try
-            {
-                Debug.LogWarning($"[ModBehaviour] 与服务器断开连接: {reason}");
-                
-                var chatWindow = GameContext.Instance.UIManager.GetWindow<UI.ChatWindow>("Chat");
-                chatWindow?.AddSystemMessage($"与服务器断开连接: {reason}", Shared.Services.MessageType.Warning);
-                
-                Debug.Log("[ModBehaviour] 断开连接处理完成");
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[ModBehaviour] 处理断开连接事件失败: {ex.Message}");
-                Debug.LogException(ex);
-            }
-        }
 
         /// <summary>
         /// 输出模组加载信息
@@ -133,6 +176,32 @@ namespace DuckyNet.Client
             Debug.Log($"[DuckyNet] Unity版本: {Application.unityVersion}");
             Debug.Log($"[DuckyNet] 加载时间: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
             Debug.Log("===========================");
+        }
+
+        /// <summary>
+        /// 初始化 Harmony 并应用所有 Patch
+        /// </summary>
+        private void InitializeHarmony()
+        {
+            try
+            {
+                const string harmonyId = "com.duckynet.client";
+                
+                Debug.Log($"[ModBehaviour] 初始化 Harmony (ID: {harmonyId})");
+                
+                // 创建 Harmony 实例
+                _harmony = new Harmony(harmonyId);
+                
+                // 应用所有 Patch（会自动扫描带有 [HarmonyPatch] 特性的类）
+                _harmony.PatchAll(typeof(ModBehaviour).Assembly);
+                
+                Debug.Log("[ModBehaviour] ✅ Harmony Patch 已全部应用");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ModBehaviour] Harmony 初始化失败: {ex.Message}");
+                Debug.LogException(ex);
+            }
         }
 
         void Update()
@@ -173,11 +242,14 @@ namespace DuckyNet.Client
             {
                 Debug.Log("[ModBehaviour] Mod 卸载中...");
 
-                // 取消事件订阅
-                if (GameContext.IsInitialized)
+                // 取消 Harmony Patch
+                if (_harmony != null)
                 {
-                    GameContext.Instance.RpcClient.Disconnected -= OnDisconnected;
+                    _harmony.UnpatchAll("com.duckynet.client");
+                    Debug.Log("[ModBehaviour] Harmony Patch 已移除");
                 }
+
+                // 注意：RPC 客户端会在 Disconnect 时自动清理事件订阅
 
                 // 清理游戏上下文（会自动清理所有服务）
                 GameContext.Cleanup();

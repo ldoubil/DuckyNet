@@ -34,16 +34,21 @@ namespace DuckyNet.Shared.RPC.Generated
                 typeof(DuckyNet.Shared.RPC.RpcResponse),
 
                 // 应用数据类型 (自动发现)
+                typeof(DuckyNet.Shared.Data.CharacterSyncData),
+                typeof(DuckyNet.Shared.Data.CharacterSyncData[]),
                 typeof(DuckyNet.Shared.Services.CreateRoomRequest),
                 typeof(DuckyNet.Shared.Services.JoinRoomRequest),
                 typeof(DuckyNet.Shared.Services.LoginResult),
                 typeof(DuckyNet.Shared.Services.MessageType),
                 typeof(DuckyNet.Shared.Services.PlayerInfo),
                 typeof(DuckyNet.Shared.Services.PlayerInfo[]),
+                typeof(DuckyNet.Shared.Services.PlayerSceneInfo),
+                typeof(DuckyNet.Shared.Services.PlayerSceneInfo[]),
                 typeof(DuckyNet.Shared.Services.PlayerStatus),
                 typeof(DuckyNet.Shared.Services.RoomInfo),
                 typeof(DuckyNet.Shared.Services.RoomInfo[]),
                 typeof(DuckyNet.Shared.Services.RoomOperationResult),
+                typeof(System.Byte[]),
             };
         }
     }

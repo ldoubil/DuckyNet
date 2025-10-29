@@ -53,6 +53,26 @@ namespace DuckyNet.Client.Core
         public AvatarManager AvatarManager { get; private set; }
 
         /// <summary>
+        /// 单位管理器
+        /// </summary>
+        public UnitManager UnitManager { get; private set; }
+
+        /// <summary>
+        /// 角色自定义管理器
+        /// </summary>
+        public CharacterCustomizationManager CharacterCustomizationManager { get; private set; }
+
+        /// <summary>
+        /// 场景管理器
+        /// </summary>
+        public SceneManager SceneManager { get; private set; }
+
+        /// <summary>
+        /// 同步管理器
+        /// </summary>
+        public SyncManager? SyncManager { get; private set; }
+
+        /// <summary>
         /// 是否已初始化
         /// </summary>
         public static bool IsInitialized => _instance != null;
@@ -64,6 +84,10 @@ namespace DuckyNet.Client.Core
             UIManager = null!;
             InputManager = null!;
             AvatarManager = null!;
+            UnitManager = null!;
+            CharacterCustomizationManager = null!;
+            SceneManager = null!;
+            SyncManager = null;
         }
 
         /// <summary>
@@ -82,48 +106,69 @@ namespace DuckyNet.Client.Core
         }
 
         /// <summary>
+        /// 内部辅助方法：注册服务并记录日志
+        /// </summary>
+        private void RegisterService<T>(ref T field, T value, string serviceName) where T : class
+        {
+            field = value ?? throw new ArgumentNullException(nameof(value));
+            Debug.Log($"[GameContext] {serviceName}已注册");
+        }
+
+        /// <summary>
         /// 注册本地玩家服务
         /// </summary>
         public void RegisterLocalPlayer(LocalPlayer localPlayer)
-        {
-            LocalPlayer = localPlayer ?? throw new ArgumentNullException(nameof(localPlayer));
-            Debug.Log("[GameContext] 本地玩家服务已注册");
-        }
+            => RegisterService(ref LocalPlayer, localPlayer, "本地玩家服务");
 
         /// <summary>
         /// 注册 RPC 客户端服务
         /// </summary>
         public void RegisterRpcClient(RpcClient rpcClient)
-        {
-            RpcClient = rpcClient ?? throw new ArgumentNullException(nameof(rpcClient));
-            Debug.Log("[GameContext] RPC 客户端服务已注册");
-        }
+            => RegisterService(ref RpcClient, rpcClient, "RPC 客户端服务");
 
         /// <summary>
         /// 注册 UI 管理器
         /// </summary>
         public void RegisterUIManager(UIManager uiManager)
-        {
-            UIManager = uiManager ?? throw new ArgumentNullException(nameof(uiManager));
-            Debug.Log("[GameContext] UI 管理器已注册");
-        }
+            => RegisterService(ref UIManager, uiManager, "UI 管理器");
 
         /// <summary>
         /// 注册输入管理器
         /// </summary>
         public void RegisterInputManager(InputManager inputManager)
-        {
-            InputManager = inputManager ?? throw new ArgumentNullException(nameof(inputManager));
-            Debug.Log("[GameContext] 输入管理器已注册");
-        }
+            => RegisterService(ref InputManager, inputManager, "输入管理器");
 
         /// <summary>
         /// 注册头像管理器
         /// </summary>
         public void RegisterAvatarManager(AvatarManager avatarManager)
+            => RegisterService(ref AvatarManager, avatarManager, "头像管理器");
+
+        /// <summary>
+        /// 注册单位管理器
+        /// </summary>
+        public void RegisterUnitManager(UnitManager unitManager)
+            => RegisterService(ref UnitManager, unitManager, "单位管理器");
+
+        /// <summary>
+        /// 注册角色自定义管理器
+        /// </summary>
+        public void RegisterCharacterCustomizationManager(CharacterCustomizationManager customizationManager)
+            => RegisterService(ref CharacterCustomizationManager, customizationManager, "角色自定义管理器");
+
+        /// <summary>
+        /// 注册场景管理器
+        /// </summary>
+        public void RegisterSceneManager(SceneManager sceneManager)
+            => RegisterService(ref SceneManager, sceneManager, "场景管理器");
+
+        /// <summary>
+        /// 注册同步管理器
+        /// </summary>
+        public void RegisterSyncManager(SyncManager syncManager)
         {
-            AvatarManager = avatarManager ?? throw new ArgumentNullException(nameof(avatarManager));
-            Debug.Log("[GameContext] 头像管理器已注册");
+            SyncManager = syncManager ?? throw new ArgumentNullException(nameof(syncManager));
+            Debug.Log("[GameContext] 同步管理器已注册");
         }
 
         /// <summary>
@@ -135,6 +180,10 @@ namespace DuckyNet.Client.Core
 
             try
             {
+                _instance.SyncManager?.Dispose();
+                _instance.SceneManager?.Dispose();
+                _instance.CharacterCustomizationManager?.Dispose();
+                _instance.UnitManager?.Dispose();
                 _instance.InputManager?.Dispose();
                 _instance.UIManager?.Dispose();
                 _instance.AvatarManager?.Dispose();
@@ -160,6 +209,7 @@ namespace DuckyNet.Client.Core
         {
             RpcClient?.Update();
             InputManager?.Update();
+            UIManager?.Update();
         }
 
         /// <summary>

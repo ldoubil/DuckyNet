@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using DuckyNet.Client.RPC;
+using DuckyNet.Client.Core;
 using DuckyNet.Shared.Services;
 
 namespace DuckyNet.Client.UI
@@ -105,11 +106,11 @@ namespace DuckyNet.Client.UI
                     "GetRoomPlayersAsync", _currentRoom.RoomId);
                 
                 _roomPlayers = new List<PlayerInfo>(players);
-                Debug.Log($"[RoomPage] Refreshed player list: {players.Length} players");
+                UnityEngine.Debug.Log($"[RoomPage] Refreshed player list: {players.Length} players");
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[RoomPage] Refresh player list failed: {ex.Message}");
+                UnityEngine.Debug.LogError($"[RoomPage] Refresh player list failed: {ex.Message}");
             }
         }
 
@@ -129,17 +130,25 @@ namespace DuckyNet.Client.UI
                     // 通知聊天窗口已离开房间
                     _chatWindow?.SetRoomStatus(false);
                     
+                    // 清理场景数据和停止同步
+                    if (GameContext.IsInitialized)
+                    {
+                        GameContext.Instance.SyncManager?.StopSync();
+                        GameContext.Instance.SceneManager.OnLeftRoom();
+                        UnityEngine.Debug.Log("[RoomPage] 已停止同步并清理场景数据");
+                    }
+                    
                     _mainWindow.SwitchToPage(MainMenuWindow.Page.Lobby);
-                    Debug.Log("[RoomPage] Successfully left room");
+                    UnityEngine.Debug.Log("[RoomPage] Successfully left room");
                 }
                 else
                 {
-                    Debug.LogWarning("[RoomPage] Failed to leave room (server returned false)");
+                    UnityEngine.Debug.LogWarning("[RoomPage] Failed to leave room (server returned false)");
                 }
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[RoomPage] Leave room error: {ex.Message}");
+                UnityEngine.Debug.LogError($"[RoomPage] Leave room error: {ex.Message}");
             }
         }
     }

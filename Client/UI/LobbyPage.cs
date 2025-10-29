@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using DuckyNet.Client.RPC;
+using DuckyNet.Client.Core;
 using DuckyNet.Shared.Services;
+using Debug = UnityEngine.Debug;
 
 namespace DuckyNet.Client.UI
 {
@@ -105,11 +107,11 @@ namespace DuckyNet.Client.UI
                     "GetRoomListAsync");
                 
                 _roomList = new List<RoomInfo>(rooms);
-                Debug.Log($"[LobbyPage] Refreshed room list: {rooms.Length} rooms");
+                UnityEngine.Debug.Log($"[LobbyPage] Refreshed room list: {rooms.Length} rooms");
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[LobbyPage] Refresh room list failed: {ex.Message}");
+                UnityEngine.Debug.LogError($"[LobbyPage] Refresh room list failed: {ex.Message}");
             }
         }
 
@@ -131,18 +133,33 @@ namespace DuckyNet.Client.UI
 
                 if (result.Success && result.Room != null)
                 {
-                    Debug.Log($"[LobbyPage] Room created: {result.Room.RoomId}");
+                    UnityEngine.Debug.Log($"[LobbyPage] Room created: {result.Room.RoomId}");
                     _mainWindow.RoomPage.SetCurrentRoom(result.Room);
+                    
+                    // 初始化房间数据（获取场景内玩家等）
+                    if (GameContext.IsInitialized)
+                    {
+                        _ = GameContext.Instance.SceneManager.InitializeRoomDataAsync();
+                        
+                        // 如果已有角色且在地图中，启动同步
+                        var syncManager = GameContext.Instance.SyncManager;
+                        if (syncManager != null && !syncManager.IsEnabled)
+                        {
+                            syncManager.StartSync();
+                            UnityEngine.Debug.Log("[LobbyPage] 已启动角色同步");
+                        }
+                    }
+                    
                     _mainWindow.SwitchToPage(MainMenuWindow.Page.Room);
                 }
                 else
                 {
-                    Debug.LogError($"[LobbyPage] Create room failed: {result.ErrorMessage}");
+                    UnityEngine.Debug.LogError($"[LobbyPage] Create room failed: {result.ErrorMessage}");
                 }
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[LobbyPage] Create room error: {ex.Message}");
+                UnityEngine.Debug.LogError($"[LobbyPage] Create room error: {ex.Message}");
             }
         }
 
@@ -169,18 +186,33 @@ namespace DuckyNet.Client.UI
 
                 if (result.Success && result.Room != null)
                 {
-                    Debug.Log($"[LobbyPage] Joined room: {roomId}");
+                    UnityEngine.Debug.Log($"[LobbyPage] Joined room: {roomId}");
                     _mainWindow.RoomPage.SetCurrentRoom(result.Room);
+                    
+                    // 初始化房间数据（获取场景内玩家等）
+                    if (GameContext.IsInitialized)
+                    {
+                        _ = GameContext.Instance.SceneManager.InitializeRoomDataAsync();
+                        
+                        // 如果已有角色且在地图中，启动同步
+                        var syncManager = GameContext.Instance.SyncManager;
+                        if (syncManager != null && !syncManager.IsEnabled)
+                        {
+                            syncManager.StartSync();
+                            UnityEngine.Debug.Log("[LobbyPage] 已启动角色同步");
+                        }
+                    }
+                    
                     _mainWindow.SwitchToPage(MainMenuWindow.Page.Room);
                 }
                 else
                 {
-                    Debug.LogError($"[LobbyPage] Join room failed: {result.ErrorMessage}");
+                    UnityEngine.Debug.LogError($"[LobbyPage] Join room failed: {result.ErrorMessage}");
                 }
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[LobbyPage] Join room error: {ex.Message}");
+                UnityEngine.Debug.LogError($"[LobbyPage] Join room error: {ex.Message}");
             }
         }
     }

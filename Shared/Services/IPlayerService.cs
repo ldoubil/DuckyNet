@@ -159,6 +159,11 @@ namespace DuckyNet.Shared.Services
         public bool HasCharacter { get; set; }
 
         /// <summary>
+        /// 角色外观数据（压缩的二进制格式）
+        /// </summary>
+        public byte[]? AppearanceData { get; set; }
+
+        /// <summary>
         /// 登录时间
         /// </summary>
         public DateTime LoginTime { get; set; }
