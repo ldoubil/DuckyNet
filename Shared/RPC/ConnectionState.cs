@@ -74,7 +74,7 @@ namespace DuckyNet.Shared.RPC
             
             if (oldState != newState)
             {
-                RpcLog.Info($"Connection state changed: {oldState} -> {newState}" + 
+                Console.WriteLine($"Connection state changed: {oldState} -> {newState}" + 
                     (reason != null ? $" ({reason})" : ""));
             }
         }

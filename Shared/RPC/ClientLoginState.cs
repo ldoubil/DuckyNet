@@ -94,7 +94,7 @@ namespace DuckyNet.Shared.RPC
                 _connectionTime = DateTime.UtcNow;
                 _loginRequestTime = null;
             }
-            RpcLog.Info("[LoginState] Connected, waiting for login");
+            Console.WriteLine("[LoginState] Connected, waiting for login");
         }
 
         /// <summary>
@@ -106,12 +106,12 @@ namespace DuckyNet.Shared.RPC
             {
                 if (_state != ClientLoginState.NotLoggedIn)
                 {
-                    RpcLog.Warning($"[LoginState] Login started in wrong state: {_state}");
+                    Console.WriteLine($"[LoginState] Login started in wrong state: {_state}");
                 }
                 _state = ClientLoginState.LoggingIn;
                 _loginRequestTime = DateTime.UtcNow;
             }
-            RpcLog.Info("[LoginState] Login request sent");
+            Console.WriteLine("[LoginState] Login request sent");
             StateChanged?.Invoke(this, ClientLoginState.LoggingIn);
         }
 
@@ -126,7 +126,7 @@ namespace DuckyNet.Shared.RPC
                 if (_loginRequestTime.HasValue)
                 {
                     var duration = (DateTime.UtcNow - _loginRequestTime.Value).TotalMilliseconds;
-                    RpcLog.Info($"[LoginState] Login succeeded in {duration:F0}ms");
+                    Console.WriteLine($"[LoginState] Login succeeded in {duration:F0}ms");
                 }
             }
             StateChanged?.Invoke(this, ClientLoginState.LoggedIn);
@@ -141,7 +141,7 @@ namespace DuckyNet.Shared.RPC
             {
                 _state = ClientLoginState.LoginFailed;
             }
-            RpcLog.Error($"[LoginState] Login failed: {reason}");
+            Console.WriteLine($"[LoginState] Login failed: {reason}");
             StateChanged?.Invoke(this, ClientLoginState.LoginFailed);
         }
 

@@ -74,14 +74,14 @@ namespace DuckyNet.Client.RPC
 
             if (_config.EnableVerboseLogging)
             {
-                RpcLog.Info($"[RpcClient] Initialized with timeout: {_config.DefaultTimeoutMs}ms");
+                Console.WriteLine($"[RpcClient] Initialized with timeout: {_config.DefaultTimeoutMs}ms");
             }
         }
 
         public void RegisterClientService<TService>(object serviceInstance) where TService : class
         {
             _invoker.RegisterService<TService>(serviceInstance);
-            RpcLog.Info($"[RpcClient] Registered client service: {typeof(TService).Name}");
+            Console.WriteLine($"[RpcClient] Registered client service: {typeof(TService).Name}");
         }
 
         public void Connect(string address, int port)
@@ -92,11 +92,11 @@ namespace DuckyNet.Client.RPC
                 _serverPeer = _netManager.Connect(address, port, string.Empty);
                 _connectionManager.SetState(RpcConnectionState.Connecting);
                 _connectionStartTime = DateTime.UtcNow;
-                RpcLog.Info($"[RpcClient] Connecting to {address}:{port}...");
+                Console.WriteLine($"[RpcClient] Connecting to {address}:{port}...");
             }
             catch (Exception ex)
             {
-                RpcLog.Error($"[RpcClient] Connect failed: {ex.Message}");
+                Console.WriteLine($"[RpcClient] Connect failed: {ex.Message}");
                 _connectionManager.SetState(RpcConnectionState.Disconnected);
                 var reason = $"连接失败: {ex.Message}";
                 
@@ -120,7 +120,7 @@ namespace DuckyNet.Client.RPC
                 _timeoutManager.ClearTimeout(kvp.Key);
             }
             
-            RpcLog.Info("[RpcClient] Disconnected");
+            Console.WriteLine("[RpcClient] Disconnected");
         }
 
         public void Update()
@@ -133,7 +133,7 @@ namespace DuckyNet.Client.RPC
                 var elapsed = (DateTime.UtcNow - _connectionStartTime).TotalMilliseconds;
                 if (elapsed > CONNECTION_TIMEOUT_MS)
                 {
-                    RpcLog.Error($"[RpcClient] Connection timeout after {CONNECTION_TIMEOUT_MS}ms");
+                    Console.WriteLine($"[RpcClient] Connection timeout after {CONNECTION_TIMEOUT_MS}ms");
                     _connectionManager.SetState(RpcConnectionState.Disconnected);
                     _netManager.Stop();
                     var timeoutReason = "连接超时";
@@ -153,7 +153,7 @@ namespace DuckyNet.Client.RPC
         {
             if (_serverPeer == null)
             {
-                RpcLog.Error("[RpcClient] Not connected to server");
+                Console.WriteLine("[RpcClient] Not connected to server");
                 return;
             }
 
@@ -170,7 +170,7 @@ namespace DuckyNet.Client.RPC
 
             if (_config.EnableVerboseLogging)
             {
-                RpcLog.Info($"[RpcClient] Invoke: {serviceName}.{methodName}");
+                Console.WriteLine($"[RpcClient] Invoke: {serviceName}.{methodName}");
             }
         }
 
@@ -209,7 +209,7 @@ namespace DuckyNet.Client.RPC
 
             if (_config.EnableVerboseLogging)
             {
-                RpcLog.Info($"[RpcClient] InvokeAsync: {serviceName}.{methodName}");
+                Console.WriteLine($"[RpcClient] InvokeAsync: {serviceName}.{methodName}");
             }
 
             try
@@ -269,7 +269,7 @@ namespace DuckyNet.Client.RPC
                                 // 响应消息但没有对应的 pending call（可能已超时或重复）
                                 if (_config.EnableVerboseLogging)
                                 {
-                                    RpcLog.Info($"[RpcClient] Received RpcResponse with MessageId {response.MessageId}, but no pending call found (may be timeout or duplicate)");
+                                    Console.WriteLine($"[RpcClient] Received RpcResponse with MessageId {response.MessageId}, but no pending call found (may be timeout or duplicate)");
                                 }
                                 return; // 忽略无匹配的响应
                             }
@@ -277,10 +277,10 @@ namespace DuckyNet.Client.RPC
                     }
                     catch (Exception ex)
                     {
-                        RpcLog.Error($"[RpcClient] Failed to deserialize RpcResponse: {ex.Message}");
+                        Console.WriteLine($"[RpcClient] Failed to deserialize RpcResponse: {ex.Message}");
                         if (ex.InnerException != null)
                         {
-                            RpcLog.Error($"[RpcClient] Inner exception: {ex.InnerException.Message}");
+                            Console.WriteLine($"[RpcClient] Inner exception: {ex.InnerException.Message}");
                         }
                     }
                 }
@@ -297,10 +297,10 @@ namespace DuckyNet.Client.RPC
                     }
                     catch (Exception ex)
                     {
-                        RpcLog.Error($"[RpcClient] Failed to deserialize RpcMessage: {ex.Message}");
+                        Console.WriteLine($"[RpcClient] Failed to deserialize RpcMessage: {ex.Message}");
                         if (ex.InnerException != null)
                         {
-                            RpcLog.Error($"[RpcClient] Inner exception: {ex.InnerException.Message}");
+                            Console.WriteLine($"[RpcClient] Inner exception: {ex.InnerException.Message}");
                         }
                     }
                 }
@@ -333,14 +333,14 @@ namespace DuckyNet.Client.RPC
                     }
                     catch (Exception ex)
                     {
-                        RpcLog.Error($"[RpcClient] Failed to deserialize message (unknown type): {ex.Message}");
-                        RpcLog.Error($"[RpcClient] Data length: {data?.Length ?? 0} bytes");
+                        Console.WriteLine($"[RpcClient] Failed to deserialize message (unknown type): {ex.Message}");
+                        Console.WriteLine($"[RpcClient] Data length: {data?.Length ?? 0} bytes");
                     }
                 }
             }
             catch (Exception ex)
             {
-                RpcLog.Error($"[RpcClient] Error handling message: {ex.Message}");
+                Console.WriteLine($"[RpcClient] Error handling message: {ex.Message}");
                 if (ex.InnerException != null)
                 {
                     RpcLog.Error($"[RpcClient] Inner exception: {ex.InnerException.Message}");
@@ -365,26 +365,26 @@ namespace DuckyNet.Client.RPC
                     {
                         for (int i = 0; i < parameters.Length; i++)
                         {
-                            RpcLog.Info($"[RpcClient] 反序列化参数[{i}]: {parameters[i]?.GetType().FullName ?? "null"} = {parameters[i]}");
+                            Console.WriteLine($"[RpcClient] 反序列化参数[{i}]: {parameters[i]?.GetType().FullName ?? "null"} = {parameters[i]}");
                         }
                     }
                 }
                 catch (Exception deserEx)
                 {
-                    RpcLog.Error($"[RpcClient] 反序列化参数失败: {deserEx.Message}");
-                    RpcLog.Error($"[RpcClient] 方法: {message.ServiceName}.{message.MethodName}");
-                    RpcLog.Error($"[RpcClient] 参数数据长度: {message.Parameters?.Length ?? 0} bytes");
+                    Console.WriteLine($"[RpcClient] 反序列化参数失败: {deserEx.Message}");
+                    Console.WriteLine($"[RpcClient] 方法: {message.ServiceName}.{message.MethodName}");
+                    Console.WriteLine($"[RpcClient] 参数数据长度: {message.Parameters?.Length ?? 0} bytes");
                     if (deserEx.InnerException != null)
                     {
-                        RpcLog.Error($"[RpcClient] 内部异常: {deserEx.InnerException.Message}");
+                        Console.WriteLine($"[RpcClient] 内部异常: {deserEx.InnerException.Message}");
                         if (deserEx.InnerException.StackTrace != null)
                         {
-                            RpcLog.Error($"[RpcClient] 内部堆栈: {deserEx.InnerException.StackTrace}");
+                            Console.WriteLine($"[RpcClient] 内部堆栈: {deserEx.InnerException.StackTrace}");
                         }
                     }
                     if (deserEx.StackTrace != null)
                     {
-                        RpcLog.Error($"[RpcClient] 堆栈跟踪: {deserEx.StackTrace}");
+                        Console.WriteLine($"[RpcClient] 堆栈跟踪: {deserEx.StackTrace}");
                     }
                     throw;
                 }
@@ -397,17 +397,17 @@ namespace DuckyNet.Client.RPC
                 }
                 catch (Exception invokeEx)
                 {
-                    RpcLog.Error($"[RpcClient] 调用方法失败: {message.ServiceName}.{message.MethodName}");
-                    RpcLog.Error($"[RpcClient] 参数数量: {parameters?.Length ?? 0}");
+                    Console.WriteLine($"[RpcClient] 调用方法失败: {message.ServiceName}.{message.MethodName}");
+                    Console.WriteLine($"[RpcClient] 参数数量: {parameters?.Length ?? 0}");
                     if (parameters != null)
                     {
                         for (int i = 0; i < parameters.Length; i++)
                         {
-                            RpcLog.Error($"[RpcClient]   参数[{i}]: {parameters[i]?.GetType().FullName ?? "null"} = {parameters[i]}");
+                            Console.WriteLine($"[RpcClient]   参数[{i}]: {parameters[i]?.GetType().FullName ?? "null"} = {parameters[i]}");
                         }
                     }
-                    RpcLog.Error($"[RpcClient] 错误: {invokeEx.Message}");
-                    RpcLog.Error($"[RpcClient] 堆栈: {invokeEx.StackTrace}");
+                    Console.WriteLine($"[RpcClient] 错误: {invokeEx.Message}");
+                    Console.WriteLine($"[RpcClient] 堆栈: {invokeEx.StackTrace}");
                     throw;
                 }
 
@@ -431,12 +431,12 @@ namespace DuckyNet.Client.RPC
             }
             catch (Exception ex)
             {
-                RpcLog.Error($"[RpcClient] Error handling server call '{message.ServiceName}.{message.MethodName}': {ex.Message}");
+                Console.WriteLine($"[RpcClient] Error handling server call '{message.ServiceName}.{message.MethodName}': {ex.Message}");
                 if (ex.InnerException != null)
                 {
-                    RpcLog.Error($"[RpcClient] 内部异常: {ex.InnerException.Message}");
+                    Console.WriteLine($"[RpcClient] 内部异常: {ex.InnerException.Message}");
                 }
-                RpcLog.Error($"[RpcClient] Stack trace: {ex.StackTrace}");
+                Console.WriteLine($"[RpcClient] Stack trace: {ex.StackTrace}");
 
                 var errorResponse = new RpcResponse
                 {

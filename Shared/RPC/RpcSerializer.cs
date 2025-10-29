@@ -52,19 +52,19 @@ namespace DuckyNet.Shared.RPC
                 {
                     var method = registryType.GetMethod("GetSerializableTypes");
                     types = (List<Type>)method!.Invoke(null, null)!;
-                    RpcLog.Info($"[RpcSerializer] Loaded {types.Count} types from auto-generated registry");
+                    Console.WriteLine($"[RpcSerializer] Loaded {types.Count} types from auto-generated registry");
                 }
                 else
                 {
                     // 如果代码还没生成，使用后备类型列表
-                    RpcLog.Warning("[RpcSerializer] Auto-generated type registry not found, using fallback types");
+                    Console.WriteLine("[RpcSerializer] Auto-generated type registry not found, using fallback types");
                     types = GetFallbackTypes();
                 }
             }
             catch (Exception ex)
             {
                 // 出错时使用后备列表
-                RpcLog.Error($"[RpcSerializer] Error loading type registry: {ex.Message}, using fallback");
+                Console.WriteLine($"[RpcSerializer] Error loading type registry: {ex.Message}, using fallback");
                 types = GetFallbackTypes();
             }
 

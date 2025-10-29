@@ -316,7 +316,7 @@ namespace DuckyNet.Shared.RPC
                                 return null;
                             }
                             
-                            RpcLog.Info($"[RpcInvoker] Extracted result from Task<T>: {taskResult?.GetType().Name ?? "null"}");
+                            // 提取 Task<T> 的结果
                             return taskResult;
                         }
                     }

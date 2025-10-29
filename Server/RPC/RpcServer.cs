@@ -54,7 +54,6 @@ namespace DuckyNet.Server.RPC
         private readonly RpcInvoker _invoker;
         private readonly RpcTimeoutManager _timeoutManager;
         private readonly RpcConfig _config;
-        private readonly RpcPerformanceStats? _performanceStats;
         private readonly Dictionary<NetPeer, Dictionary<int, TaskCompletionSource<RpcResponse>>> _pendingCalls;
         private readonly Dictionary<NetPeer, ServerClientContext> _clientContexts;
         private int _nextMessageId = 1;
@@ -69,11 +68,6 @@ namespace DuckyNet.Server.RPC
         /// </summary>
         public event Action<string>? ClientDisconnected;
 
-        /// <summary>
-        /// 获取性能统计（如果启用）
-        /// </summary>
-        public RpcPerformanceStats? PerformanceStats => _performanceStats;
-
         public RpcServer(RpcConfig? config = null)
         {
             _config = config ?? RpcConfig.Default;
@@ -83,16 +77,9 @@ namespace DuckyNet.Server.RPC
             _clientContexts = new Dictionary<NetPeer, ServerClientContext>();
             _timeoutManager = new RpcTimeoutManager(_config.DefaultTimeoutMs);
             
-            // 可选的性能统计
-            if (_config.EnablePerformanceStats)
-            {
-                _performanceStats = new RpcPerformanceStats();
-                RpcLog.Info("[RpcServer] Performance monitoring enabled");
-            }
-            
             if (_config.EnableVerboseLogging)
             {
-                RpcLog.Info($"[RpcServer] Initialized with max clients: {_config.MaxClients}");
+                Console.WriteLine($"[RpcServer] Initialized with max clients: {_config.MaxClients}");
             }
         }
 
@@ -440,13 +427,6 @@ namespace DuckyNet.Server.RPC
             finally
             {
                 startTime.Stop();
-                
-                // 记录性能统计
-                if (_performanceStats != null)
-                {
-                    _performanceStats.RecordCall(message.ServiceName, message.MethodName, 
-                        startTime.Elapsed, success);
-                }
             }
         }
 

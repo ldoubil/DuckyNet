@@ -31,11 +31,6 @@ namespace DuckyNet.Shared.RPC
         public int MaxConcurrentCalls { get; set; } = 100;
 
         /// <summary>
-        /// 是否启用性能统计
-        /// </summary>
-        public bool EnablePerformanceStats { get; set; } = false;
-
-        /// <summary>
         /// 是否启用详细日志
         /// </summary>
         public bool EnableVerboseLogging { get; set; } = false;
@@ -51,11 +46,10 @@ namespace DuckyNet.Shared.RPC
         public static RpcConfig Default => new RpcConfig();
 
         /// <summary>
-        /// 开发模式配置（更多日志和统计）
+        /// 开发模式配置（更多日志）
         /// </summary>
         public static RpcConfig Development => new RpcConfig
         {
-            EnablePerformanceStats = true,
             EnableVerboseLogging = true,
             DefaultTimeoutMs = 60000
         };
@@ -65,7 +59,6 @@ namespace DuckyNet.Shared.RPC
         /// </summary>
         public static RpcConfig Production => new RpcConfig
         {
-            EnablePerformanceStats = false,
             EnableVerboseLogging = false,
             DefaultTimeoutMs = 15000
         };
