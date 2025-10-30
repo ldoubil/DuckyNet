@@ -29,29 +29,30 @@ namespace DuckyNet.Server.Services
 
         public Task<bool> EnterSceneAsync(IClientContext client, ScenelData scenelData)
         {
-            var steamId = _playerManager.GetPlayer(client.ClientId);
-            _playerManager.GetPlayerBySteamId(steamId?.SteamId ?? "");
-          
-            Console.WriteLine($"[SceneService] 玩家进入场景请求，client.ClientId={client.ClientId}, steamId={(steamId?.SteamId ?? "null")}, 场景=({scenelData?.SceneName},{scenelData?.SubSceneName})");
-            if (steamId != null)
+            // 标准化场景数据并更新玩家当前场景
+            var nonNullData = scenelData ?? new ScenelData("", "");
+            var player = _playerManager.GetPlayer(client.ClientId);
+            Console.WriteLine($"[SceneService] 玩家进入场景请求，client.ClientId={client.ClientId}, steamId={(player?.SteamId ?? "null")}, 场景=({nonNullData.SceneName},{nonNullData.SubSceneName})");
+            if (player != null)
             {
-                
-                var roomId = _roomManager.GetPlayerRoom(steamId)?.RoomId ?? "";
+                _playerManager.UpdatePlayerSceneDataByClientId(client.ClientId, nonNullData);
+
+                var roomId = _roomManager.GetPlayerRoom(player)?.RoomId ?? "";
                 Console.WriteLine($"[SceneService] 玩家所在房间: roomId={roomId}");
                 var roomPlayers = _playerManager.GetRoomPlayers(roomId);
                 foreach (var p in roomPlayers)
                 {
-                    Console.WriteLine($"[SceneService] 通知玩家 {p.SteamName} (SteamId={p.SteamId}) 进入场景 ({scenelData?.SceneName},{scenelData?.SubSceneName})");
-                    var clientId = _playerManager.GetClientIdBySteamId(p.SteamId);
-                    if (clientId != null)
+
+                    Console.WriteLine($"[SceneService] 通知玩家 {p.SteamName} (SteamId={p.SteamId}) 进入场景 ({nonNullData.SceneName},{nonNullData.SubSceneName})");
+                    var targetClientId = _playerManager.GetClientIdBySteamId(p.SteamId);
+                    if (!string.IsNullOrEmpty(targetClientId))
                     {
-                        var clientContext = _server.GetClientContext(clientId);
+                        var clientContext = _server.GetClientContext(targetClientId);
                         if (clientContext != null)
                         {
-                            clientContext.Call<ISceneClientService>().OnPlayerEnteredScene(p, scenelData);
+                            clientContext.Call<ISceneClientService>().OnPlayerEnteredScene(player, nonNullData);
                             Console.WriteLine($"[SceneService] 已调用 OnPlayerEnteredScene 给 {p.SteamId}");
                         }
-
                         else
                         {
                             Console.WriteLine($"[SceneService] ⚠️ 未找到客户端上下文: {p.SteamId}");
