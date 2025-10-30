@@ -86,7 +86,7 @@ namespace DuckyNet.Client.UI
 
             // 通知聊天窗口已进入房间
             _chatWindow?.SetRoomStatus(true);
-            GameContext.Instance.EventBus.Publish(new RoomJoinedEvent(GameContext.Instance.LocalPlayer.Info, room));
+            // GameContext.Instance.EventBus.Publish(new RoomJoinedEvent(GameContext.Instance.LocalPlayer.Info, room));
         }
 
         public void Draw()

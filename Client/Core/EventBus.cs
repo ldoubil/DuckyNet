@@ -217,29 +217,37 @@ namespace DuckyNet.Client.Core
 
     #region 事件定义
 
+
     /// <summary>
-    /// 场景加载完成事件
+    /// 场景加载完成事件（包含子场景ID）
     /// </summary>
-    public class SceneLoadedEvent
+    public class SceneLoadedDetailEvent
     {
         public string SceneName { get; }
-        public SceneLoadedEvent(string sceneName)
+        public string SubSceneId { get; }
+        public SceneLoadedDetailEvent(string sceneName, string subSceneId)
         {
             SceneName = sceneName;
+            SubSceneId = subSceneId;
         }
     }
 
+
+
     /// <summary>
-    /// 场景卸载事件
+    /// 场景卸载事件（包含子场景ID）
     /// </summary>
-    public class SceneUnloadingEvent
+    public class SceneUnloadingDetailEvent
     {
         public string SceneName { get; }
-        public SceneUnloadingEvent(string sceneName)
+        public string SubSceneId { get; }
+        public SceneUnloadingDetailEvent(string sceneName, string subSceneId)
         {
             SceneName = sceneName;
+            SubSceneId = subSceneId;
         }
     }
+
 
     /// <summary>
     /// 网络通知玩家进入场景事件
@@ -305,12 +313,10 @@ namespace DuckyNet.Client.Core
     /// </summary>
     public class RoomJoinedEvent
     {
-        public Shared.Services.PlayerInfo Player { get; }
-        public Shared.Services.RoomInfo Room { get; }
-        public RoomJoinedEvent(Shared.Services.PlayerInfo player, Shared.Services.RoomInfo room)
+        public static RoomJoinedEvent Instance { get; } = new RoomJoinedEvent();
+        private RoomJoinedEvent()
         { 
-            Player = player;
-            Room = room;
+            
         }
     }
 

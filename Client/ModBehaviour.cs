@@ -13,6 +13,7 @@ namespace DuckyNet.Client
     /// </summary>
     public class ModBehaviour : Duckov.Modding.ModBehaviour
     {
+        private readonly EventSubscriberHelper _eventSub = new EventSubscriberHelper();
         /// <summary>
         /// 全局实例
         /// </summary>
@@ -88,15 +89,15 @@ namespace DuckyNet.Client
             // 注册输入按键
             RegisterInputKeys();
 
-            // 创建并初始化场景监听器（通过 Harmony 监听游戏场景事件）
-            var sceneListener = new Patches.SceneListener();
-            sceneListener.Initialize();
+            // 创建并初始化场景事件桥接器（仅转发进入/离开地图事件）
+            var sceneBridge = new Patches.SceneEventBridge();
+            sceneBridge.Initialize();
             // 初始化场景信息提供者（用于查询当前场景）
-            Core.Helpers.SceneInfoProvider.Initialize(sceneListener);
+            Core.Helpers.SceneInfoProvider.Initialize(sceneBridge);
 
             // 创建网络生命周期管理器
             var lifecycleManager = new Core.NetworkLifecycleManager(context);
-            
+
             // 订阅连接/断开连接事件
             context.RpcClient.Connected += () => lifecycleManager.HandleConnected();
             context.RpcClient.Disconnected += lifecycleManager.HandleDisconnected;
@@ -105,8 +106,19 @@ namespace DuckyNet.Client
             CharacterAppearanceHelper.StartAutoUpload();
 
             Debug.Log("[ModBehaviour] 游戏上下文初始化完成");
-        }
 
+            // 使用 EventSubscriberHelper 订阅，避免弱引用被 GC 回收
+            _eventSub.Subscribe<SceneLoadedDetailEvent>(OnSceneLoaded);
+            _eventSub.Subscribe<SceneUnloadingDetailEvent>(OnSceneUnloading);
+        }
+        private void OnSceneLoaded(SceneLoadedDetailEvent evt)
+        {
+            Debug.Log($"[ModBehaviour] 场景 {evt.SceneName} 加载完成 {evt.SubSceneId}");
+        }
+        private void OnSceneUnloading(SceneUnloadingDetailEvent evt)
+        {
+            Debug.Log($"[ModBehaviour] 场景 {evt.SceneName} 即将卸载 {evt.SubSceneId}");
+        }
         /// <summary>
         /// 注册所有输入按键
         /// </summary>
@@ -222,6 +234,9 @@ namespace DuckyNet.Client
             try
             {
                 Debug.Log("[ModBehaviour] Mod 卸载中...");
+
+                // 释放事件订阅
+                _eventSub.Dispose();
 
                 // 取消 Harmony Patch
                 if (_harmony != null)
