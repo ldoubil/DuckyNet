@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 using DuckyNet.Client.RPC;
 
-namespace DuckyNet.Client.Core.Deb
+namespace DuckyNet.Client.Core.DebugModule
 {
     /// <summary>
     /// 网络调试模块 - 显示连接状态和 RPC 信息

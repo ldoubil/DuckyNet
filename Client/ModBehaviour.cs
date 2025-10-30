@@ -72,18 +72,8 @@ namespace DuckyNet.Client
             // 确保 UnitManager 订阅事件
             unitManager.EnsureSubscribed();
             context.RegisterCharacterCustomizationManager(new Core.CharacterCustomizationManager());
-            // 注册场景管理器
-            var sceneManager = new Core.SceneManager();
-            context.RegisterSceneManager(sceneManager);
-            
-            // 初始化场景管理器的玩家模型管理器（需要先注册 UnitManager）
-            sceneManager.InitializePlayerModelManager();
+
             context.RegisterUIManager(new Core.UIManager(context.RpcClient));
-            context.RegisterSyncManager(new Core.SyncManager(
-                context.RpcClient, 
-                context.CharacterCustomizationManager, 
-                context.LocalPlayer,
-                context.SceneManager)); // 传入 SceneManager 用于场景状态检查
 
             // 注册客户端服务
             context.RpcClient.RegisterClientService<Shared.Services.IPlayerClientService>(new Services.PlayerClientServiceImpl());
@@ -108,7 +98,7 @@ namespace DuckyNet.Client
             var lifecycleManager = new Core.NetworkLifecycleManager(context);
             
             // 订阅连接/断开连接事件
-            context.RpcClient.Connected += () => _ = lifecycleManager.HandleConnectedAsync();
+            context.RpcClient.Connected += () => lifecycleManager.HandleConnected();
             context.RpcClient.Disconnected += lifecycleManager.HandleDisconnected;
 
             // 启动角色外观自动上传

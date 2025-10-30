@@ -15,8 +15,6 @@ namespace DuckyNet.Shared.Services.Generated
                 case "EnterSceneAsync": return _impl.EnterSceneAsync(ctx, (string)args[0]);
                 case "LeaveSceneAsync": return _impl.LeaveSceneAsync(ctx);
                 case "GetScenePlayersAsync": return _impl.GetScenePlayersAsync(ctx, (string)args[0]);
-                case "GetCurrentSceneAsync": return _impl.GetCurrentSceneAsync(ctx);
-                case "GetAllPlayerScenesAsync": return _impl.GetAllPlayerScenesAsync(ctx);
                 default: throw new Exception("Unknown method");
             }
         }

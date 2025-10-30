@@ -371,7 +371,6 @@ namespace DuckyNet.Server.RPC
         private async void HandleClientCall(NetPeer peer, RpcMessage message)
         {
             var startTime = System.Diagnostics.Stopwatch.StartNew();
-            var success = false;
             
             try
             {
@@ -410,7 +409,6 @@ namespace DuckyNet.Server.RPC
                 };
 
                 SendResponse(peer, response);
-                success = true;
             }
             catch (Exception ex)
             {

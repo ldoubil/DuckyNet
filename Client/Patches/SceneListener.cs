@@ -140,15 +140,10 @@ namespace DuckyNet.Client.Patches
                     if (!string.IsNullOrEmpty(currentSceneName))
                     {
                         eventBus.Publish(new SceneUnloadingEvent(currentSceneName));
-                        // 同时发布场景名称更新事件（用于 SyncManager 等更新缓存）
-                        eventBus.Publish(new SceneNameUpdatedEvent(string.Empty, isInScene: false));
                     }
                     else
                     {
-                        // 如果无法获取场景名，发布一个通用卸载事件（SceneManager 会处理）
-                        // 这种情况通常发生在关卡开始初始化时，场景信息可能已被清理
-                        UnityEngine.Debug.LogWarning("[SceneListener] 无法获取当前场景名，SceneManager 将通过 CurrentScene 状态处理");
-                        eventBus.Publish(new SceneNameUpdatedEvent(string.Empty, isInScene: false));
+                        eventBus.Publish(new SceneUnloadingEvent(""));
                     }
                 }
             }
@@ -197,8 +192,6 @@ namespace DuckyNet.Client.Patches
                     {
                         var eventBus = GameContext.Instance.EventBus;
                         eventBus.Publish(new SceneLoadedEvent(sceneName));
-                        // 同时发布场景名称更新事件（用于 SyncManager 等更新缓存）
-                        eventBus.Publish(new SceneNameUpdatedEvent(sceneName, isInScene: true));
                     }
                     return;
                 }

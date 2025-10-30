@@ -14,6 +14,5 @@ namespace DuckyNet.Shared.Services.Generated
 
         public Task<bool> UpdateAppearanceAsync(Byte[] appearanceData) => _ctx.InvokeAsync<DuckyNet.Shared.Services.ICharacterService, bool>("UpdateAppearanceAsync", appearanceData);
         public Task<Byte[]> GetAppearanceAsync(string steamId) => _ctx.InvokeAsync<DuckyNet.Shared.Services.ICharacterService, Byte[]>("GetAppearanceAsync", steamId);
-        public Task<bool> SetCharacterCreatedAsync(bool hasCharacter) => _ctx.InvokeAsync<DuckyNet.Shared.Services.ICharacterService, bool>("SetCharacterCreatedAsync", hasCharacter);
     }
 }

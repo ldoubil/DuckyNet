@@ -287,7 +287,7 @@ namespace DuckyNet.Client.Services
             try
             {
                 // 禁用动画控制脚本（重要！防止覆盖同步的动画参数）
-                if (!Core.Deb.AnimatorFixer.DisableAnimationControl(character))
+                if (!Core.DebugModule.AnimatorFixer.DisableAnimationControl(character))
                 {
                     Debug.LogWarning($"[CharacterSyncClient] 无法禁用动画控制: {character.name}");
                 }

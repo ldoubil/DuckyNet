@@ -371,12 +371,10 @@ namespace DuckyNet.Client.UI
 
                 string message = _inputMessage.Trim();
                 _inputMessage = string.Empty;
-
                 // 使用自动生成的强类型 Proxy
                 var serverContext = new ClientServerContext(_rpcClient);
                 var playerService = new PlayerServiceClientProxy(serverContext);
                 playerService.SendChatMessage(message);
-
                 UnityEngine.Debug.Log($"[ChatWindow] 发送消息: {message}");
             }
             catch (Exception ex)

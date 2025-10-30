@@ -14,7 +14,6 @@ namespace DuckyNet.Shared.Services.Generated
             {
                 case "UpdateAppearanceAsync": return _impl.UpdateAppearanceAsync(ctx, (Byte[])args[0]);
                 case "GetAppearanceAsync": return _impl.GetAppearanceAsync(ctx, (string)args[0]);
-                case "SetCharacterCreatedAsync": return _impl.SetCharacterCreatedAsync(ctx, (bool)args[0]);
                 default: throw new Exception("Unknown method");
             }
         }

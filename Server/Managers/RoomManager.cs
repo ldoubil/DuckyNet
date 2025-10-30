@@ -17,7 +17,7 @@ namespace DuckyNet.Server.Managers
         // 房间内的玩家：RoomId -> HashSet<PlayerId>
         private readonly Dictionary<string, HashSet<string>> _roomPlayers = new Dictionary<string, HashSet<string>>();
 
-        // 玩家所在房间：PlayerId -> RoomId
+        // 玩家所在房间：SteamId -> RoomId
         private readonly Dictionary<string, string> _playerRoom = new Dictionary<string, string>();
 
         private readonly object _lock = new object();
@@ -44,7 +44,7 @@ namespace DuckyNet.Server.Managers
                     RoomName = request.RoomName,
                     Description = request.Description,
                     Password = request.Password,
-                    HostPlayerId = host.SteamId,
+                    HostSteamId = host.SteamId,
                     CurrentPlayers = 1,
                     MaxPlayers = request.MaxPlayers,
                     CreateTime = DateTime.UtcNow
@@ -62,12 +62,12 @@ namespace DuckyNet.Server.Managers
         /// <summary>
         /// 加入房间
         /// </summary>
-        public RoomOperationResult JoinRoom(string playerId, string playerName, JoinRoomRequest request)
+        public RoomOperationResult JoinRoom(string playerSteamId, string playerName, JoinRoomRequest request)
         {
             lock (_lock)
             {
                 // 检查玩家是否已在其他房间
-                if (_playerRoom.ContainsKey(playerId))
+                if (_playerRoom.ContainsKey(playerSteamId))
                 {
                     return new RoomOperationResult
                     {
@@ -87,7 +87,7 @@ namespace DuckyNet.Server.Managers
                 }
 
                 // 检查是否是原房主回归（房主有特权，即使房间满了也能进）
-                bool isReturningHost = (room.HostPlayerId == playerId);
+                bool isReturningHost = (room.HostSteamId == playerSteamId);
 
                 // 检查房间是否已满（房主例外）
                 if (room.IsFull && !isReturningHost)
@@ -120,8 +120,8 @@ namespace DuckyNet.Server.Managers
                 }
 
                 // 加入房间
-                _roomPlayers[request.RoomId].Add(playerId);
-                _playerRoom[playerId] = request.RoomId;
+                _roomPlayers[request.RoomId].Add(playerSteamId);
+                _playerRoom[playerSteamId] = request.RoomId;
                 room.CurrentPlayers++;
 
                 if (isReturningHost)
@@ -171,7 +171,7 @@ namespace DuckyNet.Server.Managers
 
                 // 房主ID永远绑定房间，不转移房主权限
                 // 房主可以离开并重新加入，保持房主身份
-                if (room.HostPlayerId == playerId)
+                if (room.HostSteamId == playerId)
                 {
                     Console.WriteLine($"[RoomManager] Host left room {roomId}, but host ID remains (waiting for host to return)");
                 }
@@ -235,12 +235,12 @@ namespace DuckyNet.Server.Managers
         /// <summary>
         /// 踢出玩家（仅房主可用）
         /// </summary>
-        public bool KickPlayer(string hostId, string targetPlayerId)
+        public bool KickPlayer(string hostSteamId, string targetSteamId)
         {
             lock (_lock)
             {
                 // 检查房主是否在房间
-                if (!_playerRoom.TryGetValue(hostId, out var roomId))
+                if (!_playerRoom.TryGetValue(hostSteamId, out var roomId))
                 {
                     return false;
                 }
@@ -248,26 +248,26 @@ namespace DuckyNet.Server.Managers
                 var room = _rooms[roomId];
 
                 // 检查是否是房主
-                if (room.HostPlayerId != hostId)
+                if (room.HostSteamId != hostSteamId)
                 {
                     return false;
                 }
 
                 // 检查目标玩家是否在同一房间
-                if (!_playerRoom.TryGetValue(targetPlayerId, out var targetRoomId) || targetRoomId != roomId)
+                if (!_playerRoom.TryGetValue(targetSteamId, out var targetRoomId) || targetRoomId != roomId)
                 {
                     return false;
                 }
 
                 // 不能踢自己
-                if (hostId == targetPlayerId)
+                if (hostSteamId == targetSteamId)
                 {
                     return false;
                 }
 
                 // 踢出玩家
-                LeaveRoom(targetPlayerId);
-                Console.WriteLine($"[RoomManager] Player {targetPlayerId} kicked by host {hostId}");
+                LeaveRoom(targetSteamId);
+                Console.WriteLine($"[RoomManager] Player {targetSteamId} kicked by host {hostSteamId}");
                 return true;
             }
         }

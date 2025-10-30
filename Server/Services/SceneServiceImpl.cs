@@ -83,7 +83,6 @@ namespace DuckyNet.Server.Services
                     SteamId = player.SteamId,
                     PlayerInfo = player,
                     SceneName = sceneName,
-                    HasCharacter = player.HasCharacter
                 };
 
                 // 通知房间内的所有其他玩家
@@ -171,7 +170,6 @@ namespace DuckyNet.Server.Services
                             SteamId = p.SteamId,
                             PlayerInfo = p,
                             SceneName = sceneName,
-                            HasCharacter = p.HasCharacter
                         });
                     }
                 }
@@ -205,7 +203,6 @@ namespace DuckyNet.Server.Services
                         SteamId = player.SteamId,
                         PlayerInfo = player,
                         SceneName = sceneName,
-                        HasCharacter = player.HasCharacter
                     });
                 }
                 
@@ -252,7 +249,6 @@ namespace DuckyNet.Server.Services
                         SteamId = roomPlayer.SteamId,
                         PlayerInfo = roomPlayer,
                         SceneName = sceneName ?? string.Empty,
-                        HasCharacter = roomPlayer.HasCharacter
                     });
                 }
 

@@ -15,6 +15,6 @@ namespace DuckyNet.Shared.Services.Generated
 
         public void OnCharacterStateUpdate(CharacterSyncData syncData) => _ctx.Invoke<DuckyNet.Shared.Services.ICharacterSyncClientService>("OnCharacterStateUpdate", syncData);
         public void OnFullStateUpdate(CharacterSyncData[] allStates) => _ctx.Invoke<DuckyNet.Shared.Services.ICharacterSyncClientService>("OnFullStateUpdate", allStates);
-        public void OnCharacterLeft(string playerId) => _ctx.Invoke<DuckyNet.Shared.Services.ICharacterSyncClientService>("OnCharacterLeft", playerId);
+        public void OnCharacterLeft(string SteamId) => _ctx.Invoke<DuckyNet.Shared.Services.ICharacterSyncClientService>("OnCharacterLeft", SteamId);
     }
 }

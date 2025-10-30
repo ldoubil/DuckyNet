@@ -1,48 +1,93 @@
 using System;
 using UnityEngine;
 using DuckyNet.Shared.Services;
+using DuckyNet.Client.Core;
 
 namespace DuckyNet.Client.Services
 {
     /// <summary>
-    /// 玩家客户端服务实现（接收服务器调用）
+    /// 玩家客户端服务实现类
+    /// <para>实现 IPlayerClientService 接口，负责处理服务器向客户端发送的玩家相关事件回调</para>
+    /// <para>这些方法由服务器通过 RPC 机制调用，用于通知客户端玩家状态变化和消息事件</para>
+    /// <para>所有事件都会发布到全局 EventBus，实现系统间解耦通信</para>
     /// </summary>
     public class PlayerClientServiceImpl : IPlayerClientService
     {
-        public event Action<PlayerInfo, string>? OnChatMessageReceived;
-        public event Action<PlayerInfo>? OnPlayerJoinedEvent;
-        public event Action<PlayerInfo>? OnPlayerLeftEvent;
-
+        /// <summary>
+        /// 接收聊天消息回调方法
+        /// <para>由服务器调用，当有玩家发送聊天消息时，服务器会将消息转发给所有相关客户端</para>
+        /// <para>此方法会记录日志并通过全局 EventBus 发布事件，供其他模块订阅处理</para>
+        /// </summary>
+        /// <param name="sender">发送消息的玩家信息对象，包含 SteamId、SteamName 等玩家基本信息</param>
+        /// <param name="message">聊天消息的文本内容</param>
         public void OnChatMessage(PlayerInfo sender, string message)
         {
+            // 在 Unity 控制台输出聊天消息日志，格式：[Chat] 玩家名称: 消息内容
             Debug.Log($"[Chat] {sender.SteamName}: {message}");
-            OnChatMessageReceived?.Invoke(sender, message);
+            
+            // 通过全局 EventBus 发布聊天消息事件，实现系统解耦
+            if (GameContext.IsInitialized)
+            {
+                GameContext.Instance.EventBus.Publish(new ChatMessageReceivedEvent(sender, message));
+            }
         }
 
+        /// <summary>
+        /// 玩家加入回调方法
+        /// <para>由服务器调用，当有新玩家成功登录加入游戏时触发</para>
+        /// <para>此方法会记录日志并通过全局 EventBus 发布事件，供其他模块订阅处理</para>
+        /// </summary>
+        /// <param name="player">加入游戏的玩家信息对象，包含完整的玩家数据（SteamId、SteamName、AvatarUrl 等）</param>
         public void OnPlayerJoined(PlayerInfo player)
         {
+            // 在 Unity 控制台输出玩家加入日志
             Debug.Log($"[PlayerClientService] Player joined: {player.SteamName}");
-            OnPlayerJoinedEvent?.Invoke(player);
+            
+            // 通过全局 EventBus 发布玩家加入事件，实现系统解耦
+            if (GameContext.IsInitialized)
+            {
+                GameContext.Instance.EventBus.Publish(new PlayerJoinedEvent(player));
+            }
         }
 
+        /// <summary>
+        /// 玩家离开回调方法
+        /// <para>由服务器调用，当玩家登出或断开连接时触发</para>
+        /// <para>此方法会记录日志并通过全局 EventBus 发布事件，供其他模块订阅处理</para>
+        /// </summary>
+        /// <param name="player">离开游戏的玩家信息对象，包含玩家标识信息</param>
         public void OnPlayerLeft(PlayerInfo player)
         {
+            // 在 Unity 控制台输出玩家离开日志
             Debug.Log($"[PlayerClientService] Player left: {player.SteamName}");
-            OnPlayerLeftEvent?.Invoke(player);
+            
+            // 通过全局 EventBus 发布玩家离开事件，实现系统解耦
+            if (GameContext.IsInitialized)
+            {
+                GameContext.Instance.EventBus.Publish(new PlayerLeftEvent(player));
+            }
         }
 
-
+        /// <summary>
+        /// 服务器消息通知回调方法
+        /// <para>由服务器调用，用于向客户端发送各种类型的服务器消息通知</para>
+        /// <para>支持多种消息类型：信息、警告、错误、成功等，不同消息类型会使用不同的日志前缀</para>
+        /// </summary>
+        /// <param name="message">服务器发送的消息文本内容</param>
+        /// <param name="messageType">消息类型枚举值，用于区分消息的严重程度和类型</param>
         public void OnServerMessage(string message, MessageType messageType)
         {
+            // 根据消息类型选择对应的日志前缀，用于在控制台中更清晰地识别消息类型
             string prefix = messageType switch
             {
-                MessageType.Info => "[Server/Info]",
-                MessageType.Warning => "[Server/Warning]",
-                MessageType.Error => "[Server/Error]",
-                MessageType.Success => "[Server/Success]",
-                _ => "[Server]"
+                MessageType.Info => "[Server/Info]",           // 普通信息消息
+                MessageType.Warning => "[Server/Warning]",     // 警告消息
+                MessageType.Error => "[Server/Error]",         // 错误消息
+                MessageType.Success => "[Server/Success]",     // 成功消息
+                _ => "[Server]"                               // 默认消息（未知类型）
             };
             
+            // 在 Unity 控制台输出带前缀的服务器消息
             Debug.Log($"{prefix} {message}");
         }
     }

@@ -19,6 +19,6 @@ namespace DuckyNet.Shared.Services.Generated
         public Task<RoomInfo> GetCurrentRoomAsync() => _ctx.InvokeAsync<DuckyNet.Shared.Services.IRoomService, RoomInfo>("GetCurrentRoomAsync");
         public Task<RoomInfo> GetRoomInfoAsync(string roomId) => _ctx.InvokeAsync<DuckyNet.Shared.Services.IRoomService, RoomInfo>("GetRoomInfoAsync", roomId);
         public Task<PlayerInfo[]> GetRoomPlayersAsync(string roomId) => _ctx.InvokeAsync<DuckyNet.Shared.Services.IRoomService, PlayerInfo[]>("GetRoomPlayersAsync", roomId);
-        public Task<bool> KickPlayerAsync(string playerId) => _ctx.InvokeAsync<DuckyNet.Shared.Services.IRoomService, bool>("KickPlayerAsync", playerId);
+        public Task<bool> KickPlayerAsync(string SteamId) => _ctx.InvokeAsync<DuckyNet.Shared.Services.IRoomService, bool>("KickPlayerAsync", SteamId);
     }
 }

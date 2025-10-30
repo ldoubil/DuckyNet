@@ -220,7 +220,6 @@ namespace DuckyNet.Server.Services
                                     SteamId = player.SteamId,
                                     PlayerInfo = player,
                                     SceneName = sceneName,
-                                    HasCharacter = true   // 角色已创建
                                 };
                                 
                                 // 直接通过 RPC 通知客户端

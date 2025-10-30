@@ -22,11 +22,6 @@ namespace DuckyNet.Shared.Services
         [ClientToServer]
         Task<byte[]?> GetAppearanceAsync(IClientContext client, string steamId);
 
-        /// <summary>
-        /// 标记角色已创建
-        /// </summary>
-        [ClientToServer]
-        Task<bool> SetCharacterCreatedAsync(IClientContext client, bool hasCharacter);
     }
 
     /// <summary>

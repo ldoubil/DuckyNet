@@ -4,7 +4,7 @@ using System.Linq;
 using UnityEngine;
 using DuckyNet.Client.RPC;
 using DuckyNet.Client.Core;
-using DuckyNet.Client.Core.Deb;
+using DuckyNet.Client.Core.DebugModule;
 
 namespace DuckyNet.Client.UI
 {

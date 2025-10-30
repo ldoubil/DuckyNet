@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 using DuckyNet.Client.Core;
 
-namespace DuckyNet.Client.Core.Deb
+namespace DuckyNet.Client.Core.DebugModule
 {
     /// <summary>
     /// 单位管理调试模块 - 管理测试单位的创建和销毁

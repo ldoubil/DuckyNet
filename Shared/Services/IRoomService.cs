@@ -36,9 +36,9 @@ namespace DuckyNet.Shared.Services
         public bool RequirePassword => !string.IsNullOrEmpty(Password);
 
         /// <summary>
-        /// 房主玩家ID
+        /// 房主玩家SteamId
         /// </summary>
-        public string HostPlayerId { get; set; } = string.Empty;
+        public string HostSteamId { get; set; } = string.Empty;
 
         /// <summary>
         /// 当前玩家数
@@ -152,7 +152,7 @@ namespace DuckyNet.Shared.Services
         /// 踢出玩家（仅房主）
         /// </summary>
         [ClientToServer]
-        Task<bool> KickPlayerAsync(IClientContext client, string playerId);
+        Task<bool> KickPlayerAsync(IClientContext client, string SteamId);
     }
 
     /// <summary>

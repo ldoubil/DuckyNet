@@ -83,9 +83,10 @@ namespace DuckyNet.Client.UI
         {
             _currentRoom = room;
             RefreshPlayerListAsync();
-            
+
             // 通知聊天窗口已进入房间
             _chatWindow?.SetRoomStatus(true);
+            GameContext.Instance.EventBus.Publish(new RoomJoinedEvent(GameContext.Instance.LocalPlayer.Info, room));
         }
 
         public void Draw()
@@ -104,7 +105,7 @@ namespace DuckyNet.Client.UI
             GUILayout.Label($"房间ID: {_currentRoom.RoomId}");
             GUILayout.Label($"描述: {_currentRoom.Description}");
             GUILayout.Label($"人数: {_currentRoom.CurrentPlayers}/{_currentRoom.MaxPlayers}");
-            GUILayout.Label($"房主: {_currentRoom.HostPlayerId}");
+            GUILayout.Label($"房主: {_currentRoom.HostSteamId}");
             GUILayout.EndVertical();
 
             GUILayout.Space(10);

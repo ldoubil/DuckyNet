@@ -4,7 +4,7 @@ using System.Linq;
 using System.Reflection;
 using DuckyNet.Client.RPC;
 
-namespace DuckyNet.Client.Core.Deb
+namespace DuckyNet.Client.Core.DebugModule
 {
     /// <summary>
     /// 调试模块管理器 - 自动发现和管理所有调试模块

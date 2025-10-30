@@ -2,9 +2,9 @@ using System;
 using System.Linq;
 using UnityEngine;
 using DuckyNet.Client.Core;
-using DuckyNet.Client.Core.Deb;
+using DuckyNet.Client.Core.DebugModule;
 
-namespace DuckyNet.Client.Core.Deb
+namespace DuckyNet.Client.Core.DebugModule
 {
     /// <summary>
     /// 动画控制调试模块 - 从 AnimationDebugWindow 转换而来

@@ -49,10 +49,10 @@ namespace DuckyNet.Client.Core
                 _chatWindow = new ChatWindow(_rpcClient);
                 RegisterWindow("Chat", _chatWindow);
 
-                // 订阅聊天消息事件
-                if (_playerClientService != null)
+                // 订阅聊天消息事件（通过全局 EventBus）
+                if (GameContext.IsInitialized)
                 {
-                    _playerClientService.OnChatMessageReceived += _chatWindow.AddMessage;
+                    GameContext.Instance.EventBus.Subscribe<ChatMessageReceivedEvent>(OnChatMessageReceived);
                 }
 
                 // 创建玩家列表窗口
@@ -211,16 +211,24 @@ namespace DuckyNet.Client.Core
         }
 
         /// <summary>
+        /// 聊天消息接收事件处理器
+        /// </summary>
+        private void OnChatMessageReceived(ChatMessageReceivedEvent evt)
+        {
+            _chatWindow?.AddMessage(evt.Sender, evt.Message);
+        }
+
+        /// <summary>
         /// 清理资源
         /// </summary>
         public void Dispose()
         {
             try
             {
-                // 取消事件订阅
-                if (_playerClientService != null && _chatWindow != null)
+                // 取消 EventBus 事件订阅
+                if (GameContext.IsInitialized)
                 {
-                    _playerClientService.OnChatMessageReceived -= _chatWindow.AddMessage;
+                    GameContext.Instance.EventBus.Unsubscribe<ChatMessageReceivedEvent>(OnChatMessageReceived);
                 }
 
                 // 清理所有窗口

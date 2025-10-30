@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 using DuckyNet.Client.Core;
 
-namespace DuckyNet.Client.Core.Deb
+namespace DuckyNet.Client.Core.DebugModule
 {
     /// <summary>
     /// 事件总线调试模块 - 显示 EventBus 状态和事件统计

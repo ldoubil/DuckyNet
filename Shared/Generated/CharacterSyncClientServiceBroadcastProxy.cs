@@ -23,10 +23,10 @@ namespace DuckyNet.Shared.Services.Generated
             method.Invoke(_server, new object[] { "OnFullStateUpdate", new object[] { allStates } });
         }
 
-        public void OnCharacterLeft(string playerId)
+        public void OnCharacterLeft(string SteamId)
         {
             var method = _server.GetType().GetMethod("BroadcastToAll").MakeGenericMethod(typeof(DuckyNet.Shared.Services.ICharacterSyncClientService));
-            method.Invoke(_server, new object[] { "OnCharacterLeft", new object[] { playerId } });
+            method.Invoke(_server, new object[] { "OnCharacterLeft", new object[] { SteamId } });
         }
 
     }

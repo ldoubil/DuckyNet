@@ -13,7 +13,7 @@ namespace DuckyNet.Shared.Services.Generated
 
         public void OnPlayerEnteredScene(PlayerSceneInfo playerSceneInfo) => _client.Invoke<DuckyNet.Shared.Services.ISceneClientService>("OnPlayerEnteredScene", playerSceneInfo);
 
-        public void OnPlayerLeftScene(string steamId, string sceneName) => _client.Invoke<DuckyNet.Shared.Services.ISceneClientService>("OnPlayerLeftScene", steamId, sceneName);
+        public void OnPlayerLeftScene(string SteamId, string sceneName) => _client.Invoke<DuckyNet.Shared.Services.ISceneClientService>("OnPlayerLeftScene", SteamId, sceneName);
 
     }
 }

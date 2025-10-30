@@ -242,7 +242,7 @@ namespace DuckyNet.Client.Core
     }
 
     /// <summary>
-    /// 玩家进入场景事件
+    /// 网络通知玩家进入场景事件
     /// </summary>
     public class PlayerEnteredSceneEvent
     {
@@ -254,7 +254,7 @@ namespace DuckyNet.Client.Core
     }
 
     /// <summary>
-    /// 玩家离开场景事件
+    /// 网络通知玩家离开场景事件
     /// </summary>
     public class PlayerLeftSceneEvent
     {
@@ -305,8 +305,13 @@ namespace DuckyNet.Client.Core
     /// </summary>
     public class RoomJoinedEvent
     {
-        public static RoomJoinedEvent Instance { get; } = new RoomJoinedEvent();
-        private RoomJoinedEvent() { }
+        public Shared.Services.PlayerInfo Player { get; }
+        public Shared.Services.RoomInfo Room { get; }
+        public RoomJoinedEvent(Shared.Services.PlayerInfo player, Shared.Services.RoomInfo room)
+        { 
+            Player = player;
+            Room = room;
+        }
     }
 
     /// <summary>
@@ -416,19 +421,6 @@ namespace DuckyNet.Client.Core
         private SyncStopRequestEvent() { }
     }
 
-    /// <summary>
-    /// 场景名称更新事件（用于 SyncManager 更新缓存）
-    /// </summary>
-    public class SceneNameUpdatedEvent
-    {
-        public string SceneName { get; }
-        public bool IsInScene { get; }
-        public SceneNameUpdatedEvent(string sceneName, bool isInScene)
-        {
-            SceneName = sceneName;
-            IsInScene = isInScene;
-        }
-    }
 
     /// <summary>
     /// 创建远程角色请求事件
@@ -453,6 +445,63 @@ namespace DuckyNet.Client.Core
         {
             PlayerId = playerId;
             Character = character;
+        }
+    }
+
+    /// <summary>
+    /// 聊天消息接收事件
+    /// 当服务器转发其他玩家发送的聊天消息时触发此事件
+    /// </summary>
+    public class ChatMessageReceivedEvent
+    {
+        /// <summary>
+        /// 发送消息的玩家信息
+        /// </summary>
+        public Shared.Services.PlayerInfo Sender { get; }
+        
+        /// <summary>
+        /// 聊天消息内容
+        /// </summary>
+        public string Message { get; }
+        
+        public ChatMessageReceivedEvent(Shared.Services.PlayerInfo sender, string message)
+        {
+            Sender = sender;
+            Message = message;
+        }
+    }
+
+    /// <summary>
+    /// 玩家加入游戏事件
+    /// 当有新玩家成功登录加入游戏时触发此事件
+    /// </summary>
+    public class PlayerJoinedEvent
+    {
+        /// <summary>
+        /// 加入游戏的玩家信息
+        /// </summary>
+        public Shared.Services.PlayerInfo Player { get; }
+        
+        public PlayerJoinedEvent(Shared.Services.PlayerInfo player)
+        {
+            Player = player;
+        }
+    }
+
+    /// <summary>
+    /// 玩家离开游戏事件
+    /// 当玩家登出或断开连接时触发此事件
+    /// </summary>
+    public class PlayerLeftEvent
+    {
+        /// <summary>
+        /// 离开游戏的玩家信息
+        /// </summary>
+        public Shared.Services.PlayerInfo Player { get; }
+        
+        public PlayerLeftEvent(Shared.Services.PlayerInfo player)
+        {
+            Player = player;
         }
     }
 

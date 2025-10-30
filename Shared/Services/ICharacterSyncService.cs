@@ -51,9 +51,9 @@ namespace DuckyNet.Shared.Services
         /// <summary>
         /// 角色离开通知
         /// </summary>
-        /// <param name="playerId">离开的玩家ID</param>
+        /// <param name="SteamId">离开的玩家SteamId</param>
         [ServerToClient]
-        void OnCharacterLeft(string playerId);
+        void OnCharacterLeft(string SteamId);
     }
 }
 

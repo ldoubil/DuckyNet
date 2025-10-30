@@ -81,7 +81,6 @@ namespace DuckyNet.Client.Core.Helpers
                     Debug.Log($"[CharacterAppearanceHelper] ✅ 外观上传成功 ({appearanceBytes.Length} bytes)");
                     
                     // 同时标记角色已创建并更新本地状态
-                    await proxy.SetCharacterCreatedAsync(true);
                     localPlayer.Info.HasCharacter = true;
                     localPlayer.Info.AppearanceData = appearanceBytes;
                 }

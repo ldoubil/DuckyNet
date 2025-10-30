@@ -54,14 +54,6 @@ namespace DuckyNet.Client.UI
 
             // 动态显示窗口标题（包含当前地图）
             string windowTitle = "在线玩家";
-            if (GameContext.IsInitialized && GameContext.Instance.SceneManager != null)
-            {
-                var mapName = GameContext.Instance.SceneManager.GetCurrentMapName();
-                if (!string.IsNullOrEmpty(mapName))
-                {
-                    windowTitle = $"在线玩家 - {mapName}";
-                }
-            }
             _windowRect = GUILayout.Window(1002, _windowRect, DrawWindow, windowTitle);
         }
 
@@ -75,18 +67,7 @@ namespace DuckyNet.Client.UI
                 RefreshPlayerListAsync();
             }
 
-            // 显示当前地图名
-            string? currentMapName = null;
-            if (GameContext.IsInitialized && GameContext.Instance.SceneManager != null)
-            {
-                currentMapName = GameContext.Instance.SceneManager.GetCurrentMapName();
-            }
-            
-            string mapInfo = string.IsNullOrEmpty(currentMapName) 
-                ? "当前地图: (无)" 
-                : $"当前地图: {currentMapName}";
-            GUILayout.Label(mapInfo, GUI.skin.box);
-
+          
             GUILayout.Label($"在线玩家 ({_players.Count})", GUI.skin.box);
 
             // 玩家列表

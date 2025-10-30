@@ -4,7 +4,7 @@ using System.Linq;
 using UnityEngine;
 using DuckyNet.Client.Core;
 
-namespace DuckyNet.Client.Core.Deb
+namespace DuckyNet.Client.Core.DebugModule
 {
     /// <summary>
     /// 动画状态机模块 - 从 AnimatorStateViewer 转换而来

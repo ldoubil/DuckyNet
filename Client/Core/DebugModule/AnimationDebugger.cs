@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-namespace DuckyNet.Client.Core.Deb
+namespace DuckyNet.Client.Core.DebugModule
 {
     /// <summary>
     /// 动画调试器 - 用于调试和测试单位动画

@@ -21,14 +21,9 @@ namespace DuckyNet.Shared.Services
         public PlayerInfo? PlayerInfo { get; set; }
 
         /// <summary>
-        /// 当前场景名称（SceneName）
+        /// 当前场景名称（地图名）
         /// </summary>
         public string SceneName { get; set; } = string.Empty;
-
-        /// <summary>
-        /// 是否已创建角色
-        /// </summary>
-        public bool HasCharacter { get; set; }
     }
 
     /// <summary>
@@ -38,13 +33,13 @@ namespace DuckyNet.Shared.Services
     public interface ISceneService
     {
         /// <summary>
-        /// 进入场景（关卡初始化完成后调用）
+        /// 进入场景
         /// </summary>
         [ClientToServer]
         Task<bool> EnterSceneAsync(IClientContext client, string sceneName);
 
         /// <summary>
-        /// 离开当前场景（关卡开始初始化时调用）
+        /// 离开当前场景
         /// </summary>
         [ClientToServer]
         Task<bool> LeaveSceneAsync(IClientContext client);
@@ -55,17 +50,6 @@ namespace DuckyNet.Shared.Services
         [ClientToServer]
         Task<PlayerSceneInfo[]> GetScenePlayersAsync(IClientContext client, string sceneName);
 
-        /// <summary>
-        /// 获取当前场景信息
-        /// </summary>
-        [ClientToServer]
-        Task<PlayerSceneInfo?> GetCurrentSceneAsync(IClientContext client);
-
-        /// <summary>
-        /// 获取所有玩家的场景信息（当前房间内）
-        /// </summary>
-        [ClientToServer]
-        Task<PlayerSceneInfo[]> GetAllPlayerScenesAsync(IClientContext client);
     }
 
     /// <summary>
@@ -84,7 +68,7 @@ namespace DuckyNet.Shared.Services
         /// 玩家离开场景通知
         /// </summary>
         [ServerToClient]
-        void OnPlayerLeftScene(string steamId, string sceneName);
+        void OnPlayerLeftScene(string SteamId, string sceneName);
     }
 }
 

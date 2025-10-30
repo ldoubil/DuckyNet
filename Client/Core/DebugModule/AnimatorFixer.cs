@@ -1,7 +1,7 @@
 using UnityEngine;
 using HarmonyLib;
 
-namespace DuckyNet.Client.Core.Deb
+namespace DuckyNet.Client.Core.DebugModule
 {
     /// <summary>
     /// Animator修复工具 - 用于禁用/启用动画控制，防止脚本覆盖网络同步的动画参数

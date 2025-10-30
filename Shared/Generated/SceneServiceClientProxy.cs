@@ -15,7 +15,5 @@ namespace DuckyNet.Shared.Services.Generated
         public Task<bool> EnterSceneAsync(string sceneName) => _ctx.InvokeAsync<DuckyNet.Shared.Services.ISceneService, bool>("EnterSceneAsync", sceneName);
         public Task<bool> LeaveSceneAsync() => _ctx.InvokeAsync<DuckyNet.Shared.Services.ISceneService, bool>("LeaveSceneAsync");
         public Task<PlayerSceneInfo[]> GetScenePlayersAsync(string sceneName) => _ctx.InvokeAsync<DuckyNet.Shared.Services.ISceneService, PlayerSceneInfo[]>("GetScenePlayersAsync", sceneName);
-        public Task<PlayerSceneInfo> GetCurrentSceneAsync() => _ctx.InvokeAsync<DuckyNet.Shared.Services.ISceneService, PlayerSceneInfo>("GetCurrentSceneAsync");
-        public Task<PlayerSceneInfo[]> GetAllPlayerScenesAsync() => _ctx.InvokeAsync<DuckyNet.Shared.Services.ISceneService, PlayerSceneInfo[]>("GetAllPlayerScenesAsync");
     }
 }

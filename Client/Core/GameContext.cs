@@ -62,15 +62,6 @@ namespace DuckyNet.Client.Core
         /// </summary>
         public CharacterCustomizationManager CharacterCustomizationManager { get; private set; }
 
-        /// <summary>
-        /// 场景管理器
-        /// </summary>
-        public SceneManager SceneManager { get; private set; }
-
-        /// <summary>
-        /// 同步管理器
-        /// </summary>
-        public SyncManager? SyncManager { get; private set; }
 
         /// <summary>
         /// 全局事件总线
@@ -91,8 +82,6 @@ namespace DuckyNet.Client.Core
             AvatarManager = null!;
             UnitManager = null!;
             CharacterCustomizationManager = null!;
-            SceneManager = null!;
-            SyncManager = null;
             EventBus = EventBus.Instance;
         }
 
@@ -177,24 +166,6 @@ namespace DuckyNet.Client.Core
         }
 
         /// <summary>
-        /// 注册场景管理器
-        /// </summary>
-        public void RegisterSceneManager(SceneManager sceneManager)
-        {
-            SceneManager = sceneManager ?? throw new ArgumentNullException(nameof(sceneManager));
-            UnityEngine.Debug.Log("[GameContext] 场景管理器已注册");
-        }
-
-        /// <summary>
-        /// 注册同步管理器
-        /// </summary>
-        public void RegisterSyncManager(SyncManager syncManager)
-        {
-            SyncManager = syncManager ?? throw new ArgumentNullException(nameof(syncManager));
-            UnityEngine.Debug.Log("[GameContext] 同步管理器已注册");
-        }
-
-        /// <summary>
         /// 清理游戏上下文
         /// </summary>
         public static void Cleanup()
@@ -203,8 +174,6 @@ namespace DuckyNet.Client.Core
 
             try
             {
-                _instance.SyncManager?.Dispose();
-                _instance.SceneManager?.Dispose();
                 _instance.CharacterCustomizationManager?.Dispose();
                 _instance.UnitManager?.Dispose();
                 _instance.InputManager?.Dispose();

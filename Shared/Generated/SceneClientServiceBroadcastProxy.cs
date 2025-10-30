@@ -16,10 +16,10 @@ namespace DuckyNet.Shared.Services.Generated
             method.Invoke(_server, new object[] { "OnPlayerEnteredScene", new object[] { playerSceneInfo } });
         }
 
-        public void OnPlayerLeftScene(string steamId, string sceneName)
+        public void OnPlayerLeftScene(string SteamId, string sceneName)
         {
             var method = _server.GetType().GetMethod("BroadcastToAll").MakeGenericMethod(typeof(DuckyNet.Shared.Services.ISceneClientService));
-            method.Invoke(_server, new object[] { "OnPlayerLeftScene", new object[] { steamId, sceneName } });
+            method.Invoke(_server, new object[] { "OnPlayerLeftScene", new object[] { SteamId, sceneName } });
         }
 
     }
