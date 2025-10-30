@@ -26,7 +26,7 @@ namespace DuckyNet.Server.Services
         public async Task<RoomInfo[]> GetRoomListAsync(IClientContext client)
         {
             // 检查是否已登录
-            if (!_playerManager.IsLoggedIn(client.ClientId))
+            if (!_playerManager.IsLoggedIn(_playerManager.GetPlayer(client.ClientId)?.SteamId ?? ""))
             {
                 throw new UnauthorizedAccessException("Not logged in");
             }
@@ -38,7 +38,7 @@ namespace DuckyNet.Server.Services
         public async Task<RoomOperationResult> CreateRoomAsync(IClientContext client, CreateRoomRequest request)
         {
             // 检查是否已登录
-            if (!_playerManager.IsLoggedIn(client.ClientId))
+            if (!_playerManager.IsLoggedIn(_playerManager.GetPlayer(client.ClientId)?.SteamId ?? ""))
             {
                 return new RoomOperationResult
                 {
@@ -82,7 +82,7 @@ namespace DuckyNet.Server.Services
         public async Task<RoomOperationResult> JoinRoomAsync(IClientContext client, JoinRoomRequest request)
         {
             // 检查是否已登录
-            if (!_playerManager.IsLoggedIn(client.ClientId))
+            if (!_playerManager.IsLoggedIn(_playerManager.GetPlayer(client.ClientId)?.SteamId ?? ""))
             {
                 return new RoomOperationResult
                 {
@@ -101,31 +101,29 @@ namespace DuckyNet.Server.Services
                 };
             }
 
-            var result = _roomManager.JoinRoom(player.SteamId, player.SteamName, request);
+            var result = _roomManager.JoinRoom(player, request);
 
             if (result.Success && result.Room != null)
             {
                 // 通知房间内所有玩家
-                var roomPlayerIds = _roomManager.GetRoomPlayerIds(request.RoomId);
-                foreach (var playerId in roomPlayerIds)
+                var roomPlayers = _roomManager.GetRoomPlayers(request.RoomId);
+                foreach (var p in roomPlayers)
                 {
-                    var playerContext = _server.GetClientContext(playerId);
+                    var playerContext = _server.GetClientContext(p.SteamId);
                     if (playerContext != null)
-                    {
                         playerContext.Call<IRoomClientService>()
                             .OnPlayerJoinedRoom(player, result.Room);
                     }
                 }
 
                 Console.WriteLine($"[RoomService] Player {player.SteamName} joined room {request.RoomId}");
-            }
 
             return await Task.FromResult(result);
         }
 
         public async Task<bool> LeaveRoomAsync(IClientContext client)
         {
-            if (!_playerManager.IsLoggedIn(client.ClientId))
+            if (!_playerManager.IsLoggedIn(_playerManager.GetPlayer(client.ClientId)?.SteamId ?? ""))
             {
                 return false;
             }
@@ -136,21 +134,19 @@ namespace DuckyNet.Server.Services
                 return false;
             }
 
-            var room = _roomManager.LeaveRoom(player.SteamId);
+            var room = _roomManager.LeaveRoom(player);
 
             if (room != null)
             {
                 // 通知房间内其他玩家
-                var roomPlayerIds = _roomManager.GetRoomPlayerIds(room.RoomId);
-                foreach (var playerId in roomPlayerIds)
+                var roomPlayers = _roomManager.GetRoomPlayers(room.RoomId);
+                foreach (var p in roomPlayers)
                 {
-                    var playerContext = _server.GetClientContext(playerId);
+                    var playerContext = _server.GetClientContext(p.SteamId);
                     if (playerContext != null)
-                    {
                         playerContext.Call<IRoomClientService>()
                             .OnPlayerLeftRoom(player, room);
                     }
-                }
 
                 Console.WriteLine($"[RoomService] Player {player.SteamName} left room {room.RoomId}");
             }
@@ -160,7 +156,7 @@ namespace DuckyNet.Server.Services
 
         public async Task<RoomInfo?> GetCurrentRoomAsync(IClientContext client)
         {
-            if (!_playerManager.IsLoggedIn(client.ClientId))
+            if (!_playerManager.IsLoggedIn(_playerManager.GetPlayer(client.ClientId)?.SteamId ?? ""))
             {
                 return null;
             }
@@ -171,7 +167,7 @@ namespace DuckyNet.Server.Services
                 return null;
             }
 
-            var room = _roomManager.GetPlayerRoom(player.SteamId);
+            var room = _roomManager.GetPlayerRoom(player);
             return await Task.FromResult(room);
         }
 
@@ -188,7 +184,7 @@ namespace DuckyNet.Server.Services
 
         public async Task<PlayerInfo[]> GetRoomPlayersAsync(IClientContext client, string roomId)
         {
-            if (!_playerManager.IsLoggedIn(client.ClientId))
+            if (!_playerManager.IsLoggedIn(_playerManager.GetPlayer(client.ClientId)?.SteamId ?? ""))
             {
                 return Array.Empty<PlayerInfo>();
             }
@@ -199,7 +195,7 @@ namespace DuckyNet.Server.Services
 
         public async Task<bool> KickPlayerAsync(IClientContext client, string playerId)
         {
-            if (!_playerManager.IsLoggedIn(client.ClientId))
+            if (!_playerManager.IsLoggedIn(_playerManager.GetPlayer(client.ClientId)?.SteamId ?? ""))
             {
                 return false;
             }
@@ -210,7 +206,13 @@ namespace DuckyNet.Server.Services
                 return false;
             }
 
-            var result = _roomManager.KickPlayer(player.SteamId, playerId);
+            var targetPlayer = _playerManager.GetPlayer(playerId);
+            if (targetPlayer == null)
+            {
+                return false;
+            }
+
+            var result = _roomManager.KickPlayer(player, targetPlayer);
 
             if (result)
             {
@@ -219,7 +221,7 @@ namespace DuckyNet.Server.Services
                 if (targetContext != null)
                 {
                     targetContext.Call<IRoomClientService>()
-                        .OnKickedFromRoom("Kicked by host");
+                        .OnKickedFromRoom($"被房主 {player.SteamName} 踢出房间");
                 }
 
                 Console.WriteLine($"[RoomService] Player {playerId} kicked by {client.ClientId}");

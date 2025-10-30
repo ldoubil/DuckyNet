@@ -3,6 +3,7 @@ using DuckyNet.Shared.Services;
 using DuckyNet.Client.Core;
 using DuckyNet.Client.Core.Helpers;
 using UnityEngine;
+using DuckyNet.Shared.Data;
 
 namespace DuckyNet.Client.Services
 {
@@ -35,14 +36,14 @@ namespace DuckyNet.Client.Services
         /// <summary>
         /// 玩家进入场景通知（服务器调用）
         /// </summary>
-        public void OnPlayerEnteredScene(PlayerSceneInfo playerSceneInfo)
+        public void OnPlayerEnteredScene(PlayerInfo playerInfo, ScenelData scenelData)
         {
             try
             {
-                Debug.Log($"[SceneClientService] 玩家进入场景: {playerSceneInfo.PlayerInfo?.SteamName ?? playerSceneInfo.SteamId} -> {playerSceneInfo.SceneName} ");
+                Debug.Log($"[SceneClientService] 玩家进入场景: {playerInfo.SteamName} -> {scenelData.SceneName} ");
                 if (GameContext.IsInitialized)
                 {
-                    _eventSubscriber.EventBus.Publish(new PlayerEnteredSceneEvent(playerSceneInfo));
+                    _eventSubscriber.EventBus.Publish(new PlayerEnteredSceneEvent(playerInfo, scenelData));
                 }
             }catch(Exception ex)
             {
@@ -55,15 +56,15 @@ namespace DuckyNet.Client.Services
         /// <summary>
         /// 玩家离开场景通知（服务器调用）
         /// </summary>
-        public void OnPlayerLeftScene(string steamId, string sceneName)
+        public void OnPlayerLeftScene(PlayerInfo playerInfo, ScenelData scenelData)
         {
             try
             {
-                Debug.Log($"[SceneClientService] 玩家离开场景: {steamId} <- {sceneName}");
+                Debug.Log($"[SceneClientService] 玩家离开场景: {playerInfo.SteamName} <- {scenelData.SceneName}");
 
                 if (GameContext.IsInitialized)
                 {
-                    _eventSubscriber.EventBus.Publish(new PlayerLeftSceneEvent(steamId, sceneName));
+                    _eventSubscriber.EventBus.Publish(new PlayerLeftSceneEvent(playerInfo, scenelData));
                 }
             }
             catch (Exception ex)

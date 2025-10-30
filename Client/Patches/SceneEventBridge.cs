@@ -2,6 +2,7 @@ using System;
 using DuckyNet.Client.Core;
 using UnityEngine;
 using Duckov.Scenes;
+using DuckyNet.Shared.Data;
 
 namespace DuckyNet.Client.Patches
 {
@@ -44,7 +45,7 @@ namespace DuckyNet.Client.Patches
                 string subSceneName = scene.name;
 
                 Debug.Log($"[SceneEventBridge] 子场景即将卸载: {subSceneName}");
-                GameContext.Instance.EventBus.Publish(new SceneUnloadingDetailEvent(mainSceneName, subSceneName));
+                GameContext.Instance.EventBus.Publish(new SceneUnloadingDetailEvent(new ScenelData(mainSceneName, subSceneName)));
             }
             catch (Exception ex)
             {
@@ -62,7 +63,7 @@ namespace DuckyNet.Client.Patches
                 string subSceneName = scene.name;
 
                 Debug.Log($"[SceneEventBridge] 子场景加载完成: {subSceneName}");
-                GameContext.Instance.EventBus.Publish(new SceneLoadedDetailEvent(mainSceneName, subSceneName));
+                GameContext.Instance.EventBus.Publish(new SceneLoadedDetailEvent(new ScenelData(mainSceneName, subSceneName)));
             }
             catch (Exception ex)
             {

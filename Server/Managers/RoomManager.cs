@@ -15,10 +15,10 @@ namespace DuckyNet.Server.Managers
         private readonly Dictionary<string, RoomInfo> _rooms = new Dictionary<string, RoomInfo>();
 
         // 房间内的玩家：RoomId -> HashSet<PlayerId>
-        private readonly Dictionary<string, HashSet<string>> _roomPlayers = new Dictionary<string, HashSet<string>>();
+        private readonly Dictionary<string, HashSet<PlayerInfo>> _roomPlayers = new Dictionary<string, HashSet<PlayerInfo>>();
 
         // 玩家所在房间：SteamId -> RoomId
-        private readonly Dictionary<string, string> _playerRoom = new Dictionary<string, string>();
+        private readonly Dictionary<string, RoomInfo> _playerRoom = new Dictionary<string, RoomInfo>();
 
         private readonly object _lock = new object();
         private int _roomIdCounter = 1;
@@ -33,7 +33,7 @@ namespace DuckyNet.Server.Managers
                 // 检查玩家是否已在其他房间
                 if (_playerRoom.ContainsKey(host.SteamId))
                 {
-                    throw new InvalidOperationException("Player is already in a room");
+                    throw new InvalidOperationException("玩家已在其他房间");
                 }
 
                 // 创建房间
@@ -51,10 +51,10 @@ namespace DuckyNet.Server.Managers
                 };
 
                 _rooms[roomId] = room;
-                _roomPlayers[roomId] = new HashSet<string> { host.SteamId };
-                _playerRoom[host.SteamId] = roomId;
+                _roomPlayers[roomId] = new HashSet<PlayerInfo> { host };
+                _playerRoom[host.SteamId] = room;
 
-                Console.WriteLine($"[RoomManager] Room created: {roomId} by {host.SteamName}");
+                Console.WriteLine($"[RoomManager] 房间创建: {roomId} 房主: {host.SteamName}");
                 return room;
             }
         }
@@ -62,17 +62,17 @@ namespace DuckyNet.Server.Managers
         /// <summary>
         /// 加入房间
         /// </summary>
-        public RoomOperationResult JoinRoom(string playerSteamId, string playerName, JoinRoomRequest request)
+        public RoomOperationResult JoinRoom(PlayerInfo player, JoinRoomRequest request)
         {
             lock (_lock)
             {
                 // 检查玩家是否已在其他房间
-                if (_playerRoom.ContainsKey(playerSteamId))
+                if (_playerRoom.ContainsKey(player.SteamId))
                 {
                     return new RoomOperationResult
                     {
                         Success = false,
-                        ErrorMessage = "You are already in a room"
+                        ErrorMessage = "玩家已在其他房间"
                     };
                 }
 
@@ -82,12 +82,12 @@ namespace DuckyNet.Server.Managers
                     return new RoomOperationResult
                     {
                         Success = false,
-                        ErrorMessage = "Room not found"
+                        ErrorMessage = "房间不存在"
                     };
                 }
 
                 // 检查是否是原房主回归（房主有特权，即使房间满了也能进）
-                bool isReturningHost = (room.HostSteamId == playerSteamId);
+                bool isReturningHost = room.HostSteamId == player.SteamId;
 
                 // 检查房间是否已满（房主例外）
                 if (room.IsFull && !isReturningHost)
@@ -95,7 +95,7 @@ namespace DuckyNet.Server.Managers
                     return new RoomOperationResult
                     {
                         Success = false,
-                        ErrorMessage = "Room is full"
+                        ErrorMessage = "房间已满"
                     };
                 }
 
@@ -105,7 +105,7 @@ namespace DuckyNet.Server.Managers
                     return new RoomOperationResult
                     {
                         Success = false,
-                        ErrorMessage = "Room is not accepting new players"
+                        ErrorMessage = "房间不接受新玩家"
                     };
                 }
 
@@ -115,22 +115,22 @@ namespace DuckyNet.Server.Managers
                     return new RoomOperationResult
                     {
                         Success = false,
-                        ErrorMessage = "Invalid password"
+                        ErrorMessage = "密码错误"
                     };
                 }
 
                 // 加入房间
-                _roomPlayers[request.RoomId].Add(playerSteamId);
-                _playerRoom[playerSteamId] = request.RoomId;
+                _roomPlayers[request.RoomId].Add(player);
+                _playerRoom[player.SteamId] = room;
                 room.CurrentPlayers++;
 
                 if (isReturningHost)
                 {
-                    Console.WriteLine($"[RoomManager] Host {playerName} returned to room {request.RoomId}");
+                    Console.WriteLine($"[RoomManager] 房主 {player.SteamName} 返回房间 {request.RoomId}");
                 }
                 else
                 {
-                    Console.WriteLine($"[RoomManager] Player {playerName} joined room {request.RoomId}");
+                    Console.WriteLine($"[RoomManager] 玩家 {player.SteamName} 加入房间 {request.RoomId}");
                 }
 
                 return new RoomOperationResult
@@ -144,36 +144,35 @@ namespace DuckyNet.Server.Managers
         /// <summary>
         /// 离开房间
         /// </summary>
-        public RoomInfo? LeaveRoom(string playerId)
+        public RoomInfo? LeaveRoom(PlayerInfo player)
         {
             lock (_lock)
             {
-                if (!_playerRoom.TryGetValue(playerId, out var roomId))
+                if (!_playerRoom.TryGetValue(player.SteamId, out var room))
                 {
                     return null; // 玩家不在任何房间
                 }
 
-                var room = _rooms[roomId];
-                _roomPlayers[roomId].Remove(playerId);
-                _playerRoom.Remove(playerId);
+                _roomPlayers[room.RoomId].Remove(player);
+                _playerRoom.Remove(player.SteamId);
                 room.CurrentPlayers--;
 
-                Console.WriteLine($"[RoomManager] Player {playerId} left room {roomId}");
+                Console.WriteLine($"[RoomManager] 玩家 {player.SteamName} 离开房间 {room.RoomId}");
 
                 // 如果房间为空，删除房间
                 if (room.CurrentPlayers == 0)
                 {
-                    _rooms.Remove(roomId);
-                    _roomPlayers.Remove(roomId);
-                    Console.WriteLine($"[RoomManager] Room {roomId} deleted (empty)");
+                    _rooms.Remove(room.RoomId);
+                    _roomPlayers.Remove(room.RoomId);
+                    Console.WriteLine($"[RoomManager] 房间 {room.RoomId} 删除 (空)");
                     return null;
                 }
 
                 // 房主ID永远绑定房间，不转移房主权限
                 // 房主可以离开并重新加入，保持房主身份
-                if (room.HostSteamId == playerId)
+                if (room.HostSteamId == player.SteamId)
                 {
-                    Console.WriteLine($"[RoomManager] Host left room {roomId}, but host ID remains (waiting for host to return)");
+                    Console.WriteLine($"[RoomManager] 房主 {player.SteamName} 离开房间 {room.RoomId}, 但房主ID保持不变 (等待房主返回)");
                 }
 
                 return room;
@@ -205,13 +204,13 @@ namespace DuckyNet.Server.Managers
         /// <summary>
         /// 获取玩家所在房间
         /// </summary>
-        public RoomInfo? GetPlayerRoom(string playerId)
+        public RoomInfo? GetPlayerRoom(PlayerInfo player)
         {
             lock (_lock)
             {
-                if (_playerRoom.TryGetValue(playerId, out var roomId))
+                if (_playerRoom.TryGetValue(player.SteamId, out var room))
                 {
-                    return _rooms.TryGetValue(roomId, out var room) ? room : null;
+                    return room;
                 }
                 return null;
             }
@@ -220,54 +219,48 @@ namespace DuckyNet.Server.Managers
         /// <summary>
         /// 获取房间内的玩家ID列表
         /// </summary>
-        public string[] GetRoomPlayerIds(string roomId)
+        public PlayerInfo[] GetRoomPlayers(string roomId)
         {
             lock (_lock)
             {
-                if (_roomPlayers.TryGetValue(roomId, out var players))
-                {
-                    return players.ToArray();
-                }
-                return Array.Empty<string>();
+                return _roomPlayers.TryGetValue(roomId, out var players) ? players.ToArray() : Array.Empty<PlayerInfo>();
             }
         }
 
         /// <summary>
         /// 踢出玩家（仅房主可用）
         /// </summary>
-        public bool KickPlayer(string hostSteamId, string targetSteamId)
+        public bool KickPlayer(PlayerInfo host, PlayerInfo target)
         {
             lock (_lock)
             {
                 // 检查房主是否在房间
-                if (!_playerRoom.TryGetValue(hostSteamId, out var roomId))
+                if (!_playerRoom.TryGetValue(host.SteamId, out var room))
                 {
                     return false;
                 }
 
-                var room = _rooms[roomId];
-
                 // 检查是否是房主
-                if (room.HostSteamId != hostSteamId)
+                if (room.HostSteamId != host.SteamId)
                 {
                     return false;
                 }
 
                 // 检查目标玩家是否在同一房间
-                if (!_playerRoom.TryGetValue(targetSteamId, out var targetRoomId) || targetRoomId != roomId)
+                if (!_playerRoom.TryGetValue(target.SteamId, out var targetRoom) || targetRoom.RoomId != room.RoomId)
                 {
                     return false;
                 }
 
                 // 不能踢自己
-                if (hostSteamId == targetSteamId)
+                if (host.SteamId == target.SteamId)
                 {
                     return false;
                 }
 
                 // 踢出玩家
-                LeaveRoom(targetSteamId);
-                Console.WriteLine($"[RoomManager] Player {targetSteamId} kicked by host {hostSteamId}");
+                LeaveRoom(target);
+                Console.WriteLine($"[RoomManager] 玩家 {target.SteamName} 被房主 {host.SteamName} 踢出房间 {room.RoomId}");
                 return true;
             }
         }
@@ -281,19 +274,6 @@ namespace DuckyNet.Server.Managers
             return $"room-{_roomIdCounter++:D6}";
         }
 
-        /// <summary>
-        /// 获取房间统计信息
-        /// </summary>
-        public (int TotalRooms, int TotalPlayers) GetStatistics()
-        {
-            lock (_lock)
-            {
-                return (
-                    TotalRooms: _rooms.Count,
-                    TotalPlayers: _playerRoom.Count
-                );
-            }
-        }
     }
 }
 

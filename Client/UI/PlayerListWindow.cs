@@ -77,13 +77,8 @@ namespace DuckyNet.Client.UI
             {
                 GUILayout.BeginVertical(GUI.skin.box);
                 
-                // 显示玩家所在场景ID（地图名）
-                string sceneInfo = !string.IsNullOrEmpty(player.CurrentSceneId)
-                    ? $"场景: {player.CurrentSceneId}"
-                    : "场景: (无)";
-                GUILayout.Label(sceneInfo, GUI.skin.label);
-                
-                GUILayout.EndVertical();
+
+                    GUILayout.EndVertical();
                 GUILayout.Space(2);
             }
             
@@ -105,10 +100,10 @@ namespace DuckyNet.Client.UI
                 
                 _players = new List<PlayerInfo>(players);
                 
-                // 调试日志：输出每个玩家的 CurrentSceneId
+                // 调试日志：输出每个玩家的 SceneName
                 foreach (var player in players)
                 {
-                    UnityEngine.Debug.Log($"[PlayerListWindow] 玩家 {player.SteamName}: CurrentSceneId = '{player.CurrentSceneId ?? "null"}'");
+                    UnityEngine.Debug.Log($"[PlayerListWindow] 玩家 {player.SteamName}: SceneName = '{player.CurrentScenelData.SceneName ?? "null"}'");
                 }
                 
                 UnityEngine.Debug.Log($"[PlayerListWindow] Refreshed: {players.Length} players");

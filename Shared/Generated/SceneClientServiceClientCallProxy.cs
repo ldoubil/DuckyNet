@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using DuckyNet.Shared.RPC;
+using DuckyNet.Shared.Data;
 namespace DuckyNet.Shared.Services.Generated
 {
     /// <summary>
@@ -11,9 +12,9 @@ namespace DuckyNet.Shared.Services.Generated
         private readonly IClientContext _client;
         public SceneClientServiceClientCallProxy(IClientContext client) => _client = client;
 
-        public void OnPlayerEnteredScene(PlayerSceneInfo playerSceneInfo) => _client.Invoke<DuckyNet.Shared.Services.ISceneClientService>("OnPlayerEnteredScene", playerSceneInfo);
+        public void OnPlayerEnteredScene(PlayerInfo playerInfo, ScenelData scenelData) => _client.Invoke<DuckyNet.Shared.Services.ISceneClientService>("OnPlayerEnteredScene", playerInfo, scenelData);
 
-        public void OnPlayerLeftScene(string SteamId, string sceneName) => _client.Invoke<DuckyNet.Shared.Services.ISceneClientService>("OnPlayerLeftScene", SteamId, sceneName);
+        public void OnPlayerLeftScene(PlayerInfo playerInfo, ScenelData scenelData) => _client.Invoke<DuckyNet.Shared.Services.ISceneClientService>("OnPlayerLeftScene", playerInfo, scenelData);
 
     }
 }

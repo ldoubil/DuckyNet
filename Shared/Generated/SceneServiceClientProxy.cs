@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using DuckyNet.Shared.RPC;
+using DuckyNet.Shared.Data;
 namespace DuckyNet.Shared.Services.Generated
 {
     /// <summary>
@@ -12,8 +13,8 @@ namespace DuckyNet.Shared.Services.Generated
         private readonly IClientContext _ctx;
         public SceneServiceClientProxy(IClientContext ctx) => _ctx = ctx;
 
-        public Task<bool> EnterSceneAsync(string sceneName) => _ctx.InvokeAsync<DuckyNet.Shared.Services.ISceneService, bool>("EnterSceneAsync", sceneName);
-        public Task<bool> LeaveSceneAsync() => _ctx.InvokeAsync<DuckyNet.Shared.Services.ISceneService, bool>("LeaveSceneAsync");
-        public Task<PlayerSceneInfo[]> GetScenePlayersAsync(string sceneName) => _ctx.InvokeAsync<DuckyNet.Shared.Services.ISceneService, PlayerSceneInfo[]>("GetScenePlayersAsync", sceneName);
+        public Task<bool> EnterSceneAsync(ScenelData scenelData) => _ctx.InvokeAsync<DuckyNet.Shared.Services.ISceneService, bool>("EnterSceneAsync", scenelData);
+        public Task<bool> LeaveSceneAsync(ScenelData scenelData) => _ctx.InvokeAsync<DuckyNet.Shared.Services.ISceneService, bool>("LeaveSceneAsync", scenelData);
+        public Task<PlayerInfo[]> GetScenePlayersAsync(ScenelData scenelData) => _ctx.InvokeAsync<DuckyNet.Shared.Services.ISceneService, PlayerInfo[]>("GetScenePlayersAsync", scenelData);
     }
 }

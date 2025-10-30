@@ -53,7 +53,7 @@ namespace DuckyNet.Client.Core
         /// <summary>
         /// 创建玩家模型
         /// </summary>
-        public bool CreatePlayerModel(PlayerSceneInfo playerSceneInfo)
+        public bool CreatePlayerModel(PlayerInfo playerInfo)
         {
             if (_unitManager == null || !GameContext.IsInitialized)
             {
@@ -64,16 +64,16 @@ namespace DuckyNet.Client.Core
             try
             {
                 // 跳过本地玩家
-                if (playerSceneInfo.SteamId == _localPlayerSteamId)
+                if (playerInfo.SteamId == _localPlayerSteamId)
                 {
-                    Debug.Log($"[PlayerModelManager] 跳过本地玩家模型创建: {playerSceneInfo.SteamId}");
+                    Debug.Log($"[PlayerModelManager] 跳过本地玩家模型创建: {playerInfo.SteamId}");
                     return false;
                 }
 
                 // 检查是否已存在
-                if (_playerModels.ContainsKey(playerSceneInfo.SteamId))
+                if (_playerModels.ContainsKey(playerInfo.SteamId))
                 {
-                    Debug.Log($"[PlayerModelManager] 玩家模型已存在: {playerSceneInfo.SteamId}");
+                    Debug.Log($"[PlayerModelManager] 玩家模型已存在: {playerInfo.SteamId}");
                     return true;
                 }
 
@@ -83,7 +83,7 @@ namespace DuckyNet.Client.Core
                 var stats = UnitStats.Default;
 
                 var playerObject = unitManager.CreateUnit(
-                    playerSceneInfo.PlayerInfo?.SteamName ?? "Unknown",
+                    playerInfo.SteamName,
                     position,
                     0, // 玩家队伍
                     stats,
@@ -92,8 +92,8 @@ namespace DuckyNet.Client.Core
 
                 if (playerObject != null)
                 {
-                    _playerModels[playerSceneInfo.SteamId] = playerObject;
-                    Debug.Log($"[PlayerModelManager] 创建玩家模型: {playerSceneInfo.SteamId}");
+                    _playerModels[playerInfo.SteamId] = playerObject;
+                    Debug.Log($"[PlayerModelManager] 创建玩家模型: {playerInfo.SteamId}");
                     return true;
                 }
 

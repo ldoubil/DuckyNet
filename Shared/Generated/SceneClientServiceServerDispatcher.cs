@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using DuckyNet.Shared.RPC;
+using DuckyNet.Shared.Data;
 namespace DuckyNet.Shared.Services.Generated
 {
     public class SceneClientServiceServerDispatcher
@@ -12,8 +13,8 @@ namespace DuckyNet.Shared.Services.Generated
         {
             switch (method)
             {
-                case "OnPlayerEnteredScene": _impl.OnPlayerEnteredScene((PlayerSceneInfo)args[0]); return null;
-                case "OnPlayerLeftScene": _impl.OnPlayerLeftScene((string)args[0], (string)args[1]); return null;
+                case "OnPlayerEnteredScene": _impl.OnPlayerEnteredScene((PlayerInfo)args[0], (ScenelData)args[1]); return null;
+                case "OnPlayerLeftScene": _impl.OnPlayerLeftScene((PlayerInfo)args[0], (ScenelData)args[1]); return null;
                 default: throw new Exception("Unknown method");
             }
         }

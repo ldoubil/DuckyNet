@@ -16,7 +16,7 @@ namespace DuckyNet.Client.RPC
     {
         private readonly RpcClient _client;
 
-        public string ClientId => "local";
+        public string ClientId => GameContext.IsInitialized ? GameContext.Instance.LocalPlayer.Info.SteamId : "local";
         public object NetPeer => _client;
         public ClientSessionState SessionState { get; internal set; } = ClientSessionState.Connected;
         public DateTime LastHeartbeat { get; internal set; } = DateTime.UtcNow;

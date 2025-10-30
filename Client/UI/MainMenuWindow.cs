@@ -3,6 +3,7 @@ using UnityEngine;
 using DuckyNet.Client.RPC;
 using DuckyNet.Client.Core;
 using DuckyNet.Shared.Services;
+using DuckyNet.Shared.Services.Generated;
 
 
 namespace DuckyNet.Client.UI
@@ -25,6 +26,8 @@ namespace DuckyNet.Client.UI
         private readonly RpcClient _client;
         private Rect _windowRect = new Rect(100, 100, 400, 300);
         private bool _isVisible = false;
+
+        private PlayerServiceClientProxy _playerServiceClient;
 
         // 连接页面
         private string _serverAddress = "127.0.0.1";
@@ -53,7 +56,8 @@ namespace DuckyNet.Client.UI
             
             // 将聊天窗口传递给 RoomPage
             RoomPage.SetChatWindow(chatWindow);
-
+            var serverContext = new ClientServerContext(_client);
+            _playerServiceClient = new PlayerServiceClientProxy(serverContext);
             // 订阅连接事件
             _client.Connected += OnConnected;
             _client.Disconnected += OnDisconnectedHandler;
@@ -280,8 +284,8 @@ namespace DuckyNet.Client.UI
 
                 var localPlayer = GameContext.Instance.LocalPlayer;
                 var serverContext = new ClientServerContext(_client);
-                var result = await serverContext.InvokeAsync<IPlayerService, LoginResult>(
-                    "LoginAsync", localPlayer.Info);
+
+                var result = await _playerServiceClient.LoginAsync(localPlayer.Info);
 
                 if (result.Success)
                 {

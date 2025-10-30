@@ -73,7 +73,8 @@ namespace DuckyNet.Client
             // 确保 UnitManager 订阅事件
             unitManager.EnsureSubscribed();
             context.RegisterCharacterCustomizationManager(new Core.CharacterCustomizationManager());
-
+            context.RegisterSceneClientManager(new Core.SceneClientManager());
+            context.RegisterRoomManager(new Core.RoomManager());
             context.RegisterUIManager(new Core.UIManager(context.RpcClient));
 
             // 注册客户端服务
@@ -107,18 +108,9 @@ namespace DuckyNet.Client
 
             Debug.Log("[ModBehaviour] 游戏上下文初始化完成");
 
-            // 使用 EventSubscriberHelper 订阅，避免弱引用被 GC 回收
-            _eventSub.Subscribe<SceneLoadedDetailEvent>(OnSceneLoaded);
-            _eventSub.Subscribe<SceneUnloadingDetailEvent>(OnSceneUnloading);
+
         }
-        private void OnSceneLoaded(SceneLoadedDetailEvent evt)
-        {
-            Debug.Log($"[ModBehaviour] 场景 {evt.SceneName} 加载完成 {evt.SubSceneId}");
-        }
-        private void OnSceneUnloading(SceneUnloadingDetailEvent evt)
-        {
-            Debug.Log($"[ModBehaviour] 场景 {evt.SceneName} 即将卸载 {evt.SubSceneId}");
-        }
+
         /// <summary>
         /// 注册所有输入按键
         /// </summary>

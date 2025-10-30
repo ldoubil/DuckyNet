@@ -1,3 +1,4 @@
+using DuckyNet.Shared.Data;
 using DuckyNet.Shared.RPC;
 using System;
 using System.Threading.Tasks;
@@ -113,12 +114,7 @@ namespace DuckyNet.Shared.Services
         /// Steam 头像 URL（中等尺寸）
         /// </summary>
         public string AvatarUrl { get; set; } = string.Empty;
-
-        /// <summary>
-        /// 当前场景ID（地图名，如果为空则表示不在任何场景中）
-        /// </summary>
-        public string CurrentSceneId { get; set; } = string.Empty;
-
+        public ScenelData CurrentScenelData { get; set; } = new ScenelData("", "");
         /// <summary>
         /// 角色是否已加载
         /// </summary>

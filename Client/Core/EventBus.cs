@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using DuckyNet.Shared.Services;
+using DuckyNet.Shared.Data;
 
 namespace DuckyNet.Client.Core
 {
@@ -223,12 +224,10 @@ namespace DuckyNet.Client.Core
     /// </summary>
     public class SceneLoadedDetailEvent
     {
-        public string SceneName { get; }
-        public string SubSceneId { get; }
-        public SceneLoadedDetailEvent(string sceneName, string subSceneId)
+        public ScenelData ScenelData { get; }
+        public SceneLoadedDetailEvent(ScenelData scenelData)
         {
-            SceneName = sceneName;
-            SubSceneId = subSceneId;
+            ScenelData = scenelData;
         }
     }
 
@@ -239,12 +238,10 @@ namespace DuckyNet.Client.Core
     /// </summary>
     public class SceneUnloadingDetailEvent
     {
-        public string SceneName { get; }
-        public string SubSceneId { get; }
-        public SceneUnloadingDetailEvent(string sceneName, string subSceneId)
+        public ScenelData ScenelData { get; }
+        public SceneUnloadingDetailEvent(ScenelData scenelData)
         {
-            SceneName = sceneName;
-            SubSceneId = subSceneId;
+            ScenelData = scenelData;
         }
     }
 
@@ -254,10 +251,12 @@ namespace DuckyNet.Client.Core
     /// </summary>
     public class PlayerEnteredSceneEvent
     {
-        public Shared.Services.PlayerSceneInfo PlayerInfo { get; }
-        public PlayerEnteredSceneEvent(Shared.Services.PlayerSceneInfo playerInfo)
+        public PlayerInfo PlayerInfo { get; }
+        public ScenelData ScenelData { get; }
+        public PlayerEnteredSceneEvent(PlayerInfo playerInfo, ScenelData scenelData)
         {
             PlayerInfo = playerInfo;
+            ScenelData = scenelData;
         }
     }
 
@@ -266,12 +265,12 @@ namespace DuckyNet.Client.Core
     /// </summary>
     public class PlayerLeftSceneEvent
     {
-        public string SteamId { get; }
-        public string SceneName { get; }
-        public PlayerLeftSceneEvent(string steamId, string sceneName)
+        public PlayerInfo PlayerInfo { get; }
+        public ScenelData ScenelData { get; }
+        public PlayerLeftSceneEvent(PlayerInfo playerInfo, ScenelData scenelData)
         {
-            SteamId = steamId;
-            SceneName = sceneName;
+            PlayerInfo = playerInfo;
+            ScenelData = scenelData;
         }
     }
 
@@ -313,10 +312,12 @@ namespace DuckyNet.Client.Core
     /// </summary>
     public class RoomJoinedEvent
     {
-        public static RoomJoinedEvent Instance { get; } = new RoomJoinedEvent();
-        private RoomJoinedEvent()
-        { 
-            
+        public Shared.Services.PlayerInfo Player { get; }
+        public Shared.Services.RoomInfo Room { get; }
+        public RoomJoinedEvent(Shared.Services.PlayerInfo player, Shared.Services.RoomInfo room)
+        {
+            Player = player;
+            Room = room;
         }
     }
 
@@ -325,8 +326,13 @@ namespace DuckyNet.Client.Core
     /// </summary>
     public class RoomLeftEvent
     {
-        public static RoomLeftEvent Instance { get; } = new RoomLeftEvent();
-        private RoomLeftEvent() { }
+        public Shared.Services.PlayerInfo Player { get; }
+        public Shared.Services.RoomInfo Room { get; }
+        public RoomLeftEvent(Shared.Services.PlayerInfo player, Shared.Services.RoomInfo room)
+        {
+            Player = player;
+            Room = room;
+        }
     }
 
     /// <summary>

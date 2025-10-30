@@ -81,7 +81,7 @@ namespace DuckyNet.Server.Services
                 if (player != null)
                 {
                     // 尝试获取玩家所在的房间
-                    var room = _roomManager.GetPlayerRoom(player.SteamId);
+                    var room = _roomManager.GetPlayerRoom(player);
                     if (room != null)
                     {
                         // 使用房间ID作为场景ID
@@ -175,7 +175,7 @@ namespace DuckyNet.Server.Services
                 }
 
                 // 确定请求者所在的场景
-                var room = _roomManager.GetPlayerRoom(player.SteamId);
+                var room = _roomManager.GetPlayerRoom(player);
                 var sceneId = room?.RoomId;
 
                 // 如果不在房间中，没有场景，直接返回

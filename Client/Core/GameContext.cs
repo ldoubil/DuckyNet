@@ -30,7 +30,7 @@ namespace DuckyNet.Client.Core
         /// <summary>
         /// 本地玩家服务
         /// </summary>
-        public LocalPlayer LocalPlayer { get; private set; }
+        public LocalPlayer LocalPlayer { get;  set; }
 
         /// <summary>
         /// RPC 客户端服务
@@ -58,6 +58,16 @@ namespace DuckyNet.Client.Core
         public UnitManager UnitManager { get; private set; }
 
         /// <summary>
+        /// 场景客户端管理器
+        /// </summary>
+        public SceneClientManager SceneClientManager { get; private set; }
+
+        /// <summary>
+        /// 房间客户端管理器
+        /// </summary>
+        public RoomManager RoomManager { get; private set; }
+
+        /// <summary>
         /// 角色自定义管理器
         /// </summary>
         public CharacterCustomizationManager CharacterCustomizationManager { get; private set; }
@@ -82,6 +92,8 @@ namespace DuckyNet.Client.Core
             AvatarManager = null!;
             UnitManager = null!;
             CharacterCustomizationManager = null!;
+            SceneClientManager = null!;
+            RoomManager = null!;
             EventBus = EventBus.Instance;
         }
 
@@ -166,6 +178,24 @@ namespace DuckyNet.Client.Core
         }
 
         /// <summary>
+        /// 注册场景客户端管理器
+        /// </summary>
+        public void RegisterSceneClientManager(SceneClientManager sceneClientManager)
+        {
+            SceneClientManager = sceneClientManager ?? throw new ArgumentNullException(nameof(sceneClientManager));
+            UnityEngine.Debug.Log("[GameContext] 场景客户端管理器已注册");
+        }
+
+        /// <summary>
+        /// 注册房间客户端管理器
+        /// </summary>
+        public void RegisterRoomManager(RoomManager roomManager)
+        {
+            RoomManager = roomManager ?? throw new ArgumentNullException(nameof(roomManager));
+            UnityEngine.Debug.Log("[GameContext] 房间管理器已注册");
+        }
+
+        /// <summary>
         /// 清理游戏上下文
         /// </summary>
         public static void Cleanup()
@@ -182,8 +212,9 @@ namespace DuckyNet.Client.Core
                 _instance.RpcClient?.Disconnect();
                 _instance.LocalPlayer?.Dispose();
                 _instance.EventBus?.Dispose();
-
-                UnityEngine.Debug.Log("[GameContext] 游戏上下文已清理");
+                _instance.SceneClientManager?.Dispose();
+                _instance.RoomManager?.Dispose();
+                _instance.EventBus?.Dispose();
             }
             catch (Exception ex)
             {

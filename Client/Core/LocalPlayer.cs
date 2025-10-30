@@ -3,6 +3,7 @@ using UnityEngine;
 using static UnityEngine.Debug;
 using Steamworks;
 using DuckyNet.Shared.Services;
+using DuckyNet.Client.Core.Helpers;
 
 namespace DuckyNet.Client.Core
 {
@@ -12,10 +13,12 @@ namespace DuckyNet.Client.Core
     /// </summary>
     public class LocalPlayer
     {
+        private readonly EventSubscriberHelper _eventSub = new EventSubscriberHelper();
+
         /// <summary>
         /// 当前本地玩家信息（从 Steam API 获取，只读）
         /// </summary>
-        public PlayerInfo Info { get; private set; }
+        public PlayerInfo Info { get; set; }
 
         /// <summary>
         /// Steam 头像纹理（如果已加载）
@@ -68,6 +71,7 @@ namespace DuckyNet.Client.Core
 
                 // 异步加载头像纹理
                 LoadAvatarTexture(steamId);
+
             }
             catch (Exception ex)
             {
@@ -75,7 +79,10 @@ namespace DuckyNet.Client.Core
                 UnityEngine.Debug.LogException(ex);
                 InitializeWithDefaultInfo();
             }
+
         }
+
+
 
         /// <summary>
         /// 使用默认信息初始化（Steam不可用时）
@@ -102,20 +109,13 @@ namespace DuckyNet.Client.Core
             {
                 // 获取中等尺寸头像
                 int avatarHandle = SteamFriends.GetMediumFriendAvatar(steamId);
-                
+
                 if (avatarHandle == -1 || avatarHandle == 0)
                 {
                     UnityEngine.Debug.LogWarning($"[LocalPlayer] 无法获取头像句柄");
                     return string.Empty;
                 }
-
-                // 通过 Steam API 获取头像 URL
-                // 注意：Steamworks.NET 不直接提供 URL，但我们可以构造标准的 Steam CDN URL
                 string steamId64 = steamId.ToString();
-                
-                // 尝试获取头像哈希来构造 URL
-                // 格式：https://steamcdn-a.akamaihd.net/steamcommunity/public/images/avatars/{hash前2位}/{完整hash}_medium.jpg
-                // 由于 Steamworks.NET 限制，我们使用简化的 Steam 社区头像 URL
                 return $"https://steamcommunity.com/profiles/{steamId64}/";
             }
             catch (Exception ex)
@@ -134,7 +134,7 @@ namespace DuckyNet.Client.Core
             {
                 // 获取中等尺寸头像句柄
                 int avatarHandle = SteamFriends.GetMediumFriendAvatar(steamId);
-                
+
                 if (avatarHandle == -1 || avatarHandle == 0)
                 {
                     UnityEngine.Debug.LogWarning($"[LocalPlayer] 无效的头像句柄");
@@ -152,7 +152,7 @@ namespace DuckyNet.Client.Core
                 // 创建纹理
                 byte[] imageData = new byte[width * height * 4]; // RGBA
                 success = SteamUtils.GetImageRGBA(avatarHandle, imageData, (int)(width * height * 4));
-                
+
                 if (!success)
                 {
                     UnityEngine.Debug.LogWarning($"[LocalPlayer] 无法获取头像数据");
@@ -182,10 +182,10 @@ namespace DuckyNet.Client.Core
         {
             Color[] pixels = texture.GetPixels();
             Color[] flipped = new Color[pixels.Length];
-            
+
             int width = texture.width;
             int height = texture.height;
-            
+
             for (int y = 0; y < height; y++)
             {
                 for (int x = 0; x < width; x++)
@@ -193,7 +193,7 @@ namespace DuckyNet.Client.Core
                     flipped[x + y * width] = pixels[x + (height - y - 1) * width];
                 }
             }
-            
+
             texture.SetPixels(flipped);
             texture.Apply();
         }

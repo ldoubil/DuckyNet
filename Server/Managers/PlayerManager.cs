@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using DuckyNet.Shared.Services;
+using DuckyNet.Shared.Data;
 using DuckyNet.Server.RPC;
 
 namespace DuckyNet.Server.Managers
@@ -27,9 +28,9 @@ namespace DuckyNet.Server.Managers
     /// </summary>
     public class PlayerManager
     {
-        // 全局玩家表：ClientId -> PlayerInfo
-        private readonly Dictionary<string, PlayerInfo> _allPlayers = new Dictionary<string, PlayerInfo>();
 
+        // ClientId 到玩家映射：ClientId -> PlayerInfo
+        private readonly Dictionary<string, PlayerInfo> _playersByClientId = new Dictionary<string, PlayerInfo>();
         // SteamId 到玩家映射：SteamId -> PlayerInfo
         private readonly Dictionary<string, PlayerInfo> _playersBySteamId = new Dictionary<string, PlayerInfo>();
 
@@ -49,25 +50,25 @@ namespace DuckyNet.Server.Managers
         /// <summary>
         /// 当客户端连接时调用
         /// </summary>
-        public void OnClientConnected(string clientId)
+        public void OnClientConnected(string ClientId)
         {
             lock (_lock)
             {
                 var pending = new PendingConnection
                 {
-                    ClientId = clientId,
+                    ClientId = ClientId,        
                     ConnectTime = DateTime.UtcNow
                 };
-                _pendingConnections[clientId] = pending;
+                _pendingConnections[ClientId] = pending;
 
-                Console.WriteLine($"[PlayerManager] Client connected: {clientId}, waiting for login (3s timeout)");
+                Console.WriteLine($"[PlayerManager] Client connected: {ClientId}, waiting for login (3s timeout)");
             }
         }
 
         /// <summary>
         /// 当客户端登录时调用
         /// </summary>
-        public LoginResult OnClientLogin(string clientId, PlayerInfo playerInfo)
+        public LoginResult OnClientLogin(string ClientId, PlayerInfo playerInfo)
         {
             lock (_lock)
             {
@@ -81,11 +82,11 @@ namespace DuckyNet.Server.Managers
                     };
                 }
 
-                // 检查是否有待登录连接
-                if (!_pendingConnections.ContainsKey(clientId))
+                // 检查是否有待登录连接（按 ClientId）
+                if (!_pendingConnections.ContainsKey(ClientId))
                 {
                     // 可能已经登录过或超时
-                    if (_allPlayers.ContainsKey(clientId))
+                    if (_playersBySteamId.ContainsKey(playerInfo.SteamId))
                     {
                         return new LoginResult
                         {
@@ -95,10 +96,11 @@ namespace DuckyNet.Server.Managers
                     }
                 }
 
-                // 从待登录列表移除
-                _pendingConnections.Remove(clientId);
+                // 从待登录列表移除（按 ClientId）
+                _pendingConnections.Remove(ClientId);
 
-                _allPlayers[clientId] = playerInfo;
+                // 建立映射
+                _playersByClientId[ClientId] = playerInfo;
                 _playersBySteamId[playerInfo.SteamId] = playerInfo;
 
                 Console.WriteLine($"[PlayerManager] Player logged in: {playerInfo.SteamName} ({playerInfo.SteamId})");
@@ -115,22 +117,25 @@ namespace DuckyNet.Server.Managers
         /// <summary>
         /// 当客户端断开连接时调用
         /// </summary>
-        public void OnClientDisconnected(string clientId)
+        public void OnClientDisconnected(string ClientId)
         {
             lock (_lock)
             {
-                // 从待登录列表移除
-                _pendingConnections.Remove(clientId);
-
-                // 从玩家表移除
-                if (_allPlayers.TryGetValue(clientId, out var player))
+                // 先根据 ClientId 查找玩家
+                if (_playersByClientId.TryGetValue(ClientId, out var player))
                 {
-                    _allPlayers.Remove(clientId);
+                    // 从映射移除
+                    _playersByClientId.Remove(ClientId);
                     _playersBySteamId.Remove(player.SteamId);
                     Console.WriteLine($"[PlayerManager] Player disconnected: {player.SteamName}");
 
                     // 从房间移除
-                    _roomManager?.LeaveRoom(player.SteamId);
+                    _roomManager?.LeaveRoom(player);
+                }
+                else
+                {
+                    // 如果未登录过，尝试从待登录中移除（例如登录前断开）
+                    _pendingConnections.Remove(ClientId);
                 }
             }
         }
@@ -168,11 +173,11 @@ namespace DuckyNet.Server.Managers
         /// <summary>
         /// 获取玩家信息（通过 ClientId）
         /// </summary>
-        public PlayerInfo? GetPlayer(string clientId)
+        public PlayerInfo? GetPlayer(string ClientId)
         {
             lock (_lock)
             {
-                return _allPlayers.TryGetValue(clientId, out var player) ? player : null;
+                return _playersByClientId.TryGetValue(ClientId, out var player) ? player : null;
             }
         }
 
@@ -188,13 +193,71 @@ namespace DuckyNet.Server.Managers
         }
 
         /// <summary>
-        /// 检查玩家是否已登录
+        /// 通过 SteamId 获取对应的 ClientId（如果在线）
         /// </summary>
-        public bool IsLoggedIn(string clientId)
+        /// <param name="steamId">玩家的 SteamId</param>
+        /// <returns>对应的 ClientId；若未找到返回 null</returns>
+        public string? GetClientIdBySteamId(string steamId)
         {
             lock (_lock)
             {
-                return _allPlayers.ContainsKey(clientId);
+                foreach (var kvp in _playersByClientId)
+                {
+                    if (kvp.Value.SteamId == steamId)
+                    {
+                        return kvp.Key;
+                    }
+                }
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// 通过 ClientId 更新玩家的场景数据（SceneName/SubSceneName）
+        /// </summary>
+        /// <param name="clientId">客户端连接标识</param>
+        /// <param name="scenelData">场景数据（允许 null，将被标准化为空场景）</param>
+        /// <returns>是否更新成功（玩家存在时返回 true）</returns>
+        public bool UpdatePlayerSceneDataByClientId(string clientId, ScenelData? scenelData)
+        {
+            lock (_lock)
+            {
+                if (_playersByClientId.TryGetValue(clientId, out var player))
+                {
+                    player.CurrentScenelData = scenelData ?? new ScenelData("", "");
+                    return true;
+                }
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 通过 SteamId 更新玩家的场景数据（SceneName/SubSceneName）
+        /// </summary>
+        /// <param name="steamId">玩家 SteamId</param>
+        /// <param name="scenelData">场景数据（允许 null，将被标准化为空场景）</param>
+        /// <returns>是否更新成功（玩家存在时返回 true）</returns>
+        public bool UpdatePlayerSceneDataBySteamId(string steamId, ScenelData? scenelData)
+        {
+            lock (_lock)
+            {
+                if (_playersBySteamId.TryGetValue(steamId, out var player))
+                {
+                    player.CurrentScenelData = scenelData ?? new ScenelData("", "");
+                    return true;
+                }
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 检查玩家是否已登录
+        /// </summary>
+        public bool IsLoggedIn(string SteamId)
+        {
+            lock (_lock)
+            {
+                return _playersBySteamId.ContainsKey(SteamId);
             }
         }
 
@@ -205,7 +268,7 @@ namespace DuckyNet.Server.Managers
         {
             lock (_lock)
             {
-                return _allPlayers.Values.ToArray();
+                    return _playersBySteamId.Values.ToArray();
             }
         }
 
@@ -221,24 +284,14 @@ namespace DuckyNet.Server.Managers
 
             lock (_lock)
             {
-                var room = _roomManager.GetPlayerRoom(clientId);
-                if (room == null)
+                var player = GetPlayer(clientId);
+                if (player == null)
                 {
                     return Array.Empty<PlayerInfo>();
                 }
 
-                var playerIds = _roomManager.GetRoomPlayerIds(room.RoomId);
-                var players = new List<PlayerInfo>();
-
-                foreach (var playerId in playerIds)
-                {
-                    if (_allPlayers.TryGetValue(playerId, out var player))
-                    {
-                        players.Add(player);
-                    }
-                }
-
-                return players.ToArray();
+                var room = _roomManager.GetPlayerRoom(player);
+                return room != null ? _roomManager.GetRoomPlayers(room.RoomId) : Array.Empty<PlayerInfo>();
             }
         }
 
@@ -254,19 +307,8 @@ namespace DuckyNet.Server.Managers
 
             lock (_lock)
             {
-                var playerIds = _roomManager.GetRoomPlayerIds(roomId);
-                var players = new List<PlayerInfo>();
-
-                foreach (var playerId in playerIds)
-                {
-                    // playerIds 现在是 SteamId 列表，使用 _playersBySteamId 查找
-                    if (_playersBySteamId.TryGetValue(playerId, out var player))
-                    {
-                        players.Add(player);
-                    }
-                }
-
-                return players.ToArray();
+                var players = _roomManager.GetRoomPlayers(roomId);
+                return players;
             }
         }
 
@@ -279,7 +321,7 @@ namespace DuckyNet.Server.Managers
             lock (_lock)
             {
                 return (
-                    TotalPlayers: _allPlayers.Count,
+                    TotalPlayers: _playersBySteamId.Count,
                     PendingLogins: _pendingConnections.Count
                 );
             }

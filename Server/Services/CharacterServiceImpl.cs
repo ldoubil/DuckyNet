@@ -2,6 +2,7 @@ using System;
 using System.Threading.Tasks;
 using DuckyNet.Server.Managers;
 using DuckyNet.Server.RPC;
+using DuckyNet.Shared.Data;
 using DuckyNet.Shared.RPC;
 using DuckyNet.Shared.Services;
 
@@ -61,7 +62,7 @@ namespace DuckyNet.Server.Services
                 Console.WriteLine($"[CharacterService] 外观已更新 ({appearanceData.Length} bytes) - {player.SteamName}({player.SteamId})");
 
                 // 通知同房间的其他玩家
-                var room = _roomManager.GetPlayerRoom(player.SteamId);
+                var room = _roomManager.GetPlayerRoom(player);
                 if (room != null)
                 {
                     NotifyAppearanceUpdate(room.RoomId, player.SteamId, appearanceData);
@@ -139,7 +140,7 @@ namespace DuckyNet.Server.Services
                 // 如果角色刚被创建，且玩家在场景中，通知同房间的其他玩家
                 if (hasCharacter && !wasHasCharacter)
                 {
-                    var room = _roomManager.GetPlayerRoom(player.SteamId);
+                    var room = _roomManager.GetPlayerRoom(player);
                     if (room != null)
                     {
                         // 获取场景服务，通知其他玩家这个玩家已创建角色
@@ -194,38 +195,30 @@ namespace DuckyNet.Server.Services
         {
             try
             {
-                var roomPlayerIds = _roomManager.GetRoomPlayerIds(roomId);
+                var roomPlayers = _roomManager.GetRoomPlayers(roomId);
                 int notifiedCount = 0;
 
-                foreach (var playerSteamId in roomPlayerIds)
+                foreach (var p in roomPlayers)
                 {
                     // 不通知自己
-                    if (playerSteamId == player.SteamId)
+                    if (p.SteamId == player.SteamId)
                         continue;
 
                     try
                     {
-                        var clientContext = _server.GetClientContext(playerSteamId);
+                        var clientContext = _server.GetClientContext(p.SteamId);
                         if (clientContext != null)
                         {
                             // 如果玩家在场景中，重新发送场景信息（更新 HasCharacter 状态）
                             // 获取玩家的场景名称
-                            var sceneName = GetPlayerSceneName(player.SteamId);
+                            var sceneName = GetPlayerSceneName(p.SteamId);
                             
                             if (!string.IsNullOrEmpty(sceneName))
                             {
                                 // 创建更新后的场景信息（只需要场景名称）
-                                var playerSceneInfo = new Shared.Services.PlayerSceneInfo
-                                {
-                                    SteamId = player.SteamId,
-                                    PlayerInfo = player,
-                                    SceneName = sceneName,
-                                };
-                                
-                                // 直接通过 RPC 通知客户端
                                 try
                                 {
-                                    clientContext.Call<Shared.Services.ISceneClientService>().OnPlayerEnteredScene(playerSceneInfo);
+                                    clientContext.Call<Shared.Services.ISceneClientService>().OnPlayerEnteredScene(p, new ScenelData(sceneName, ""));
                                     notifiedCount++;
                                 }
                                 catch (Exception ex2)
@@ -237,7 +230,7 @@ namespace DuckyNet.Server.Services
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"[CharacterService] 通知玩家 {playerSteamId} 角色创建失败: {ex.Message}");
+                        Console.WriteLine($"[CharacterService] 通知玩家 {p.SteamId} 角色创建失败: {ex.Message}");
                     }
                 }
 
@@ -259,18 +252,18 @@ namespace DuckyNet.Server.Services
         {
             try
             {
-                var roomPlayerIds = _roomManager.GetRoomPlayerIds(roomId);
+                var roomPlayers = _roomManager.GetRoomPlayers(roomId);
                 int notifiedCount = 0;
 
-                foreach (var playerSteamId in roomPlayerIds)
+                foreach (var p in roomPlayers)
                 {
                     // 不通知自己
-                    if (playerSteamId == steamId)
+                    if (p.SteamId == steamId)
                         continue;
 
                     try
                     {
-                        var clientContext = _server.GetClientContext(playerSteamId);
+                        var clientContext = _server.GetClientContext(p.SteamId);
                         if (clientContext != null)
                         {
                             clientContext.Call<ICharacterClientService>().OnPlayerAppearanceUpdated(steamId, appearanceData);
@@ -279,7 +272,7 @@ namespace DuckyNet.Server.Services
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"[CharacterService] 通知玩家 {playerSteamId} 外观更新失败: {ex.Message}");
+                        Console.WriteLine($"[CharacterService] 通知玩家 {p.SteamId} 外观更新失败: {ex.Message}");
                     }
                 }
 

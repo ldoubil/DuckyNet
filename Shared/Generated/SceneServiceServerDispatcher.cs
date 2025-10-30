@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using DuckyNet.Shared.RPC;
+using DuckyNet.Shared.Data;
 namespace DuckyNet.Shared.Services.Generated
 {
     public class SceneServiceServerDispatcher
@@ -12,9 +13,9 @@ namespace DuckyNet.Shared.Services.Generated
         {
             switch (method)
             {
-                case "EnterSceneAsync": return _impl.EnterSceneAsync(ctx, (string)args[0]);
-                case "LeaveSceneAsync": return _impl.LeaveSceneAsync(ctx);
-                case "GetScenePlayersAsync": return _impl.GetScenePlayersAsync(ctx, (string)args[0]);
+                case "EnterSceneAsync": return _impl.EnterSceneAsync(ctx, (ScenelData)args[0]);
+                case "LeaveSceneAsync": return _impl.LeaveSceneAsync(ctx, (ScenelData)args[0]);
+                case "GetScenePlayersAsync": return _impl.GetScenePlayersAsync(ctx, (ScenelData)args[0]);
                 default: throw new Exception("Unknown method");
             }
         }
