@@ -5,6 +5,8 @@ using DuckyNet.Client.UI;
 using DuckyNet.Client.RPC;
 using DuckyNet.Client.Services;
 using DuckyNet.Shared.Services;
+using System.Diagnostics.Tracing;
+using DuckyNet.Client.Core.Helpers;
 
 namespace DuckyNet.Client.Core
 {
@@ -16,7 +18,7 @@ namespace DuckyNet.Client.Core
     {
         private readonly RpcClient _rpcClient;
         private readonly Dictionary<string, IUIWindow> _windows;
-
+        private readonly EventSubscriberHelper _eventSubscriber = new EventSubscriberHelper();
         // UI 窗口
         private MainMenuWindow? _mainMenuWindow;
         private ChatWindow? _chatWindow;
@@ -44,17 +46,13 @@ namespace DuckyNet.Client.Core
 
                 // 注册客户端服务
                 RegisterClientServices();
-
+                _eventSubscriber.EnsureInitializedAndSubscribe();
                 // 创建聊天窗口
                 _chatWindow = new ChatWindow(_rpcClient);
                 RegisterWindow("Chat", _chatWindow);
 
                 // 订阅聊天消息事件（通过全局 EventBus）
-                if (GameContext.IsInitialized)
-                {
-                    GameContext.Instance.EventBus.Subscribe<ChatMessageReceivedEvent>(OnChatMessageReceived);
-                }
-
+                _eventSubscriber.Subscribe<ChatMessageReceivedEvent>(OnChatMessageReceived);
                 // 创建玩家列表窗口
                 _playerListWindow = new PlayerListWindow(_rpcClient);
                 RegisterWindow("PlayerList", _playerListWindow);
@@ -215,7 +213,16 @@ namespace DuckyNet.Client.Core
         /// </summary>
         private void OnChatMessageReceived(ChatMessageReceivedEvent evt)
         {
-            _chatWindow?.AddMessage(evt.Sender, evt.Message);
+            UnityEngine.Debug.Log($"[UIManager] 收到 ChatMessageReceivedEvent: {evt.Sender.SteamName}: {evt.Message}");
+            if (_chatWindow != null)
+            {
+                _chatWindow.AddMessage(evt.Sender, evt.Message);
+                UnityEngine.Debug.Log($"[UIManager] 已添加消息到 ChatWindow");
+            }
+            else
+            {
+                UnityEngine.Debug.LogError("[UIManager] ChatWindow 为 null！");
+            }
         }
 
         /// <summary>
@@ -225,11 +232,8 @@ namespace DuckyNet.Client.Core
         {
             try
             {
-                // 取消 EventBus 事件订阅
-                if (GameContext.IsInitialized)
-                {
-                    GameContext.Instance.EventBus.Unsubscribe<ChatMessageReceivedEvent>(OnChatMessageReceived);
-                }
+                // 取消 EventBus 事件订阅（由 EventSubscriberHelper 自动管理）
+                _eventSubscriber?.Dispose();
 
                 // 清理所有窗口
                 foreach (var kvp in _windows)

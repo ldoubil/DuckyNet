@@ -209,6 +209,35 @@ namespace DuckyNet.Server.RPC
         }
 
         /// <summary>
+        /// 广播消息给指定的客户端列表
+        /// </summary>
+        public void BroadcastToClients<TService>(IEnumerable<string> clientIds, string methodName, params object[] parameters) where TService : class
+        {
+            foreach (var clientId in clientIds)
+            {
+                var context = GetClientContext(clientId);
+                if (context != null && context.NetPeer is NetPeer peer)
+                {
+                    InvokeClient<TService>(peer, methodName, parameters);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 广播消息给满足条件的客户端（使用过滤器）
+        /// </summary>
+        public void BroadcastWhere<TService>(Func<string, bool> predicate, string methodName, params object[] parameters) where TService : class
+        {
+            foreach (var kvp in _clientContexts)
+            {
+                if (predicate(kvp.Value.ClientId))
+                {
+                    InvokeClient<TService>(kvp.Key, methodName, parameters);
+                }
+            }
+        }
+
+        /// <summary>
         /// 断开指定客户端连接
         /// </summary>
         public void DisconnectClient(string clientId, string reason)
@@ -371,9 +400,6 @@ namespace DuckyNet.Server.RPC
 
         private async void HandleClientCall(NetPeer peer, RpcMessage message)
         {
-            var startTime = System.Diagnostics.Stopwatch.StartNew();
-            var success = false;
-            
             try
             {
                 var clientContext = _clientContexts[peer];
@@ -411,7 +437,6 @@ namespace DuckyNet.Server.RPC
                 };
 
                 SendResponse(peer, response);
-                success = true;
             }
             catch (Exception ex)
             {
@@ -424,10 +449,6 @@ namespace DuckyNet.Server.RPC
                 };
 
                 SendResponse(peer, response);
-            }
-            finally
-            {
-                startTime.Stop();
             }
         }
 

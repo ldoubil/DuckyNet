@@ -34,7 +34,7 @@ namespace DuckyNet.Server
                 _playerManager = new PlayerManager(_server, _roomManager);
 
                 // 创建服务（注意顺序：SceneService 需要在 CharacterService 之前创建）
-                var playerService = new PlayerServiceImpl(_server, _playerManager);
+                var playerService = new PlayerServiceImpl(_server, _playerManager, _roomManager);
                 var roomService = new RoomServiceImpl(_server, _roomManager, _playerManager);
                 var sceneService = new SceneServiceImpl(_server, _playerManager, _roomManager);
                 var characterService = new CharacterServiceImpl(_server, _playerManager, _roomManager, sceneService);

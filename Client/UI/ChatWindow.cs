@@ -91,6 +91,8 @@ namespace DuckyNet.Client.UI
         /// </summary>
         public void AddMessage(PlayerInfo sender, string message)
         {
+            UnityEngine.Debug.Log($"[ChatWindow] AddMessage 被调用: {sender.SteamName}: {message}");
+            
             _messages.Add(new ChatMessage
             {
                 SenderName = sender.SteamName,
@@ -99,6 +101,8 @@ namespace DuckyNet.Client.UI
                 Time = DateTime.Now,
                 Type = MessageType.Info
             });
+            
+            UnityEngine.Debug.Log($"[ChatWindow] 消息已添加，当前消息数: {_messages.Count}");
             
             if (_messages.Count > 100)
             {

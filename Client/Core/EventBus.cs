@@ -64,6 +64,7 @@ namespace DuckyNet.Client.Core
 
                 // 使用 WeakReference 避免内存泄漏
                 _subscribers[eventType].Add(new WeakReference(handler));
+                UnityEngine.Debug.Log($"[EventBus] 订阅事件: {eventType.Name}, 当前订阅者数: {_subscribers[eventType].Count}");
             }
         }
 
@@ -117,19 +118,25 @@ namespace DuckyNet.Client.Core
             lock (_lock)
             {
                 if (!_subscribers.ContainsKey(eventType))
+                {
+                    UnityEngine.Debug.LogWarning($"[EventBus] 发布事件失败: {eventType.Name} - 没有订阅者");
                     return;
+                }
 
                 // 复制订阅者列表，避免在迭代时修改
                 subscribers = _subscribers[eventType].ToList();
+                UnityEngine.Debug.Log($"[EventBus] 发布事件: {eventType.Name}, 订阅者数: {subscribers.Count}");
             }
 
             // 在锁外执行回调，避免死锁
             var deadRefs = new List<WeakReference>();
+            int handlerCount = 0;
             foreach (var weakRef in subscribers)
             {
                 if (!weakRef.IsAlive)
                 {
                     deadRefs.Add(weakRef);
+                    UnityEngine.Debug.LogWarning($"[EventBus] 发现死引用订阅者");
                     continue;
                 }
 
@@ -138,6 +145,8 @@ namespace DuckyNet.Client.Core
                 {
                     try
                     {
+                        handlerCount++;
+                        UnityEngine.Debug.Log($"[EventBus] 调用事件处理器 #{handlerCount} ({eventType.Name})");
                         handler(eventData);
                     }
                     catch (Exception ex)
@@ -149,6 +158,7 @@ namespace DuckyNet.Client.Core
                 else
                 {
                     deadRefs.Add(weakRef);
+                    UnityEngine.Debug.LogWarning($"[EventBus] 订阅者已被垃圾回收");
                 }
             }
 

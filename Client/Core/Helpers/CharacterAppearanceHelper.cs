@@ -17,6 +17,8 @@ namespace DuckyNet.Client.Core.Helpers
     /// </summary>
     public static class CharacterAppearanceHelper
     {
+        // 静态事件订阅管理器
+        private static EventSubscriberHelper? _eventSubscriber;
         /// <summary>
         /// 上传当前角色的外观数据到服务器
         /// </summary>
@@ -171,7 +173,7 @@ namespace DuckyNet.Client.Core.Helpers
         }
 
         /// <summary>
-        /// 监听并自动上传角色外观（通过 EventBus 订阅）
+        /// 监听并自动上传角色外观（通过 EventSubscriberHelper 订阅）
         /// </summary>
         public static void StartAutoUpload()
         {
@@ -183,9 +185,16 @@ namespace DuckyNet.Client.Core.Helpers
 
             try
             {
-                // 订阅主角色创建完成事件（通过 EventBus）
-                GameContext.Instance.EventBus.Subscribe<MainCharacterCreatedEvent>(OnMainCharacterCreated);
-                Debug.Log("[CharacterAppearanceHelper] 已订阅主角色创建事件（EventBus）");
+                // 创建或重用事件订阅管理器
+                if (_eventSubscriber == null)
+                {
+                    _eventSubscriber = new EventSubscriberHelper();
+                }
+
+                // 订阅主角色创建完成事件（使用 EventSubscriberHelper）
+                _eventSubscriber.EnsureInitializedAndSubscribe();
+                _eventSubscriber.Subscribe<MainCharacterCreatedEvent>(OnMainCharacterCreated);
+                Debug.Log("[CharacterAppearanceHelper] 已订阅主角色创建事件（EventSubscriberHelper）");
             }
             catch (Exception ex)
             {
@@ -269,11 +278,10 @@ namespace DuckyNet.Client.Core.Helpers
         {
             try
             {
-                if (GameContext.IsInitialized)
-                {
-                    GameContext.Instance.EventBus.Unsubscribe<MainCharacterCreatedEvent>(OnMainCharacterCreated);
-                    Debug.Log("[CharacterAppearanceHelper] 已取消订阅主角色创建事件");
-                }
+                // 使用 EventSubscriberHelper 自动管理取消订阅
+                _eventSubscriber?.Dispose();
+                _eventSubscriber = null;
+                Debug.Log("[CharacterAppearanceHelper] 已取消订阅主角色创建事件（EventSubscriberHelper）");
             }
             catch (Exception ex)
             {

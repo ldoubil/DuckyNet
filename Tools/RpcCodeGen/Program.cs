@@ -44,6 +44,8 @@ namespace RpcCodeGen
                 if (hasServerToClient)
                 {
                     GenerateBroadcastProxy(iface, serviceName);
+                    GenerateClientsBroadcastProxy(iface, serviceName);
+                    GenerateWhereBroadcastProxy(iface, serviceName);
                     GenerateClientCallProxy(iface, serviceName);
                 }
             }
@@ -217,6 +219,157 @@ namespace RpcCodeGen
                     sb.AppendLine("            // 注意: 广播方法不支持返回值");
                     sb.AppendLine($"            var method = _server.GetType().GetMethod(\"BroadcastToAll\").MakeGenericMethod(typeof({iface.FullName}));");
                     sb.AppendLine($"            method.Invoke(_server, new object[] {{ \"{m.Name}\", new object[] {{ {argNames} }} }});");
+                    if (m.ReturnType.GenericTypeArguments.Length > 0)
+                    {
+                        sb.AppendLine($"            return Task.FromResult(default({SimplifyTypeName(m.ReturnType.GenericTypeArguments[0])}));");
+                    }
+                    else
+                    {
+                        sb.AppendLine("            return Task.CompletedTask;");
+                    }
+                    sb.AppendLine("        }");
+                }
+                sb.AppendLine();
+            }
+            
+            sb.AppendLine("    }");
+            sb.AppendLine("}");
+            
+            var solutionDir = FindSolutionDirectory(AppDomain.CurrentDomain.BaseDirectory);
+            var outputDir = Path.Combine(solutionDir, "Shared", "Generated");
+            Directory.CreateDirectory(outputDir);
+            File.WriteAllText(Path.Combine(outputDir, $"{className}.cs"), sb.ToString());
+        }
+
+        static void GenerateClientsBroadcastProxy(Type iface, string serviceName)
+        {
+            var sb = new StringBuilder();
+            var ns = iface.Namespace + ".Generated";
+            var className = iface.Name.TrimStart('I') + "ClientsBroadcastProxy";
+            
+            // 收集所有需要的命名空间
+            var namespaces = CollectNamespaces(iface);
+            
+            sb.AppendLine("using System;");
+            sb.AppendLine("using System.Collections.Generic;");
+            sb.AppendLine("using System.Threading.Tasks;");
+            foreach (var n in namespaces.OrderBy(n => n))
+            {
+                sb.AppendLine($"using {n};");
+            }
+            sb.AppendLine($"namespace {ns}");
+            sb.AppendLine("{");
+            sb.AppendLine($"    /// <summary>");
+            sb.AppendLine($"    /// 广播代理 - 用于向指定客户端列表发送消息");
+            sb.AppendLine($"    /// </summary>");
+            sb.AppendLine($"    public class {className} : {iface.FullName}");
+            sb.AppendLine("    {");
+            sb.AppendLine("        private readonly object _server;");
+            sb.AppendLine("        private readonly IEnumerable<string> _clientIds;");
+            sb.AppendLine($"        public {className}(object server, IEnumerable<string> clientIds)");
+            sb.AppendLine("        {");
+            sb.AppendLine("            _server = server;");
+            sb.AppendLine("            _clientIds = clientIds;");
+            sb.AppendLine("        }");
+            sb.AppendLine();
+            
+            foreach (var m in iface.GetMethods())
+            {
+                var retType = SimplifyTypeName(m.ReturnType);
+                var parameters = m.GetParameters();
+                var paramList = string.Join(", ", parameters.Select(p => SimplifyTypeName(p.ParameterType) + " " + p.Name));
+                var argNames = string.Join(", ", parameters.Select(p => p.Name));
+                
+                if (m.ReturnType == typeof(void))
+                {
+                    sb.AppendLine($"        public {retType} {m.Name}({paramList})");
+                    sb.AppendLine("        {");
+                    sb.AppendLine($"            var method = _server.GetType().GetMethod(\"BroadcastToClients\").MakeGenericMethod(typeof({iface.FullName}));");
+                    sb.AppendLine($"            method.Invoke(_server, new object[] {{ _clientIds, \"{m.Name}\", new object[] {{ {argNames} }} }});");
+                    sb.AppendLine("        }");
+                }
+                else if (m.ReturnType.FullName.StartsWith("System.Threading.Tasks.Task"))
+                {
+                    sb.AppendLine($"        public {retType} {m.Name}({paramList})");
+                    sb.AppendLine("        {");
+                    sb.AppendLine("            // 注意: 广播方法不支持返回值");
+                    sb.AppendLine($"            var method = _server.GetType().GetMethod(\"BroadcastToClients\").MakeGenericMethod(typeof({iface.FullName}));");
+                    sb.AppendLine($"            method.Invoke(_server, new object[] {{ _clientIds, \"{m.Name}\", new object[] {{ {argNames} }} }});");
+                    if (m.ReturnType.GenericTypeArguments.Length > 0)
+                    {
+                        sb.AppendLine($"            return Task.FromResult(default({SimplifyTypeName(m.ReturnType.GenericTypeArguments[0])}));");
+                    }
+                    else
+                    {
+                        sb.AppendLine("            return Task.CompletedTask;");
+                    }
+                    sb.AppendLine("        }");
+                }
+                sb.AppendLine();
+            }
+            
+            sb.AppendLine("    }");
+            sb.AppendLine("}");
+            
+            var solutionDir = FindSolutionDirectory(AppDomain.CurrentDomain.BaseDirectory);
+            var outputDir = Path.Combine(solutionDir, "Shared", "Generated");
+            Directory.CreateDirectory(outputDir);
+            File.WriteAllText(Path.Combine(outputDir, $"{className}.cs"), sb.ToString());
+        }
+
+        static void GenerateWhereBroadcastProxy(Type iface, string serviceName)
+        {
+            var sb = new StringBuilder();
+            var ns = iface.Namespace + ".Generated";
+            var className = iface.Name.TrimStart('I') + "WhereBroadcastProxy";
+            
+            // 收集所有需要的命名空间
+            var namespaces = CollectNamespaces(iface);
+            
+            sb.AppendLine("using System;");
+            sb.AppendLine("using System.Threading.Tasks;");
+            foreach (var n in namespaces.OrderBy(n => n))
+            {
+                sb.AppendLine($"using {n};");
+            }
+            sb.AppendLine($"namespace {ns}");
+            sb.AppendLine("{");
+            sb.AppendLine($"    /// <summary>");
+            sb.AppendLine($"    /// 广播代理 - 用于向满足条件的客户端发送消息（使用过滤器）");
+            sb.AppendLine($"    /// </summary>");
+            sb.AppendLine($"    public class {className} : {iface.FullName}");
+            sb.AppendLine("    {");
+            sb.AppendLine("        private readonly object _server;");
+            sb.AppendLine("        private readonly Func<string, bool> _predicate;");
+            sb.AppendLine($"        public {className}(object server, Func<string, bool> predicate)");
+            sb.AppendLine("        {");
+            sb.AppendLine("            _server = server;");
+            sb.AppendLine("            _predicate = predicate;");
+            sb.AppendLine("        }");
+            sb.AppendLine();
+            
+            foreach (var m in iface.GetMethods())
+            {
+                var retType = SimplifyTypeName(m.ReturnType);
+                var parameters = m.GetParameters();
+                var paramList = string.Join(", ", parameters.Select(p => SimplifyTypeName(p.ParameterType) + " " + p.Name));
+                var argNames = string.Join(", ", parameters.Select(p => p.Name));
+                
+                if (m.ReturnType == typeof(void))
+                {
+                    sb.AppendLine($"        public {retType} {m.Name}({paramList})");
+                    sb.AppendLine("        {");
+                    sb.AppendLine($"            var method = _server.GetType().GetMethod(\"BroadcastWhere\").MakeGenericMethod(typeof({iface.FullName}));");
+                    sb.AppendLine($"            method.Invoke(_server, new object[] {{ _predicate, \"{m.Name}\", new object[] {{ {argNames} }} }});");
+                    sb.AppendLine("        }");
+                }
+                else if (m.ReturnType.FullName.StartsWith("System.Threading.Tasks.Task"))
+                {
+                    sb.AppendLine($"        public {retType} {m.Name}({paramList})");
+                    sb.AppendLine("        {");
+                    sb.AppendLine("            // 注意: 广播方法不支持返回值");
+                    sb.AppendLine($"            var method = _server.GetType().GetMethod(\"BroadcastWhere\").MakeGenericMethod(typeof({iface.FullName}));");
+                    sb.AppendLine($"            method.Invoke(_server, new object[] {{ _predicate, \"{m.Name}\", new object[] {{ {argNames} }} }});");
                     if (m.ReturnType.GenericTypeArguments.Length > 0)
                     {
                         sb.AppendLine($"            return Task.FromResult(default({SimplifyTypeName(m.ReturnType.GenericTypeArguments[0])}));");

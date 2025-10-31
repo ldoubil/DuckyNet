@@ -28,7 +28,13 @@ namespace DuckyNet.Client.Services
             // 通过全局 EventBus 发布聊天消息事件，实现系统解耦
             if (GameContext.IsInitialized)
             {
+                Debug.Log($"[PlayerClientService] 发布 ChatMessageReceivedEvent: {sender.SteamName}: {message}");
                 GameContext.Instance.EventBus.Publish(new ChatMessageReceivedEvent(sender, message));
+                Debug.Log($"[PlayerClientService] ChatMessageReceivedEvent 已发布");
+            }
+            else
+            {
+                Debug.LogError("[PlayerClientService] GameContext 未初始化，无法发布聊天消息事件！");
             }
         }
 
