@@ -53,7 +53,7 @@ namespace DuckyNet.Client.Core.DebugModule
             }
 
             var unitManager = GameContext.Instance.UnitManager;
-            var units = unitManager.ManagedUnits;
+            var units = unitManager.ManagedRemotePlayers;
 
             GUILayout.BeginVertical();
 
