@@ -164,7 +164,7 @@ namespace DuckyNet.Client.UI
             // 显示玩家信息（只读）
             if (GameContext.IsInitialized)
             {
-                var localPlayer = GameContext.Instance.LocalPlayer;
+                var localPlayer = GameContext.Instance.PlayerManager.LocalPlayer;
                 var playerInfo = localPlayer.Info;
                 
                 GUILayout.BeginHorizontal();
@@ -282,7 +282,7 @@ namespace DuckyNet.Client.UI
                     return;
                 }
 
-                var localPlayer = GameContext.Instance.LocalPlayer;
+                var localPlayer = GameContext.Instance.PlayerManager.LocalPlayer;
                 var serverContext = new ClientServerContext(_client);
 
                 var result = await _playerServiceClient.LoginAsync(localPlayer.Info);

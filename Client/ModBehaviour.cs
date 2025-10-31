@@ -64,7 +64,7 @@ namespace DuckyNet.Client
             var context = GameContext.Instance;
 
             // 初始化并注册各个服务
-            context.RegisterLocalPlayer(new Core.LocalPlayer());
+            context.RegisterPlayerManager(new Core.Players.PlayerManager());
             context.RegisterRpcClient(new RPC.RpcClient());
             context.RegisterInputManager(new Core.InputManager());
             context.RegisterAvatarManager(new Core.AvatarManager());

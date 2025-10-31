@@ -32,7 +32,7 @@ namespace DuckyNet.Client.Core
             // 检查是否是本地玩家
             if (GameContext.IsInitialized)
             {
-                var localPlayer = GameContext.Instance.LocalPlayer;
+                var localPlayer = GameContext.Instance.PlayerManager.LocalPlayer;
                 if (localPlayer.Info.SteamId == steamId && localPlayer.AvatarTexture != null)
                 {
                     // 缓存本地玩家头像
@@ -153,7 +153,7 @@ namespace DuckyNet.Client.Core
             {
                 // 不要销毁本地玩家的头像（由 LocalPlayer 管理）
                 if (GameContext.IsInitialized && 
-                    steamId != GameContext.Instance.LocalPlayer.Info.SteamId)
+                    steamId != GameContext.Instance.PlayerManager.LocalPlayer.Info.SteamId)
                 {
                     UnityEngine.Object.Destroy(avatar);
                 }
@@ -170,7 +170,7 @@ namespace DuckyNet.Client.Core
             {
                 // 不要销毁本地玩家的头像
                 if (GameContext.IsInitialized && 
-                    kvp.Key != GameContext.Instance.LocalPlayer.Info.SteamId)
+                    kvp.Key != GameContext.Instance.PlayerManager.LocalPlayer.Info.SteamId)
                 {
                     UnityEngine.Object.Destroy(kvp.Value);
                 }

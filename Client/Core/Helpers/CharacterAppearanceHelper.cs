@@ -32,7 +32,7 @@ namespace DuckyNet.Client.Core.Helpers
 
             try
             {
-                var localPlayer = GameContext.Instance.LocalPlayer;
+                var localPlayer = GameContext.Instance.PlayerManager.LocalPlayer;
                 var rpcClient = GameContext.Instance.RpcClient;
                 var customizationManager = GameContext.Instance.CharacterCustomizationManager;
 

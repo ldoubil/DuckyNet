@@ -142,7 +142,7 @@ namespace DuckyNet.Client.Core.DebugModule
             {
                 if (Core.GameContext.IsInitialized)
                 {
-                    var localPlayer = Core.GameContext.Instance.LocalPlayer;
+                    var localPlayer = Core.GameContext.Instance.PlayerManager.LocalPlayer;
                     UnityEngine.Debug.Log("[AnimationDebugger] 开始诊断本地玩家角色...");
                     // 这里可以添加更多诊断逻辑
                 }

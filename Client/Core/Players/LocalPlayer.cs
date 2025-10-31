@@ -4,36 +4,34 @@ using static UnityEngine.Debug;
 using Steamworks;
 using DuckyNet.Shared.Services;
 using DuckyNet.Client.Core.Helpers;
+using DuckyNet.Shared.Data;
 
-namespace DuckyNet.Client.Core
+namespace DuckyNet.Client.Core.Players
 {
     /// <summary>
     /// 本地玩家管理器
     /// 负责管理本地玩家信息，包括从 Steam API 获取玩家数据
     /// </summary>
-    public class LocalPlayer
+    public class LocalPlayer: BasePlayer
     {
-        private readonly EventSubscriberHelper _eventSub = new EventSubscriberHelper();
+        private readonly EventSubscriberHelper _eventSubscriber = new EventSubscriberHelper();
 
-        /// <summary>
-        /// 当前本地玩家信息（从 Steam API 获取，只读）
-        /// </summary>
-        public PlayerInfo Info { get; set; }
-
-        /// <summary>
-        /// Steam 头像纹理（如果已加载）
-        /// </summary>
-        public Texture2D? AvatarTexture { get; private set; }
-
-        /// <summary>
-        /// 是否已成功从 Steam 初始化
-        /// </summary>
-        public bool IsInitializedFromSteam { get; private set; }
-
-        public LocalPlayer()
+        public LocalPlayer(PlayerInfo info) : base(info)
         {
-            Info = new PlayerInfo();
+            _eventSubscriber.EnsureInitializedAndSubscribe();
+            _eventSubscriber.Subscribe<SceneLoadedDetailEvent>(OnSceneLoaded);
+            _eventSubscriber.Subscribe<SceneUnloadingDetailEvent>(OnSceneUnloading);
             Initialize();
+        }
+
+        private void OnSceneUnloading(SceneUnloadingDetailEvent @event)
+        {
+            Info.CurrentScenelData = new ScenelData("", "");
+        }
+
+        private void OnSceneLoaded(SceneLoadedDetailEvent @event)
+        {
+            Info.CurrentScenelData = @event.ScenelData;
         }
 
         /// <summary>
@@ -61,14 +59,6 @@ namespace DuckyNet.Client.Core
                     SteamName = steamUsername,
                     AvatarUrl = avatarUrl,
                 };
-
-                IsInitializedFromSteam = true;
-
-                UnityEngine.Debug.Log($"[LocalPlayer] 玩家信息已初始化");
-                UnityEngine.Debug.Log($"  - Steam ID: {Info.SteamId}");
-                UnityEngine.Debug.Log($"  - 玩家名称: {Info.SteamName}");
-                UnityEngine.Debug.Log($"  - 头像URL: {Info.AvatarUrl}");
-
                 // 异步加载头像纹理
                 LoadAvatarTexture(steamId);
 
@@ -95,9 +85,6 @@ namespace DuckyNet.Client.Core
                 SteamName = "Player_" + UnityEngine.Random.Range(1000, 9999),
                 AvatarUrl = string.Empty,
             };
-
-            IsInitializedFromSteam = false;
-            UnityEngine.Debug.LogWarning($"[LocalPlayer] 使用默认信息: ID={Info.SteamId}, Name={Info.SteamName}");
         }
 
         /// <summary>
@@ -160,7 +147,7 @@ namespace DuckyNet.Client.Core
                 }
 
                 // 创建 Unity 纹理
-                AvatarTexture = new Texture2D((int)width, (int)height, TextureFormat.RGBA32, false);
+                this.AvatarTexture = new Texture2D((int)width, (int)height, TextureFormat.RGBA32, false);
                 AvatarTexture.LoadRawTextureData(imageData);
                 AvatarTexture.Apply();
 
@@ -199,12 +186,16 @@ namespace DuckyNet.Client.Core
         }
 
 
-        /// <summary>
-        /// 清理资源
-        /// </summary>
-        public void Dispose()
+
+
+        public override void SetAvatarTexture(Texture2D texture)
         {
-            if (AvatarTexture != null)
+            this.AvatarTexture = texture;
+        }
+
+        public override void Dispose()
+        {
+             if (AvatarTexture != null)
             {
                 UnityEngine.Object.Destroy(AvatarTexture);
                 AvatarTexture = null;

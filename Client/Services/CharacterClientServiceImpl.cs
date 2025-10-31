@@ -22,7 +22,7 @@ namespace DuckyNet.Client.Services
                     return;
                 }
 
-                var localPlayer = GameContext.Instance.LocalPlayer;
+                var localPlayer = GameContext.Instance.PlayerManager.LocalPlayer;
                 if (steamId == localPlayer.Info.SteamId)
                 {
                     Debug.Log("[CharacterClientService] 跳过本地玩家外观更新");

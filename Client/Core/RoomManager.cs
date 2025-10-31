@@ -69,7 +69,7 @@ namespace DuckyNet.Client.Core
             RefreshPlayerListAsync();
             if (GameContext.IsInitialized)
             {
-                GameContext.Instance.EventBus.Publish(new RoomJoinedEvent(GameContext.Instance.LocalPlayer.Info, room));
+                GameContext.Instance.EventBus.Publish(new RoomJoinedEvent(GameContext.Instance.PlayerManager.LocalPlayer.Info, room));
             }
         }
 
@@ -105,7 +105,7 @@ namespace DuckyNet.Client.Core
                     RoomPlayers.Clear();
                     if (GameContext.IsInitialized)
                     {
-                        GameContext.Instance.EventBus.Publish(new RoomLeftEvent(GameContext.Instance.LocalPlayer.Info, leftRoom ?? new RoomInfo()));
+                        GameContext.Instance.EventBus.Publish(new RoomLeftEvent(GameContext.Instance.PlayerManager.LocalPlayer.Info, leftRoom ?? new RoomInfo()));
                     }
                 }
                 return success;

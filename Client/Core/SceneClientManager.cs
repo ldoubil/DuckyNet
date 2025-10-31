@@ -61,7 +61,6 @@ namespace DuckyNet.Client.Core
         {
             Debug.Log($"[SceneClientManager] 场景加载: {evt.ScenelData.SceneName} {evt.ScenelData.SubSceneName}");
             _scenelDataList = evt.ScenelData;
-            GameContext.Instance.LocalPlayer.Info.CurrentScenelData = _scenelDataList;
             _sceneServiceClient.EnterSceneAsync(_scenelDataList);
         }
 
@@ -70,7 +69,6 @@ namespace DuckyNet.Client.Core
             Debug.Log($"[SceneClientManager] 场景卸载: {evt.ScenelData.SceneName} {evt.ScenelData.SubSceneName}");
             _sceneServiceClient.LeaveSceneAsync(_scenelDataList);
             _scenelDataList = new ScenelData("", "");
-            GameContext.Instance.LocalPlayer.Info.CurrentScenelData = _scenelDataList;
         }
 
         public void Dispose()

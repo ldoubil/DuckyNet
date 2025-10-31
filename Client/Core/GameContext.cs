@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using DuckyNet.Client.RPC;
+using DuckyNet.Client.Core.Players;
 
 namespace DuckyNet.Client.Core
 {
@@ -28,9 +29,9 @@ namespace DuckyNet.Client.Core
         }
 
         /// <summary>
-        /// 本地玩家服务
+        /// 玩家服务
         /// </summary>
-        public LocalPlayer LocalPlayer { get;  set; }
+        public PlayerManager PlayerManager { get;  set; }
 
         /// <summary>
         /// RPC 客户端服务
@@ -85,7 +86,7 @@ namespace DuckyNet.Client.Core
 
         private GameContext()
         {
-            LocalPlayer = null!;
+            PlayerManager = null!;
             RpcClient = null!;
             UIManager = null!;
             InputManager = null!;
@@ -117,9 +118,9 @@ namespace DuckyNet.Client.Core
         /// <summary>
         /// 注册本地玩家服务
         /// </summary>
-        public void RegisterLocalPlayer(LocalPlayer localPlayer)
+        public void RegisterPlayerManager(PlayerManager playerManager)
         {
-            LocalPlayer = localPlayer ?? throw new ArgumentNullException(nameof(localPlayer));
+            PlayerManager = playerManager ?? throw new ArgumentNullException(nameof(playerManager));
             UnityEngine.Debug.Log("[GameContext] 本地玩家服务已注册");
         }
 
@@ -210,7 +211,7 @@ namespace DuckyNet.Client.Core
                 _instance.UIManager?.Dispose();
                 _instance.AvatarManager?.Dispose();
                 _instance.RpcClient?.Disconnect();
-                _instance.LocalPlayer?.Dispose();
+                _instance.PlayerManager?.Dispose();
                 _instance.EventBus?.Dispose();
                 _instance.SceneClientManager?.Dispose();
                 _instance.RoomManager?.Dispose();
