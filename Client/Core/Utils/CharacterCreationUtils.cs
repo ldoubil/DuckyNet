@@ -4,202 +4,213 @@ using HarmonyLib;
 
 namespace DuckyNet.Client.Core.Utils
 {
-    /// <summary>
-    /// 角色创建工具 - 处理角色创建相关逻辑
-    /// </summary>
     public static class CharacterCreationUtils
     {
-        /// <summary>
-        /// 创建角色数据项
-        /// </summary>
         public static object? CreateCharacterItem()
         {
-            try
-            {
-                var itemAssetsCollectionType = AccessTools.TypeByName("ItemStatsSystem.ItemAssetsCollection");
-                var gameplayDataSettingsType = AccessTools.TypeByName("Duckov.Utilities.GameplayDataSettings");
+            var itemAssetsCollectionType = AccessTools.TypeByName("ItemStatsSystem.ItemAssetsCollection");
+            var gameplayDataSettingsType = AccessTools.TypeByName("Duckov.Utilities.GameplayDataSettings");
 
-                if (itemAssetsCollectionType == null || gameplayDataSettingsType == null)
-                {
-                    UnityEngine.Debug.LogError("[CharacterCreationUtils] 类型未初始化");
-                    return null;
-                }
+            var itemAssetsProp = AccessTools.Property(gameplayDataSettingsType, "ItemAssets");
+            object? itemAssets = itemAssetsProp?.GetValue(null);
+            var defaultItemTypeProp = AccessTools.Property(itemAssets?.GetType(), "DefaultCharacterItemTypeID");
+            int itemTypeID = (int)(defaultItemTypeProp?.GetValue(itemAssets) ?? 0);
 
-                // 获取默认角色物品类型ID
-                var itemAssetsProp = AccessTools.Property(gameplayDataSettingsType, "ItemAssets");
-                object? itemAssets = itemAssetsProp?.GetValue(null);
-                var defaultItemTypeProp = AccessTools.Property(itemAssets?.GetType(), "DefaultCharacterItemTypeID");
-                int itemTypeID = (int)(defaultItemTypeProp?.GetValue(itemAssets) ?? 0);
+            var instantiateMethod = AccessTools.Method(itemAssetsCollectionType, "InstantiateAsync", new[] { typeof(int) });
+            object? instantiateTask = instantiateMethod?.Invoke(null, new object[] { itemTypeID });
 
-                // 调用 InstantiateAsync
-                var instantiateMethod = AccessTools.Method(itemAssetsCollectionType, "InstantiateAsync", new[] { typeof(int) });
-                object? instantiateTask = instantiateMethod?.Invoke(null, new object[] { itemTypeID });
-                
-                if (instantiateTask == null)
-                {
-                    UnityEngine.Debug.LogError("[CharacterCreationUtils] InstantiateAsync 返回 null");
-                    return null;
-                }
-
-                // 同步等待 UniTask 完成
-                var characterItem = UniTaskHelper.WaitForUniTaskSync(instantiateTask);
-                return characterItem;
-            }
-            catch (Exception ex)
-            {
-                UnityEngine.Debug.LogError($"[CharacterCreationUtils] 创建角色数据项失败: {ex.Message}");
-                return null;
-            }
+            return instantiateTask != null ? UniTaskHelper.WaitForUniTaskSync(instantiateTask) : null;
         }
 
-        /// <summary>
-        /// 获取角色模型预制体
-        /// </summary>
         public static object? GetCharacterModelPrefab()
         {
-            try
-            {
-                var levelManagerType = AccessTools.TypeByName("LevelManager");
-                var gameplayDataSettingsType = AccessTools.TypeByName("Duckov.Utilities.GameplayDataSettings");
-                
-                if (levelManagerType == null || gameplayDataSettingsType == null)
-                {
-                    return null;
-                }
+            var levelManagerType = AccessTools.TypeByName("LevelManager");
+            var instanceProp = AccessTools.Property(levelManagerType, "Instance");
+            var levelManager = instanceProp?.GetValue(null);
 
-                var instanceProp = AccessTools.Property(levelManagerType, "Instance");
-                var levelManager = instanceProp?.GetValue(null);
-                if (levelManager == null) return null;
-
-                // 尝试从 LevelManager 获取
-                var characterModelField = AccessTools.Field(levelManagerType, "characterModel");
-                object? modelPrefab = characterModelField?.GetValue(levelManager);
-                
-                if (modelPrefab != null)
-                {
-                    return modelPrefab;
-                }
-
-                // 如果 LevelManager 中没有，尝试从 GameplayDataSettings.Prefabs 获取
-                var prefabsProp = AccessTools.Property(gameplayDataSettingsType, "Prefabs");
-                object? prefabs = prefabsProp?.GetValue(null);
-                if (prefabs != null)
-                {
-                    var characterModelProp = AccessTools.Property(prefabs.GetType(), "CharacterModel");
-                    modelPrefab = characterModelProp?.GetValue(prefabs);
-                }
-
-                return modelPrefab;
-            }
-            catch (Exception ex)
-            {
-                UnityEngine.Debug.LogError($"[CharacterCreationUtils] 获取角色模型失败: {ex.Message}");
-                return null;
-            }
+            var characterModelField = AccessTools.Field(levelManagerType, "characterModel");
+            return characterModelField?.GetValue(levelManager);
         }
 
-        /// <summary>
-        /// 创建角色实例
-        /// </summary>
         public static object? CreateCharacterInstance(object characterItem, object modelPrefab, Vector3 position, Quaternion rotation)
         {
-            try
+            var levelManagerType = AccessTools.TypeByName("LevelManager");
+            var characterCreatorType = AccessTools.TypeByName("CharacterCreator");
+
+            var instanceProp = AccessTools.Property(levelManagerType, "Instance");
+            var levelManager = instanceProp?.GetValue(null);
+
+            var creatorProp = AccessTools.Property(levelManagerType, "CharacterCreator");
+            var characterCreator = creatorProp?.GetValue(levelManager);
+
+            var createMethod = AccessTools.Method(characterCreatorType, "CreateCharacter");
+            object? createTask = createMethod?.Invoke(characterCreator, new object[] { 
+                characterItem, modelPrefab, position, rotation 
+            });
+
+            return createTask != null ? UniTaskHelper.WaitForUniTaskSync(createTask) : null;
+        }
+
+        public static void ConfigureCharacter(object character, string name, Vector3 position, int team)
+        {
+            Component? characterComponent = character as Component;
+            if (characterComponent == null) return;
+
+            characterComponent.gameObject.name = name;
+            characterComponent.transform.position = position;
+
+            var teamsType = AccessTools.TypeByName("Teams");
+            string[] teamEnumNames = { "player", "scav", "middle" };
+            if (team >= 0 && team < teamEnumNames.Length)
             {
-                var levelManagerType = AccessTools.TypeByName("LevelManager");
-                var characterCreatorType = AccessTools.TypeByName("CharacterCreator");
-                if (levelManagerType == null || characterCreatorType == null)
-                {
-                    UnityEngine.Debug.LogError("[CharacterCreationUtils] 类型未初始化");
-                    return null;
-                }
-
-                var instanceProp = AccessTools.Property(levelManagerType, "Instance");
-                var levelManager = instanceProp?.GetValue(null);
-                if (levelManager == null)
-                {
-                    UnityEngine.Debug.LogError("[CharacterCreationUtils] LevelManager 未初始化");
-                    return null;
-                }
-
-                var creatorProp = AccessTools.Property(levelManagerType, "CharacterCreator");
-                var characterCreator = creatorProp?.GetValue(levelManager);
-                if (characterCreator == null)
-                {
-                    UnityEngine.Debug.LogError("[CharacterCreationUtils] CharacterCreator 未找到");
-                    return null;
-                }
-
-                // 调用 CreateCharacter
-                var createMethod = AccessTools.Method(characterCreatorType, "CreateCharacter");
-                object? createTask = createMethod?.Invoke(characterCreator, new object[] { 
-                    characterItem, modelPrefab, position, rotation 
-                });
-
-                if (createTask == null)
-                {
-                    UnityEngine.Debug.LogError("[CharacterCreationUtils] CreateCharacter 返回 null");
-                    return null;
-                }
-
-                // 同步等待 UniTask 完成
-                var newCharacter = UniTaskHelper.WaitForUniTaskSync(createTask);
-                return newCharacter;
+                object teamValue = Enum.Parse(teamsType, teamEnumNames[team]);
+                var setTeamMethod = AccessTools.Method(character.GetType(), "SetTeam");
+                setTeamMethod?.Invoke(character, new object[] { teamValue });
             }
-            catch (Exception ex)
+
+            var healthProp = AccessTools.Property(character.GetType(), "Health");
+            object? health = healthProp?.GetValue(character);
+            if (health != null)
             {
-                UnityEngine.Debug.LogError($"[CharacterCreationUtils] 创建角色实例失败: {ex.Message}");
-                return null;
+                var initMethod = AccessTools.Method(health.GetType(), "Init", Type.EmptyTypes);
+                initMethod?.Invoke(health, null);
             }
         }
 
-        /// <summary>
-        /// 配置角色（设置名称、位置、队伍、血量等）
-        /// </summary>
-        public static bool ConfigureCharacter(object character, string name, Vector3 position, int team)
+        public static void ConfigureCharacterPreset(object character, string displayName, bool showName = true)
         {
-            try
+            var charType = character.GetType();
+            var characterPresetProp = AccessTools.Property(charType, "characterPreset");
+            object? currentPreset = characterPresetProp?.GetValue(character);
+
+            if (currentPreset == null)
             {
-                Component? characterComponent = character as Component;
-                if (characterComponent == null)
+                var presetType = AccessTools.TypeByName("CharacterRandomPreset");
+                if (presetType != null)
                 {
-                    UnityEngine.Debug.LogError("[CharacterCreationUtils] 角色不是Component类型");
-                    return false;
-                }
-
-                GameObject unitObject = characterComponent.gameObject;
-                unitObject.name = name;
-                characterComponent.transform.position = position;
-
-                // 设置队伍
-                var teamsType = AccessTools.TypeByName("Teams");
-                if (teamsType != null)
-                {
-                    string[] teamEnumNames = { "player", "scav", "middle" };
-                    if (team >= 0 && team < teamEnumNames.Length)
+                    currentPreset = UnityEngine.ScriptableObject.CreateInstance(presetType);
+                    if (currentPreset != null && characterPresetProp != null && characterPresetProp.CanWrite)
                     {
-                        object teamValue = Enum.Parse(teamsType, teamEnumNames[team]);
-                        var setTeamMethod = AccessTools.Method(character.GetType(), "SetTeam");
-                        setTeamMethod?.Invoke(character, new object[] { teamValue });
+                        characterPresetProp.SetValue(character, currentPreset);
+                        UnityEngine.Debug.Log("[CharacterCreationUtils] 创建新的 CharacterRandomPreset");
                     }
                 }
+            }
 
-                // 初始化血量
-                var healthProp = AccessTools.Property(character.GetType(), "Health");
-                object? health = healthProp?.GetValue(character);
-                if (health != null)
+            if (currentPreset != null)
+            {
+                var presetType = currentPreset.GetType();
+                
+                var showHealthBarField = AccessTools.Field(presetType, "showHealthBar");
+                if (showHealthBarField != null)
                 {
-                    var initMethod = AccessTools.Method(health.GetType(), "Init", Type.EmptyTypes);
-                    initMethod?.Invoke(health, null);
+                    showHealthBarField.SetValue(currentPreset, true);
+                    UnityEngine.Debug.Log("[CharacterCreationUtils] 设置 showHealthBar = true");
+                }
+                
+                var showNameProp = AccessTools.Property(presetType, "showName");
+                if (showNameProp != null && showNameProp.CanWrite)
+                {
+                    showNameProp.SetValue(currentPreset, showName);
+                    UnityEngine.Debug.Log($"[CharacterCreationUtils] 设置 showName = {showName}");
                 }
 
-                return true;
+                var nameKeyField = AccessTools.Field(presetType, "nameKey");
+                if (nameKeyField != null)
+                {
+                    nameKeyField.SetValue(currentPreset, displayName);
+                    UnityEngine.Debug.Log($"[CharacterCreationUtils] 设置 nameKey = {displayName}");
+                }
+
+                var iconTypeField = AccessTools.Field(presetType, "characterIconType");
+                if (iconTypeField != null)
+                {
+                    var iconEnumType = AccessTools.TypeByName("CharacterIconTypes");
+                    if (iconEnumType != null)
+                    {
+                        object iconValue = Enum.Parse(iconEnumType, "pmc");
+                        iconTypeField.SetValue(currentPreset, iconValue);
+                        UnityEngine.Debug.Log("[CharacterCreationUtils] 设置 characterIconType = pmc");
+                    }
+                }
+                
+                // 验证设置
+                var displayNameProp = AccessTools.Property(presetType, "DisplayName");
+                if (displayNameProp != null)
+                {
+                    object? actualDisplayName = displayNameProp.GetValue(currentPreset);
+                    UnityEngine.Debug.Log($"[CharacterCreationUtils] 验证 DisplayName = {actualDisplayName}");
+                }
             }
-            catch (Exception ex)
+        }
+
+        public static void RequestHealthBar(object character)
+        {
+            var healthProp = AccessTools.Property(character.GetType(), "Health");
+            object? health = healthProp?.GetValue(character);
+            
+            if (health != null)
             {
-                UnityEngine.Debug.LogError($"[CharacterCreationUtils] 配置角色失败: {ex.Message}");
-                return false;
+                var showHealthBarProp = AccessTools.Property(health.GetType(), "showHealthBar");
+                if (showHealthBarProp != null && showHealthBarProp.CanWrite)
+                {
+                    showHealthBarProp.SetValue(health, true);
+                }
+
+                var requestMethod = AccessTools.Method(health.GetType(), "RequestHealthBar", Type.EmptyTypes);
+                requestMethod?.Invoke(health, null);
+                
+                // 延迟设置名称文本，等待 HealthBar 创建完成
+                UnityEngine.MonoBehaviour mb = health as UnityEngine.MonoBehaviour;
+                if (mb != null)
+                {
+                    mb.StartCoroutine(SetHealthBarNameDelayed(health));
+                }
+            }
+        }
+
+        private static System.Collections.IEnumerator SetHealthBarNameDelayed(object health)
+        {
+            yield return null; // 等待一帧，让 HealthBar 创建完成
+            
+            // 查找对应的 HealthBar
+            var healthBarManagerType = AccessTools.TypeByName("Duckov.UI.HealthBarManager");
+            if (healthBarManagerType != null)
+            {
+                var instanceProp = AccessTools.Property(healthBarManagerType, "Instance");
+                object? healthBarManager = instanceProp?.GetValue(null);
+                
+                if (healthBarManager != null)
+                {
+                    var getActiveHealthBarMethod = AccessTools.Method(healthBarManagerType, "GetActiveHealthBar");
+                    object? healthBar = getActiveHealthBarMethod?.Invoke(healthBarManager, new object[] { health });
+                    
+                    if (healthBar != null)
+                    {
+                        // 直接设置 nameText
+                        var nameTextField = AccessTools.Field(healthBar.GetType(), "nameText");
+                        object? nameText = nameTextField?.GetValue(healthBar);
+                        
+                        if (nameText != null)
+                        {
+                            var textProp = AccessTools.Property(nameText.GetType(), "text");
+                            if (textProp != null && textProp.CanWrite)
+                            {
+                                textProp.SetValue(nameText, "测试名字");
+                                UnityEngine.Debug.Log("[CharacterCreationUtils] 直接设置 HealthBar.nameText = 测试名字");
+                            }
+                            
+                            var gameObjectProp = AccessTools.Property(nameText.GetType(), "gameObject");
+                            object? gameObject = gameObjectProp?.GetValue(nameText);
+                            if (gameObject != null)
+                            {
+                                var setActiveMethod = AccessTools.Method(gameObject.GetType(), "SetActive");
+                                setActiveMethod?.Invoke(gameObject, new object[] { true });
+                            }
+                        }
+                    }
+                }
             }
         }
     }
 }
-
