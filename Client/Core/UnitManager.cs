@@ -147,14 +147,11 @@ namespace DuckyNet.Client.Core
                     return null;
                 }
 
-                // 4.5 请求显示血条
-                RequestHealthBar(newCharacter);
+                // 4.5 配置角色名字显示（必须在请求血条之前）
+                ConfigureCharacterName(newCharacter, playerId);
 
                 // 4.6 禁用物理组件防止下落
                 DisablePhysics(newCharacter);
-
-                // 4.7 配置角色名字显示
-                ConfigureCharacterName(newCharacter, playerId);
 
                 // 5. 添加到管理列表
                 Component? characterComponent = newCharacter as Component;
@@ -171,40 +168,6 @@ namespace DuckyNet.Client.Core
                 UnityEngine.Debug.LogError($"[UnitManager] 创建远程玩家异常: {ex.Message}");
                 UnityEngine.Debug.LogException(ex);
                 return null;
-            }
-        }
-
-        /// <summary>
-        /// 请求显示血条
-        /// 流程：先设置 showHealthBar = true，再调用 RequestHealthBar() 触发事件
-        /// </summary>
-        private void RequestHealthBar(object character)
-        {
-            try
-            {
-                // 获取 Health 属性
-                var healthProp = HarmonyLib.AccessTools.Property(character.GetType(), "Health");
-                object? health = healthProp?.GetValue(character);
-                
-                if (health != null)
-                {
-                    // 1. 先设置 showHealthBar = true
-                    var showHealthBarProp = HarmonyLib.AccessTools.Property(health.GetType(), "showHealthBar");
-                    if (showHealthBarProp != null && showHealthBarProp.CanWrite)
-                    {
-                        showHealthBarProp.SetValue(health, true);
-                    }
-
-                    // 2. 调用 RequestHealthBar() 方法，触发 Health.OnRequestHealthBar 事件
-                    var requestMethod = HarmonyLib.AccessTools.Method(health.GetType(), "RequestHealthBar", Type.EmptyTypes);
-                    requestMethod?.Invoke(health, null);
-                    
-                    UnityEngine.Debug.Log("[UnitManager] 已请求显示血条");
-                }
-            }
-            catch (Exception ex)
-            {
-                UnityEngine.Debug.LogWarning($"[UnitManager] 请求血条失败: {ex.Message}");
             }
         }
 
@@ -241,48 +204,50 @@ namespace DuckyNet.Client.Core
             try
             {
                 // 获取 CharacterMainControl 组件
-                Component? characterComponent = character as Component;
-                if (characterComponent == null) return;
-
                 var charType = character.GetType();
+                
+                // 创建新的 CharacterRandomPreset
+                var presetType = HarmonyLib.AccessTools.TypeByName("CharacterRandomPreset");
+                if (presetType == null)
+                {
+                    UnityEngine.Debug.LogWarning("[UnitManager] 无法找到 CharacterRandomPreset 类型");
+                    return;
+                }
+
+                object? preset = UnityEngine.ScriptableObject.CreateInstance(presetType);
+                if (preset == null) return;
+
+                // 设置 showName = true
+                var showNameProp = HarmonyLib.AccessTools.Property(presetType, "showName");
+                if (showNameProp != null && showNameProp.CanWrite)
+                {
+                    showNameProp.SetValue(preset, true);
+                }
+
+                // 设置 nameKey = playerId
+                var nameKeyProp = HarmonyLib.AccessTools.Property(presetType, "nameKey");
+                if (nameKeyProp != null && nameKeyProp.CanWrite)
+                {
+                    nameKeyProp.SetValue(preset, playerId);
+                }
+
+                // 将预设赋值给角色
                 var characterPresetProp = HarmonyLib.AccessTools.Property(charType, "characterPreset");
-                object? currentPreset = characterPresetProp?.GetValue(character);
-
-                // 如果还没有 CharacterRandomPreset，创建一个新的
-                if (currentPreset == null)
+                if (characterPresetProp != null && characterPresetProp.CanWrite)
                 {
-                    var presetType = HarmonyLib.AccessTools.TypeByName("CharacterRandomPreset");
-                    if (presetType != null)
-                    {
-                        currentPreset = UnityEngine.ScriptableObject.CreateInstance(presetType);
-                        if (currentPreset != null && characterPresetProp != null && characterPresetProp.CanWrite)
-                        {
-                            characterPresetProp.SetValue(character, currentPreset);
-                        }
-                    }
+                    characterPresetProp.SetValue(character, preset);
                 }
 
-                // 配置预设的 showName 和 nameKey
-                if (currentPreset != null)
+                // 刷新血条显示
+                var healthProp = HarmonyLib.AccessTools.Property(charType, "Health");
+                object? health = healthProp?.GetValue(character);
+                if (health != null)
                 {
-                    var presetType = currentPreset.GetType();
-                    
-                    // 设置 showName = true
-                    var showNameProp = HarmonyLib.AccessTools.Property(presetType, "showName");
-                    if (showNameProp != null && showNameProp.CanWrite)
-                    {
-                        showNameProp.SetValue(currentPreset, true);
-                    }
-
-                    // 设置 nameKey
-                    var nameKeyProp = HarmonyLib.AccessTools.Property(presetType, "nameKey");
-                    if (nameKeyProp != null && nameKeyProp.CanWrite)
-                    {
-                        nameKeyProp.SetValue(currentPreset, $"RemotePlayer_{playerId}");
-                    }
-
-                    UnityEngine.Debug.Log($"[UnitManager] 已配置远程玩家名字显示: RemotePlayer_{playerId}");
+                    var requestMethod = HarmonyLib.AccessTools.Method(health.GetType(), "RequestHealthBar", Type.EmptyTypes);
+                    requestMethod?.Invoke(health, null);
                 }
+
+                UnityEngine.Debug.Log($"[UnitManager] 已配置远程玩家名字显示: {playerId}");
             }
             catch (Exception ex)
             {
