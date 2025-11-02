@@ -13,6 +13,12 @@ namespace DuckyNet.Client.Core.Players
     {
         // 使用 Dictionary 替代 List - O(1) 查找
         private readonly Dictionary<string, RemotePlayer> _remotePlayers = new Dictionary<string, RemotePlayer>();
+        
+        /// <summary>
+        /// 获取所有远程玩家（只读）
+        /// </summary>
+        public IEnumerable<RemotePlayer> RemotePlayers => _remotePlayers.Values;
+        
         public LocalPlayer LocalPlayer { get; private set; }
         private readonly EventSubscriberHelper _eventSubscriber = new EventSubscriberHelper();
         public PlayerManager()

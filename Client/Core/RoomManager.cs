@@ -39,25 +39,38 @@ namespace DuckyNet.Client.Core
 
         private void OnPlayerJoinedRoom(PlayerJoinedRoomEvent evt)
         {
-            Debug.Log($"[RoomManager] 其他玩家 {evt.Player.SteamName} 进入房间: {evt.Room.RoomId}");
+            Debug.Log($"[RoomManager] ✅ 玩家加入房间: {evt.Player.SteamName} → 自动更新列表");
             var idx = RoomPlayers.FindIndex(p => p.SteamId == evt.Player.SteamId);
             if (idx >= 0)
             {
                 RoomPlayers[idx] = evt.Player;
+                Debug.Log($"[RoomManager] 更新现有玩家信息: {evt.Player.SteamName}");
             }
             else
             {
                 RoomPlayers.Add(evt.Player);
+                Debug.Log($"[RoomManager] 添加新玩家: {evt.Player.SteamName}, 当前总数: {RoomPlayers.Count}");
+            }
+            
+            // 🔥 预加载玩家头像
+            if (GameContext.IsInitialized)
+            {
+                GameContext.Instance.AvatarManager.PreloadAvatar(evt.Player.SteamId);
             }
         }
 
         private void OnPlayerLeftRoom(PlayerLeftRoomEvent evt)
         {
-            Debug.Log($"[RoomManager] 其他玩家 {evt.Player.SteamName} 离开房间: {evt.Room.RoomId}");
+            Debug.Log($"[RoomManager] ❌ 玩家离开房间: {evt.Player.SteamName} → 自动更新列表");
             var idx = RoomPlayers.FindIndex(p => p.SteamId == evt.Player.SteamId);
             if (idx >= 0)
             {
                 RoomPlayers.RemoveAt(idx);
+                Debug.Log($"[RoomManager] 移除玩家: {evt.Player.SteamName}, 当前总数: {RoomPlayers.Count}");
+            }
+            else
+            {
+                Debug.LogWarning($"[RoomManager] ⚠️ 尝试移除不存在的玩家: {evt.Player.SteamName}");
             }
         }
 

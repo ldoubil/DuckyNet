@@ -63,14 +63,18 @@ namespace DuckyNet.Client.UI
 
             GUILayout.Space(10);
 
-            // 玩家列表
+            // 玩家列表（自动更新）
             var playersView = _manager.GetRoomPlayers();
-            GUILayout.Label($"房间玩家 ({playersView.Count})", GUI.skin.box);
+            GUILayout.Label($"房间玩家 ({playersView.Count}) - 自动刷新", GUI.skin.box);
             
-            if (GUILayout.Button("刷新玩家列表"))
+            // 手动刷新按钮（可选，通常不需要）
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("🔄 手动刷新"))
             {
                 _manager.RefreshPlayerListAsync();
             }
+            GUILayout.Label("💡 列表会自动更新", GUI.skin.label);
+            GUILayout.EndHorizontal();
 
             _scrollPos = GUILayout.BeginScrollView(_scrollPos, GUILayout.Height(150));
 

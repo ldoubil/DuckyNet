@@ -27,35 +27,38 @@ namespace DuckyNet.Server.Services
             _roomManager = roomManager;
         }
 
+        /// <summary>
+        /// 玩家进入场景
+        /// 🔥 通知房间其他玩家：该玩家进入了场景
+        /// </summary>
         public Task<bool> EnterSceneAsync(IClientContext client, ScenelData scenelData)
         {
-            // 标准化场景数据并更新玩家当前场景
             var nonNullData = scenelData ?? new ScenelData("", "");
             var player = _playerManager.GetPlayer(client.ClientId);
-            Console.WriteLine($"[SceneService] 玩家进入场景请求，client.ClientId={client.ClientId}, steamId={(player?.SteamId ?? "null")}, 场景=({nonNullData.SceneName},{nonNullData.SubSceneName})");
+            
             if (player != null)
             {
+                Console.WriteLine($"[SceneService] {player.SteamName} 进入场景: {nonNullData.SceneName}/{nonNullData.SubSceneName}");
+                
+                // 🔥 核心：更新玩家的场景数据（影响位置同步筛选）
                 _playerManager.UpdatePlayerSceneDataByClientId(client.ClientId, nonNullData);
-
+                
+                // 🔥 通知房间内所有玩家（包括自己）：该玩家进入了场景
                 var roomId = _roomManager.GetPlayerRoom(player)?.RoomId ?? "";
-                Console.WriteLine($"[SceneService] 玩家所在房间: roomId={roomId}");
-                var roomPlayers = _playerManager.GetRoomPlayers(roomId);
-                foreach (var p in roomPlayers)
+                if (!string.IsNullOrEmpty(roomId))
                 {
-
-                    Console.WriteLine($"[SceneService] 通知玩家 {p.SteamName} (SteamId={p.SteamId}) 进入场景 ({nonNullData.SceneName},{nonNullData.SubSceneName})");
-                    var targetClientId = _playerManager.GetClientIdBySteamId(p.SteamId);
-                    if (!string.IsNullOrEmpty(targetClientId))
+                    var roomPlayers = _playerManager.GetRoomPlayers(roomId);
+                    foreach (var p in roomPlayers)
                     {
-                        var clientContext = _server.GetClientContext(targetClientId);
-                        if (clientContext != null)
+                        var targetClientId = _playerManager.GetClientIdBySteamId(p.SteamId);
+                        if (!string.IsNullOrEmpty(targetClientId))
                         {
-                            clientContext.Call<ISceneClientService>().OnPlayerEnteredScene(player, nonNullData);
-                            Console.WriteLine($"[SceneService] 已调用 OnPlayerEnteredScene 给 {p.SteamId}");
-                        }
-                        else
-                        {
-                            Console.WriteLine($"[SceneService] ⚠️ 未找到客户端上下文: {p.SteamId}");
+                            var clientContext = _server.GetClientContext(targetClientId);
+                            if (clientContext != null)
+                            {
+                                clientContext.Call<ISceneClientService>().OnPlayerEnteredScene(player, nonNullData);
+                                Console.WriteLine($"[SceneService] ✅ 通知 {p.SteamName}: {player.SteamName} 进入场景 {nonNullData.SceneName}");
+                            }
                         }
                     }
                 }
@@ -64,7 +67,7 @@ namespace DuckyNet.Server.Services
             {
                 Console.WriteLine($"[SceneService] ⚠️ 未找到玩家信息, client.ClientId={client.ClientId}");
             }
-            Console.WriteLine("[SceneService] EnterSceneAsync 完成");
+            
             return Task.FromResult(true);
         }
 
@@ -82,37 +85,36 @@ namespace DuckyNet.Server.Services
             return Task.FromResult(Array.Empty<PlayerInfo>());
         }
 
+        /// <summary>
+        /// 玩家离开场景
+        /// 🔥 必要：通知其他玩家销毁角色（RemotePlayer订阅OnPlayerLeftScene）
+        /// </summary>
         public Task<bool> LeaveSceneAsync(IClientContext client, ScenelData scenelData)
         {
             var player = _playerManager.GetPlayer(client.ClientId);
             if (player != null)
             {
-                Console.WriteLine($"[SceneService] 玩家离开场景请求，SteamId={player.SteamId}, 场景=({scenelData.SceneName},{scenelData.SubSceneName})");
+                Console.WriteLine($"[SceneService] {player.SteamName} 离开场景: {scenelData.SceneName}/{scenelData.SubSceneName}");
                 
-                // 🔥 清除玩家的场景数据
+                // 🔥 清除玩家的场景数据（重要！影响位置同步过滤）
                 _playerManager.UpdatePlayerSceneDataByClientId(client.ClientId, new ScenelData("", ""));
                 
+                // 🔥 通知房间内所有玩家（用于销毁角色）
                 var roomId = _roomManager.GetPlayerRoom(player)?.RoomId ?? "";
-                Console.WriteLine($"[SceneService] 玩家所在房间: roomId={roomId}");
-                
-                var roomPlayers = _playerManager.GetRoomPlayers(roomId);
-                foreach (var p in roomPlayers)
+                if (!string.IsNullOrEmpty(roomId))
                 {
-                    Console.WriteLine($"[SceneService] 通知玩家 {p.SteamName} (SteamId={p.SteamId}) 玩家 {player.SteamName} 离开场景 ({scenelData.SceneName},{scenelData.SubSceneName})");
-                    
-                    var targetClientId = _playerManager.GetClientIdBySteamId(p.SteamId);
-                    if (!string.IsNullOrEmpty(targetClientId))
+                    var roomPlayers = _playerManager.GetRoomPlayers(roomId);
+                    foreach (var p in roomPlayers)
                     {
-                        var clientContext = _server.GetClientContext(targetClientId);
-                        if (clientContext != null)
+                        var targetClientId = _playerManager.GetClientIdBySteamId(p.SteamId);
+                        if (!string.IsNullOrEmpty(targetClientId))
                         {
-                            // 🔥 修复：发送离开的玩家信息（player），而不是遍历的玩家（p）
-                            clientContext.Call<ISceneClientService>().OnPlayerLeftScene(player, scenelData);
-                            Console.WriteLine($"[SceneService] ✅ 已调用 OnPlayerLeftScene 给 {p.SteamId}");
-                        }
-                        else
-                        {
-                            Console.WriteLine($"[SceneService] ⚠️ 未找到客户端上下文: {p.SteamId}");
+                            var clientContext = _server.GetClientContext(targetClientId);
+                            if (clientContext != null)
+                            {
+                                clientContext.Call<ISceneClientService>().OnPlayerLeftScene(player, scenelData);
+                                Console.WriteLine($"[SceneService] ✅ 通知 {p.SteamName}: {player.SteamName} 离开场景");
+                            }
                         }
                     }
                 }
@@ -121,7 +123,7 @@ namespace DuckyNet.Server.Services
             {
                 Console.WriteLine($"[SceneService] ⚠️ 未找到玩家信息, client.ClientId={client.ClientId}");
             }
-            Console.WriteLine("[SceneService] LeaveSceneAsync 完成");
+            
             return Task.FromResult(true);
         }
     }

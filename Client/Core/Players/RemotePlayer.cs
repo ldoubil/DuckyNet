@@ -3,6 +3,7 @@ using UnityEngine;
 using static UnityEngine.Debug;
 using Steamworks;
 using DuckyNet.Shared.Services;
+using DuckyNet.Shared.Data;
 using DuckyNet.Client.Core.Helpers;
 using DuckyNet.Client.Core.Utils;
 
@@ -29,20 +30,59 @@ namespace DuckyNet.Client.Core.Players
         private readonly EventSubscriberHelper _eventSubscriber = new EventSubscriberHelper();
         private SmoothSyncManager? _smoothSyncManager;
         private Transform? _characterTransform; // 缓存 Transform 引用
+        private CharacterAppearanceData? _cachedAppearanceData; // 缓存外观数据
+        
+        /// <summary>
+        /// 远程玩家当前所在的场景名称
+        /// </summary>
+        public string? CurrentSceneName { get; private set; }
         
         public RemotePlayer(PlayerInfo info) : base(info)
         {
             Log($"[RemotePlayer] 远程玩家创建（房间层）: {info.SteamName} ({info.SteamId})");
+            
+            // 🔥 初始化场景名称（从 PlayerInfo 获取）
+            if (info.CurrentScenelData != null && !string.IsNullOrEmpty(info.CurrentScenelData.SceneName))
+            {
+                CurrentSceneName = info.CurrentScenelData.SceneName;
+                Log($"[RemotePlayer] 初始场景: {CurrentSceneName}");
+            }
+            else
+            {
+                Log($"[RemotePlayer] 玩家 {info.SteamName} 初始场景未设置");
+            }
+            
             _eventSubscriber.EnsureInitializedAndSubscribe();
             
             // 🔥 订阅位置同步事件
             _eventSubscriber.Subscribe<PlayerUnitySyncEvent>(OnPlayerUnitySyncReceived);
             
-            // 🔥 订阅场景事件（远程玩家离开场景时销毁角色）
+            // 🔥 订阅场景事件（远程玩家进入/离开场景）
+            _eventSubscriber.Subscribe<PlayerEnteredSceneEvent>(OnPlayerEnteredScene);
             _eventSubscriber.Subscribe<PlayerLeftSceneEvent>(OnPlayerLeftScene);
             
             // 🔥 订阅本地场景切换事件（清理已销毁的角色引用）
             _eventSubscriber.Subscribe<SceneLoadedDetailEvent>(OnLocalSceneLoaded);
+            
+            // 🔥 订阅外观接收事件
+            _eventSubscriber.Subscribe<Services.CharacterAppearanceReceivedEvent>(OnAppearanceReceived);
+            
+            // 🔥 请求该玩家的外观数据
+            Log($"[RemotePlayer] 🎨 远程玩家创建完成，准备请求外观数据: {info.SteamName}");
+            RequestAppearanceData();
+        }
+        
+        /// <summary>
+        /// 远程玩家进入场景 - 记录场景名称
+        /// </summary>
+        private void OnPlayerEnteredScene(PlayerEnteredSceneEvent @event)
+        {
+            // 只处理自己的场景事件
+            if (@event.PlayerInfo.SteamId != Info.SteamId) return;
+
+            CurrentSceneName = @event.ScenelData.SceneName;
+            Info.CurrentScenelData = @event.ScenelData; // 同步更新 PlayerInfo
+            Log($"[RemotePlayer] 玩家 {Info.SteamName} 进入场景: {CurrentSceneName}");
         }
 
         /// <summary>
@@ -53,32 +93,47 @@ namespace DuckyNet.Client.Core.Players
             // 只处理自己的场景事件
             if (@event.PlayerInfo.SteamId != Info.SteamId) return;
 
-            Log($"[RemotePlayer] 玩家 {Info.SteamName} 离开场景，销毁角色");
+            Log($"[RemotePlayer] 玩家 {Info.SteamName} 离开场景: {CurrentSceneName}");
+            CurrentSceneName = null; // 清空场景名称
+            Info.CurrentScenelData = new ScenelData("", ""); // 同步清空 PlayerInfo
             DestroyCharacter(); // 销毁角色，但保留 RemotePlayer
         }
 
         /// <summary>
-        /// 本地玩家场景加载完成 - 清理已销毁的角色引用
-        /// 🔥 简化逻辑：主场景切换时 Unity 会销毁所有对象，我们只需要清空引用
-        /// 服务器会根据场景匹配来发送位置同步，收到同步后会自动重建角色
+        /// 本地玩家场景加载完成 - 销毁旧角色
+        /// 🔥 策略：每次切换场景都重新创建角色，不移动旧模型
+        /// 原因：
+        /// 1. 避免场景依赖问题（角色预制体可能引用特定场景的资源）
+        /// 2. 简化逻辑，不需要处理跨场景移动的复杂情况
+        /// 3. 确保使用新场景的正确坐标创建角色
         /// </summary>
         private void OnLocalSceneLoaded(SceneLoadedDetailEvent @event)
         {
-            // 🔥 主场景切换时，Unity 会自动销毁场景中的所有对象
-            // 清空角色引用，避免访问已销毁的对象
-            if (CharacterObject != null && CharacterObject == null) // Unity 特殊的 null 检查
+            // 🔥 场景切换时直接销毁旧角色，等待服务器发送新位置再重新创建
+            if (!System.Object.ReferenceEquals(CharacterObject, null))
             {
-                Log($"[RemotePlayer] 检测到角色对象已被场景切换销毁，清空引用: {Info.SteamName}");
+                Log($"[RemotePlayer] 场景切换，销毁旧角色: {Info.SteamName}");
+                UnityEngine.Object.Destroy(CharacterObject);
                 CharacterObject = null;
                 _characterTransform = null;
             }
+            else
+            {
+                Log($"[RemotePlayer] 场景切换，角色引用已为空: {Info.SteamName}");
+            }
             
-            Log($"[RemotePlayer] 本地场景加载完成: {Info.SteamName}, 等待位置同步重建角色");
+            Log($"[RemotePlayer] 场景 {@event.ScenelData.SceneName} 加载完成，等待位置同步重建角色: {Info.SteamName}");
+            
+            // 🔥 不在这里重建！等服务器发送位置同步数据时，在 OnPlayerUnitySyncReceived 中创建
+            // 优点：
+            // 1. 使用服务器提供的准确位置
+            // 2. 只创建同场景的角色（服务器已过滤）
+            // 3. 角色自然地在新场景中创建，没有跨场景引用问题
         }
 
         /// <summary>
         /// 收到位置同步数据 - 创建或更新角色
-        /// 🔥 简化逻辑：服务器已经过滤了场景匹配，客户端收到就是同场景的数据
+        /// 🔥 简化逻辑：服务器已经过滤了场景，客户端直接信任服务器
         /// </summary>
         private void OnPlayerUnitySyncReceived(PlayerUnitySyncEvent @event)
         {
@@ -102,9 +157,44 @@ namespace DuckyNet.Client.Core.Players
             // 接收新的同步数据
             _smoothSyncManager.ReceiveSyncData(@event.SyncData);
             
-            // 🔥 核心简化：收到位置同步就创建角色
-            // 服务器保证只发送同场景玩家的数据，客户端完全信任服务器
-            if (CharacterObject == null)
+            // 🔥 服务器已经过滤了场景，收到位置同步就说明在同一场景
+            // 检查是否需要创建/重建角色
+            bool needsRecreate = false;
+            
+            try
+            {
+                // 方法1：引用为 null（还没创建过）
+                if (CharacterObject == null)
+                {
+                    needsRecreate = true;
+                    Log($"[RemotePlayer] CharacterObject 引用为空，需要创建: {Info.SteamName}");
+                }
+                // 方法2：尝试访问对象属性，如果失败则说明已销毁
+                else
+                {
+                    // Unity 特殊检查：访问 name 属性，如果抛异常说明对象已销毁
+                    var _ = CharacterObject.name;
+                    
+                    // 额外检查：对象是否真的存在于场景中
+                    if (CharacterObject == null) // Unity 的 == 运算符会返回 true 如果对象被销毁
+                    {
+                        needsRecreate = true;
+                        Log($"[RemotePlayer] CharacterObject 已被销毁（Unity operator==），需要重建: {Info.SteamName}");
+                        CharacterObject = null;
+                        _characterTransform = null;
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // 访问对象属性失败，说明对象已销毁
+                needsRecreate = true;
+                Log($"[RemotePlayer] CharacterObject 访问失败（已销毁），需要重建: {Info.SteamName}");
+                CharacterObject = null;
+                _characterTransform = null;
+            }
+            
+            if (needsRecreate)
             {
                 var spawnPosition = _smoothSyncManager.GetPosition();
                 Log($"[RemotePlayer] 🔥 收到位置同步，创建角色: {Info.SteamName} 位置: {spawnPosition}");
@@ -131,8 +221,8 @@ namespace DuckyNet.Client.Core.Players
             // 更新平滑值
             _smoothSyncManager.Update();
             
-            // 应用到角色对象（使用缓存的 Transform）
-            _smoothSyncManager.ApplyToTransform(_characterTransform);
+            // 应用到角色对象（位置和旋转都应用到根Transform）
+            _smoothSyncManager.ApplyToTransform(_characterTransform, _characterTransform);
         }
 
         /// <summary>
@@ -194,8 +284,11 @@ namespace DuckyNet.Client.Core.Players
                 CharacterCreationUtils.ConfigureCharacter(newCharacter, $"Character_{Info.SteamName}", position, team: 0);
                 CharacterCreationUtils.ConfigureCharacterPreset(newCharacter, displayName, showName: true);
                 
-                // 禁用移动脚本 - 防止角色掉落和自动移动
-                CharacterCreationUtils.DisableMovement(newCharacter);
+                // 标记为远程玩家 - 让 Movement 补丁识别并跳过移动更新
+                CharacterCreationUtils.MarkAsRemotePlayer(newCharacter);
+                
+                // 🔥 从距离管理系统中移除 - 防止在户外场景被自动禁用
+                CharacterCreationUtils.UnregisterFromDistanceSystem(newCharacter);
 
                 // 获取自定义图标并请求血条
                 var customIcon = GetCustomIcon();
@@ -207,23 +300,78 @@ namespace DuckyNet.Client.Core.Players
                 {
                     CharacterObject = characterComponent.gameObject;
                     _characterTransform = CharacterObject.transform; // 立即缓存 Transform
-                
                     
-                    // 初始化平滑同步管理器（如果还没有）
+                    // 🔥 确保 GameObject 激活状态
+                    if (!CharacterObject.activeSelf)
+                    {
+                        LogWarning($"[RemotePlayer] ⚠️ GameObject 未激活，强制激活");
+                        CharacterObject.SetActive(true);
+                    }
+                    
+                    // 🔥 验证角色在正确的场景中（只记录日志，不移动）
+                    var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+                    Log($"[RemotePlayer] 角色创建在场景: {CharacterObject.scene.name} (活动场景: {activeScene.name})");
+                    Log($"[RemotePlayer] GameObject 激活状态: {CharacterObject.activeSelf}, activeInHierarchy: {CharacterObject.activeInHierarchy}");
+                    
+                    // 🔥 初始化平滑同步管理器（如果还没有）
+                    // 注意：网络同步场景下,平滑管理器已在 OnPlayerUnitySyncReceived 中创建
+                    // 这里只处理手动创建（Debug模块）的情况
                     if (_smoothSyncManager == null)
                     {
                         _smoothSyncManager = new SmoothSyncManager(
                             _characterTransform.position,
                             _characterTransform.rotation
                         );
+                        Log($"[RemotePlayer] 创建平滑同步管理器: 位置 {_characterTransform.position}");
+                    }
+                    else
+                    {
+                        Log($"[RemotePlayer] 平滑管理器已存在，将通过网络同步自动更新位置");
+                        Log($"[RemotePlayer]   - 管理器位置: {_smoothSyncManager.GetPosition()}");
+                        Log($"[RemotePlayer]   - 角色创建位置: {_characterTransform.position}");
                     }
                     
                     // 打印角色位置信息
                     Vector3 characterPosition = _characterTransform.position;
                     Log($"[RemotePlayer] ✅ 角色创建成功: {displayName}, 位置: {characterPosition}");
+                    Log($"[RemotePlayer] GameObject Layer: {CharacterObject.layer} ({LayerMask.LayerToName(CharacterObject.layer)})");
                     
-                    // 绘制调试射线 - 从相机/本地玩家指向远程玩家
-                    DrawDebugRayToCharacter(characterPosition);
+                    // 🔥 检查所有子对象的激活状态
+                    var renderers = CharacterObject.GetComponentsInChildren<UnityEngine.Renderer>(true);
+                    Log($"[RemotePlayer] 找到 {renderers.Length} 个渲染器");
+                    foreach (var renderer in renderers)
+                    {
+                        Log($"[RemotePlayer]   - Renderer: {renderer.name}, enabled: {renderer.enabled}, active: {renderer.gameObject.activeSelf}");
+                    }
+                    
+                    // 🔥 打印本地玩家位置用于对比
+                    if (GameContext.IsInitialized && GameContext.Instance.PlayerManager?.LocalPlayer?.CharacterObject != null)
+                    {
+                        var localPos = GameContext.Instance.PlayerManager.LocalPlayer.CharacterObject.transform.position;
+                        float distance = Vector3.Distance(localPos, characterPosition);
+                        Log($"[RemotePlayer] 本地玩家位置: {localPos}, 距离远程玩家: {distance:F2}米");
+                    }
+                    
+                    // 🔥 角色创建成功后，延迟应用外观数据（等待 characterModel 初始化）
+                    if (_cachedAppearanceData != null)
+                    {
+                        Log($"[RemotePlayer] 🎨 角色创建完成，延迟应用缓存的外观数据: {displayName}");
+                        // 使用 ModBehaviour 的协程来延迟应用
+                        if (ModBehaviour.Instance != null)
+                        {
+                            ModBehaviour.Instance.StartCoroutine(ApplyCachedAppearanceDelayed());
+                        }
+                        else
+                        {
+                            // 如果 ModBehaviour 不可用，直接应用（可能失败）
+                            LogWarning($"[RemotePlayer] ⚠️ ModBehaviour 不可用，立即应用外观（可能失败）");
+                            ApplyCachedAppearance();
+                        }
+                    }
+                    else
+                    {
+                        Log($"[RemotePlayer] ⚠️ 角色创建完成，但没有缓存的外观数据: {displayName}");
+                    }
                     
                     return true;
                 }
@@ -235,54 +383,6 @@ namespace DuckyNet.Client.Core.Players
             }
 
             return false;
-        }
-
-        /// <summary>
-        /// 绘制调试射线 - 从屏幕中间（本地玩家/相机）指向远程玩家
-        /// </summary>
-        private void DrawDebugRayToCharacter(Vector3 targetPosition)
-        {
-            try
-            {
-                Vector3 startPosition;
-                
-                // 尝试获取主摄像机位置
-                var mainCamera = Camera.main;
-                if (mainCamera != null)
-                {
-                    startPosition = mainCamera.transform.position;
-                    Log($"[RemotePlayer] 使用主摄像机位置作为起点: {startPosition}");
-                }
-                else
-                {
-                    // 如果没有主摄像机，尝试获取本地玩家位置
-                    if (GameContext.IsInitialized && 
-                        GameContext.Instance.PlayerManager?.LocalPlayer?.CharacterObject != null)
-                    {
-                        startPosition = GameContext.Instance.PlayerManager.LocalPlayer.CharacterObject.transform.position;
-                        Log($"[RemotePlayer] 使用本地玩家位置作为起点: {startPosition}");
-                    }
-                    else
-                    {
-                        // 都没有，使用原点
-                        startPosition = Vector3.zero;
-                        LogWarning($"[RemotePlayer] 未找到相机和本地玩家，使用原点作为起点");
-                    }
-                }
-                
-                // 计算方向和距离
-                Vector3 direction = targetPosition - startPosition;
-                float distance = direction.magnitude;
-                
-                // 绘制调试射线（红色，持续10秒）
-                Debug.DrawRay(startPosition, direction, Color.red, 10f);
-                
-                Log($"[RemotePlayer] 调试射线: 从 {startPosition} 指向 {targetPosition}, 距离: {distance:F2}");
-            }
-            catch (Exception ex)
-            {
-                LogError($"[RemotePlayer] 绘制调试射线失败: {ex.Message}");
-            }
         }
 
         /// <summary>
@@ -300,6 +400,99 @@ namespace DuckyNet.Client.Core.Players
                 );
             }
             return null;
+        }
+
+        /// <summary>
+        /// 请求该玩家的外观数据
+        /// </summary>
+        private void RequestAppearanceData()
+        {
+            if (GameContext.IsInitialized && GameContext.Instance.RpcClient != null)
+            {
+                Log($"[RemotePlayer] 📤 正在请求玩家外观数据: {Info.SteamName} ({Info.SteamId})");
+                GameContext.Instance.RpcClient.InvokeServer<Shared.Services.ICharacterAppearanceService>(
+                    nameof(Shared.Services.ICharacterAppearanceService.RequestAppearance),
+                    Info.SteamId
+                );
+                Log($"[RemotePlayer] ✅ 外观数据请求已发送");
+            }
+            else
+            {
+                LogWarning($"[RemotePlayer] ❌ RpcClient未初始化，无法请求外观数据: {Info.SteamName}");
+            }
+        }
+
+        /// <summary>
+        /// 接收到外观数据事件
+        /// </summary>
+        private void OnAppearanceReceived(Services.CharacterAppearanceReceivedEvent @event)
+        {
+            // 只处理自己的外观数据
+            if (@event.SteamId != Info.SteamId)
+            {
+                Log($"[RemotePlayer] 🔍 收到其他玩家的外观数据，忽略: {@event.SteamId} (当前: {Info.SteamId})");
+                return;
+            }
+
+            Log($"[RemotePlayer] 📦 收到玩家外观数据: {Info.SteamName} ({Info.SteamId})");
+            Log($"[RemotePlayer] 外观数据详情 - HeadScale: {@event.AppearanceData.HeadSetting.ScaleX}, Parts: {@event.AppearanceData.Parts.Length}");
+
+            // 缓存外观数据
+            _cachedAppearanceData = @event.AppearanceData;
+
+            // 如果角色已创建,立即应用外观
+            if (CharacterObject != null)
+            {
+                Log($"[RemotePlayer] ✅ 角色对象已存在，立即应用外观: {Info.SteamName}");
+                ApplyCachedAppearance();
+            }
+            else
+            {
+                Log($"[RemotePlayer] 💾 角色对象尚未创建，外观数据已缓存，将在角色创建后应用: {Info.SteamName}");
+            }
+        }
+
+        /// <summary>
+        /// 应用缓存的外观数据
+        /// </summary>
+        private void ApplyCachedAppearance()
+        {
+            if (_cachedAppearanceData == null)
+            {
+                LogWarning($"[RemotePlayer] ⚠️ 没有缓存的外观数据: {Info.SteamName}");
+                return;
+            }
+
+            if (CharacterObject == null)
+            {
+                LogWarning($"[RemotePlayer] ⚠️ 角色对象不存在，无法应用外观: {Info.SteamName}");
+                return;
+            }
+
+            try
+            {
+                Log($"[RemotePlayer] 🎨 开始应用缓存的外观数据: {Info.SteamName}");
+                Utils.AppearanceConverter.ApplyAppearanceToCharacter(CharacterObject, _cachedAppearanceData);
+                Log($"[RemotePlayer] ✅ 成功应用外观到角色: {Info.SteamName}");
+            }
+            catch (Exception ex)
+            {
+                LogError($"[RemotePlayer] ❌ 应用外观失败: {ex.Message}\n{ex.StackTrace}");
+            }
+        }
+
+        /// <summary>
+        /// 延迟应用外观数据（等待角色初始化完成）
+        /// </summary>
+        private System.Collections.IEnumerator ApplyCachedAppearanceDelayed()
+        {
+            Log($"[RemotePlayer] ⏳ 等待角色初始化完成...");
+            
+            // 等待 2 帧，确保 characterModel 已初始化
+            yield return null;
+            yield return null;
+            
+            ApplyCachedAppearance();
         }
 
         /// <summary>

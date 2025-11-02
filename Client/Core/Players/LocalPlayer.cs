@@ -34,11 +34,11 @@ namespace DuckyNet.Client.Core.Players
         private float _rotationThreshold = 0.5f; // 0.5度旋转阈值
         private float _velocityThreshold = 0.1f; // 0.1 m/s 速度阈值
 
-        // 异步定时同步相关
-        private float _syncInterval = 0.033f; // 33ms 同步间隔 (30 times/sec) - 🔥 提升频率
-        private System.Threading.CancellationTokenSource? _syncCancellationTokenSource;
-        private bool _isDisposed = false;
+        // 主线程定时同步相关
+        private float _syncInterval = 0.033f; // 33ms 同步间隔 (30 times/sec)
+        private float _syncTimer = 0f; // 同步计时器
         private uint _sequenceNumber = 0; // 同步包序列号
+        private bool _isSyncEnabled = false; // 是否启用同步
 
         public LocalPlayer(PlayerInfo info) : base(info)
         {
@@ -56,25 +56,39 @@ namespace DuckyNet.Client.Core.Players
             UnityEngine.Debug.Log($"[LocalPlayer] 加入房间: {@event.Room.RoomId}，启动位置同步");
             
             // 🔥 关键修复：如果已经在场景中，立即发送一次位置同步
-            // 这样其他玩家加入房间时，服务器缓存中就有我的位置了
+            // 这样其他玩家加入房间时,服务器缓存中就有我的位置了
             if (CharacterObject != null && !string.IsNullOrEmpty(Info.CurrentScenelData.SceneName))
             {
                 UnityEngine.Debug.Log($"[LocalPlayer] 🔥 已在场景中，立即发送位置同步");
                 SendImmediatePositionSync();
+                
+                // 如果角色已创建，立即上传外观数据
+                UploadAppearanceData();
             }
             
-            StartAsyncSync();
+            StartMainThreadSync();
         }
 
         private void OnRoomLeft(RoomLeftEvent @event)
         {
             UnityEngine.Debug.Log($"[LocalPlayer] 离开房间: {@event.Room.RoomId}，停止位置同步");
-            StopAsyncSync();
+            StopMainThreadSync();
         }
 
         private void OnSceneUnloading(SceneUnloadingDetailEvent @event)
         {
             Info.CurrentScenelData = new ScenelData("", "");
+            
+            // 🔥 修复：更新 RoomManager.RoomPlayers 中自己的场景信息
+            if (GameContext.IsInitialized && GameContext.Instance.RoomManager != null)
+            {
+                var myself = GameContext.Instance.RoomManager.RoomPlayers.Find(p => p.SteamId == Info.SteamId);
+                if (myself != null)
+                {
+                    myself.CurrentScenelData = new ScenelData("", "");
+                    UnityEngine.Debug.Log($"[LocalPlayer] ✅ 已清空房间列表中自己的场景信息");
+                }
+            }
         }
 
         private void OnSceneLoaded(SceneLoadedDetailEvent @event)
@@ -90,6 +104,24 @@ namespace DuckyNet.Client.Core.Players
                 _lastSyncedRotation = CharacterObject.transform.rotation;
                 _lastFramePosition = _lastSyncedPosition; // 🔥 初始化
                 _lastFrameTime = Time.time;
+            }
+            
+            // 🔥 修复：更新 RoomManager.RoomPlayers 中自己的场景信息
+            if (GameContext.IsInitialized && GameContext.Instance.RoomManager != null)
+            {
+                var myself = GameContext.Instance.RoomManager.RoomPlayers.Find(p => p.SteamId == Info.SteamId);
+                if (myself != null)
+                {
+                    myself.CurrentScenelData = @event.ScenelData;
+                    UnityEngine.Debug.Log($"[LocalPlayer] ✅ 已更新房间列表中自己的场景信息: {@event.ScenelData.SceneName}/{@event.ScenelData.SubSceneName}");
+                }
+            }
+
+            // 🔥 场景加载完成，角色已创建，上传外观数据
+            if (CharacterObject != null)
+            {
+                UnityEngine.Debug.Log($"[LocalPlayer] 场景加载完成，角色已创建，准备上传外观数据");
+                UploadAppearanceData();
             }
 
             // 注意：不在这里启动同步，由加入房间事件触发
@@ -257,7 +289,7 @@ namespace DuckyNet.Client.Core.Players
         }
 
         /// <summary>
-        /// Unity LateUpdate - 检查异步同步的启动条件
+        /// Unity LateUpdate - 主线程定时同步位置
         /// </summary>
         public void LateUpdate()
         {
@@ -268,186 +300,159 @@ namespace DuckyNet.Client.Core.Players
                 _playerService = new PlayerUnitySyncServiceClientProxy(_serverContext);
                 UnityEngine.Debug.Log("[LocalPlayer] RPC 客户端延迟初始化成功");
 
-                // 如果场景已加载且还没启动异步同步，立即启动
-                if (CharacterObject != null && _syncCancellationTokenSource == null)
+                // 如果场景已加载且还没启动同步，立即启动
+                if (CharacterObject != null && !_isSyncEnabled)
                 {
-                    UnityEngine.Debug.Log("[LocalPlayer] LateUpdate 中触发异步同步启动");
-                    StartAsyncSync();
+                    UnityEngine.Debug.Log("[LocalPlayer] LateUpdate 中触发同步启动");
+                    StartMainThreadSync();
                 }
+            }
+
+            // 如果同步未启用，直接返回
+            if (!_isSyncEnabled)
+                return;
+
+            // 累加时间
+            _syncTimer += Time.deltaTime;
+
+            // 检查是否到达同步间隔
+            if (_syncTimer >= _syncInterval)
+            {
+                _syncTimer = 0f;
+                SendPositionSync();
             }
         }
 
-        // 异步同步循环
-        private void StartAsyncSync()
+        /// <summary>
+        /// 启动主线程同步
+        /// </summary>
+        private void StartMainThreadSync()
         {
-            // 停止之前的同步任务
-            StopAsyncSync();
-
             if (_playerService == null)
             {
-                UnityEngine.Debug.LogWarning("[LocalPlayer] _playerService 未初始化，无法启动异步同步");
+                UnityEngine.Debug.LogWarning("[LocalPlayer] _playerService 未初始化，无法启动主线程同步");
                 return;
             }
 
-            UnityEngine.Debug.Log($"[LocalPlayer] 启动异步同步循环 (间隔: {_syncInterval}s, 频率: 20/sec)");
-
-            _syncCancellationTokenSource = new System.Threading.CancellationTokenSource();
-            var token = _syncCancellationTokenSource.Token;
-
-            // 启动异步定时同步任务
-            System.Threading.Tasks.Task.Run(async () =>
-            {
-                while (!token.IsCancellationRequested && !_isDisposed)
-                {
-                    try
-                    {
-                        // 等待同步间隔
-                        await System.Threading.Tasks.Task.Delay((int)(_syncInterval * 1000), token);
-
-                        if (token.IsCancellationRequested || _isDisposed)
-                            break;
-
-                        // ========== 检查前置条件 ==========
-                        // 注意：房间检查已移除，因为同步循环只在加入房间后启动
-                        
-                        // 检查是否已进入场景
-                        if (string.IsNullOrEmpty(Info.CurrentScenelData.SceneName) || 
-                            string.IsNullOrEmpty(Info.CurrentScenelData.SubSceneName))
-                        {
-                            // 未加入场景/子场景，不发送
-                            continue;
-                        }
-
-                        // ========== 读取角色数据 ==========
-                        // 收集 Unity 对象的数据（在后台线程中只读取，不修改）
-                        Vector3 currentPosition = Vector3.zero;
-                        Quaternion currentRotation = Quaternion.identity;
-                        Vector3 currentVelocity = Vector3.zero;
-                        bool hasValidData = false;
-
-                        // 从主线程安全地读取 Unity 对象数据
-                        // 注意：这里我们只是读取数据，不修改任何 Unity 对象
-                        if (CharacterObject != null)
-                        {
-                            try
-                            {
-                                currentPosition = CharacterObject.transform.position;
-                                currentRotation = CharacterObject.transform.rotation;
-
-                                // 🔥 改进速度计算：优先使用 Rigidbody，否则手动计算
-                                Rigidbody rb = CharacterObject.GetComponent<Rigidbody>();
-                                if (rb != null)
-                                {
-                                    currentVelocity = rb.velocity;
-                                }
-                                else
-                                {
-                                    // 没有 Rigidbody，通过位置差计算速度
-                                    float deltaTime = Time.time - _lastFrameTime;
-                                    if (deltaTime > 0.001f) // 防止除0
-                                    {
-                                        currentVelocity = (currentPosition - _lastFramePosition) / deltaTime;
-                                    }
-                                    _lastFramePosition = currentPosition;
-                                    _lastFrameTime = Time.time;
-                                }
-
-                                hasValidData = true;
-                            }
-                            catch
-                            {
-                                // 如果读取失败（可能对象被销毁），继续循环
-                                continue;
-                            }
-                        }
-
-                        if (!hasValidData)
-                            continue;
-
-                        // ========== 检查数据是否有实质性变化 ==========
-                        float positionDelta = Vector3.Distance(currentPosition, _lastSyncedPosition);
-                        float rotationDelta = Quaternion.Angle(currentRotation, _lastSyncedRotation);
-                        float velocityDelta = Vector3.Distance(currentVelocity, _lastSyncedVelocity);
-
-                        // 如果数据变化不足阈值，跳过发送
-                        if (positionDelta < _positionThreshold &&
-                            rotationDelta < _rotationThreshold &&
-                            velocityDelta < _velocityThreshold)
-                        {
-                            continue;
-                        }
-
-                        // ========== 创建并发送同步数据 ==========
-                        UnitySyncData syncData = new UnitySyncData
-                        {
-                            SteamId = Info.SteamId,
-                            SequenceNumber = ++_sequenceNumber, // 递增序列号
-                        };
-
-                        // 设置位置
-                        syncData.SetPosition(currentPosition.x, currentPosition.y, currentPosition.z);
-
-                        // 设置旋转
-                        syncData.SetRotation(currentRotation.x, currentRotation.y, currentRotation.z, currentRotation.w);
-
-                        // 设置速度
-                        syncData.SetVelocity(currentVelocity.x, currentVelocity.y, currentVelocity.z);
-
-                        // 发送同步数据（RPC 调用是线程安全的）
-                        _playerService.SendPlayerUnitySync(syncData);
-
-                        // 更新上次同步的数据
-                        _lastSyncedPosition = currentPosition;
-                        _lastSyncedRotation = currentRotation;
-                        _lastSyncedVelocity = currentVelocity;
-
-                        string roomId = GameContext.Instance?.RoomManager?.CurrentRoom?.RoomId ?? "Unknown";
-                        // 🔥 改进日志：显示Y轴旋转和速度
-                        float yRotation = currentRotation.eulerAngles.y;
-                        UnityEngine.Debug.Log($"[LocalPlayer] 发送同步数据: " +
-                            $"Pos({currentPosition.x:F2},{currentPosition.y:F2},{currentPosition.z:F2}) " +
-                            $"Rot(Y:{yRotation:F1}°) " +
-                            $"Vel({currentVelocity.x:F2},{currentVelocity.y:F2},{currentVelocity.z:F2}) " +
-                            $"房间:{roomId} 场景:{Info.CurrentScenelData.SceneName}/{Info.CurrentScenelData.SubSceneName}");
-                    }
-                    catch (System.OperationCanceledException)
-                    {
-                        // 任务被取消，正常退出
-                        UnityEngine.Debug.Log("[LocalPlayer] 异步同步任务已取消");
-                        break;
-                    }
-                    catch (Exception ex)
-                    {
-                        UnityEngine.Debug.LogError($"[LocalPlayer] 异步同步任务异常: {ex.Message}");
-                    }
-                }
-
-                UnityEngine.Debug.Log("[LocalPlayer] 异步同步循环已结束");
-            }, token);
+            UnityEngine.Debug.Log($"[LocalPlayer] 启动主线程同步循环 (间隔: {_syncInterval}s, 频率: 30/sec)");
+            _isSyncEnabled = true;
+            _syncTimer = 0f;
         }
 
-        private void StopAsyncSync()
+        /// <summary>
+        /// 停止主线程同步
+        /// </summary>
+        private void StopMainThreadSync()
         {
-            if (_syncCancellationTokenSource != null)
+            UnityEngine.Debug.Log("[LocalPlayer] 停止主线程同步");
+            _isSyncEnabled = false;
+            _syncTimer = 0f;
+        }
+
+        /// <summary>
+        /// 发送位置同步数据 (在主线程调用)
+        /// </summary>
+        private void SendPositionSync()
+        {
+            // ========== 检查前置条件 ==========
+            if (CharacterObject == null || _playerService == null)
+                return;
+
+            // 检查是否已进入场景
+            if (string.IsNullOrEmpty(Info.CurrentScenelData.SceneName) || 
+                string.IsNullOrEmpty(Info.CurrentScenelData.SubSceneName))
             {
-                try
+                // 未加入场景/子场景，不发送
+                return;
+            }
+
+            try
+            {
+                // ========== 在主线程安全地读取 Unity 对象数据 ==========
+                Vector3 currentPosition = CharacterObject.transform.position;
+                
+                // 🔥 使用 CharacterMainControl.CurrentAimDirection 获取角色朝向
+                Quaternion currentRotation = Quaternion.identity;
+                if (_characterMainControl != null)
                 {
-                    _syncCancellationTokenSource.Cancel();
-                    _syncCancellationTokenSource.Dispose();
+                    Vector3 aimDirection = _characterMainControl.CurrentAimDirection;
+                    if (aimDirection != Vector3.zero)
+                    {
+                        currentRotation = Quaternion.LookRotation(aimDirection);
+                    }
                 }
-                catch { }
-                finally
+                
+                Vector3 currentVelocity = Vector3.zero;
+
+                // 🔥 改进速度计算：优先使用 Rigidbody，否则手动计算
+                Rigidbody rb = CharacterObject.GetComponent<Rigidbody>();
+                if (rb != null)
                 {
-                    _syncCancellationTokenSource = null;
+                    currentVelocity = rb.velocity;
                 }
+                else
+                {
+                    // 没有 Rigidbody，通过位置差计算速度
+                    float deltaTime = Time.time - _lastFrameTime;
+                    if (deltaTime > 0.001f) // 防止除0
+                    {
+                        currentVelocity = (currentPosition - _lastFramePosition) / deltaTime;
+                    }
+                    _lastFramePosition = currentPosition;
+                    _lastFrameTime = Time.time;
+                }
+
+                // ========== 检查数据是否有实质性变化 ==========
+                float positionDelta = Vector3.Distance(currentPosition, _lastSyncedPosition);
+                float rotationDelta = Quaternion.Angle(currentRotation, _lastSyncedRotation);
+                float velocityDelta = Vector3.Distance(currentVelocity, _lastSyncedVelocity);
+
+                // 如果数据变化不足阈值，跳过发送
+                if (positionDelta < _positionThreshold &&
+                    rotationDelta < _rotationThreshold &&
+                    velocityDelta < _velocityThreshold)
+                {
+                    return;
+                }
+
+                // ========== 创建并发送同步数据 ==========
+                UnitySyncData syncData = new UnitySyncData
+                {
+                    SteamId = Info.SteamId,
+                    SequenceNumber = ++_sequenceNumber, // 递增序列号
+                };
+
+                // 设置位置
+                syncData.SetPosition(currentPosition.x, currentPosition.y, currentPosition.z);
+
+                // 设置旋转
+                syncData.SetRotation(currentRotation.x, currentRotation.y, currentRotation.z, currentRotation.w);
+
+                // 设置速度
+                syncData.SetVelocity(currentVelocity.x, currentVelocity.y, currentVelocity.z);
+
+                // 发送同步数据
+                _playerService.SendPlayerUnitySync(syncData);
+
+                // 更新上次同步的数据
+                _lastSyncedPosition = currentPosition;
+                _lastSyncedRotation = currentRotation;
+                _lastSyncedVelocity = currentVelocity;
+
+                // 可选：输出调试日志
+                // string roomId = GameContext.Instance?.RoomManager?.CurrentRoom?.RoomId ?? "Unknown";
+                // float yRotation = currentRotation.eulerAngles.y;
+                // UnityEngine.Debug.Log($"[LocalPlayer] 发送同步数据: " +
+                //     $"Pos({currentPosition.x:F2},{currentPosition.y:F2},{currentPosition.z:F2}) " +
+                //     $"Rot(Y:{yRotation:F1}°) " +
+                //     $"Vel({currentVelocity.x:F2},{currentVelocity.y:F2},{currentVelocity.z:F2}) " +
+                //     $"房间:{roomId} 场景:{Info.CurrentScenelData.SceneName}/{Info.CurrentScenelData.SubSceneName}");
+            }
+            catch (Exception ex)
+            {
+                UnityEngine.Debug.LogError($"[LocalPlayer] 发送位置同步失败: {ex.Message}");
             }
         }
-
-        // Update 方法已移除 - 使用异步定时同步替代
-        // 对比：
-        // 每帧调用: 60-120fps，CPU开销大，网络流量大
-        // 异步定时: 10/sec (100ms间隔)，CPU开销小，网络流量合理
-        // 节省对比: CPU/网络 节省 85-90%
 
         /// <summary>
         /// 立即发送一次位置同步（用于加入房间时）
@@ -463,7 +468,18 @@ namespace DuckyNet.Client.Core.Players
             try
             {
                 var currentPosition = CharacterObject.transform.position;
-                var currentRotation = CharacterObject.transform.rotation;
+                
+                // 🔥 使用 CharacterMainControl.CurrentAimDirection 获取角色朝向
+                Quaternion currentRotation = Quaternion.identity;
+                if (_characterMainControl != null)
+                {
+                    Vector3 aimDirection = _characterMainControl.CurrentAimDirection;
+                    if (aimDirection != Vector3.zero)
+                    {
+                        currentRotation = Quaternion.LookRotation(aimDirection);
+                    }
+                }
+                
                 var currentVelocity = Vector3.zero;
 
                 // 尝试获取速度
@@ -522,10 +538,56 @@ namespace DuckyNet.Client.Core.Players
             this.AvatarTexture = texture;
         }
 
+        /// <summary>
+        /// 上传角色外观数据到服务器
+        /// </summary>
+        private void UploadAppearanceData()
+        {
+            try
+            {
+                UnityEngine.Debug.Log($"[LocalPlayer] 🎨 开始上传角色外观数据...");
+                
+                // 检查角色是否已创建
+                if (CharacterObject == null || _characterMainControl == null)
+                {
+                    UnityEngine.Debug.LogWarning("[LocalPlayer] ⚠️ 角色尚未创建，跳过上传外观数据");
+                    return;
+                }
+                
+                // 获取本地玩家外观数据
+                var appearanceData = Utils.AppearanceConverter.LoadMainCharacterAppearance();
+                if (appearanceData == null)
+                {
+                    UnityEngine.Debug.LogWarning("[LocalPlayer] ❌ 无法获取角色外观数据");
+                    return;
+                }
+
+                UnityEngine.Debug.Log($"[LocalPlayer] ✅ 成功获取外观数据 - HeadScale: {appearanceData.HeadSetting.ScaleX}, Parts: {appearanceData.Parts.Length}");
+
+                // 调用 RPC 上传外观
+                if (GameContext.IsInitialized && GameContext.Instance.RpcClient != null)
+                {
+                    UnityEngine.Debug.Log($"[LocalPlayer] 📤 正在通过RPC上传外观数据到服务器...");
+                    GameContext.Instance.RpcClient.InvokeServer<Shared.Services.ICharacterAppearanceService>(
+                        nameof(Shared.Services.ICharacterAppearanceService.UploadAppearance),
+                        appearanceData
+                    );
+                    UnityEngine.Debug.Log($"[LocalPlayer] ✅ 外观数据已发送到服务器");
+                }
+                else
+                {
+                    UnityEngine.Debug.LogError("[LocalPlayer] ❌ RpcClient未初始化，无法上传外观数据");
+                }
+            }
+            catch (Exception ex)
+            {
+                UnityEngine.Debug.LogError($"[LocalPlayer] ❌ 上传外观数据失败: {ex.Message}\n{ex.StackTrace}");
+            }
+        }
+
         public override void Dispose()
         {
-            _isDisposed = true;
-            StopAsyncSync();
+            StopMainThreadSync();
             _eventSubscriber?.Dispose();
 
             if (AvatarTexture != null)

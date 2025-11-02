@@ -79,6 +79,7 @@ namespace DuckyNet.Client
             context.RpcClient.RegisterClientService<Shared.Services.IRoomClientService>(new Services.RoomClientServiceImpl());
             context.RpcClient.RegisterClientService<Shared.Services.ISceneClientService>(new Services.SceneClientServiceImpl());
             context.RpcClient.RegisterClientService<Shared.Services.ICharacterClientService>(new Services.CharacterClientServiceImpl());
+            context.RpcClient.RegisterClientService<Shared.Services.ICharacterAppearanceClientService>(new Services.CharacterAppearanceClientServiceImpl());
 
             // 初始化 UI 系统
             context.UIManager.Initialize();

@@ -81,7 +81,7 @@ namespace DuckyNet.Shared.Data
     }
 
     /// <summary>
-    /// 头部设置数据（18字节）
+    /// 头部设置数据（24字节）
     /// </summary>
     [Serializable]
     public class HeadSettingData
@@ -101,6 +101,11 @@ namespace DuckyNet.Shared.Data
         public short RotationY { get; set; }
         public short RotationZ { get; set; }
 
+        // 主颜色（6字节 = 3 * Int16，存储身体/皮肤颜色）
+        public short MainColorR { get; set; }
+        public short MainColorG { get; set; }
+        public short MainColorB { get; set; }
+
         public void WriteTo(System.IO.BinaryWriter writer)
         {
             writer.Write(ScaleX);
@@ -112,6 +117,9 @@ namespace DuckyNet.Shared.Data
             writer.Write(RotationX);
             writer.Write(RotationY);
             writer.Write(RotationZ);
+            writer.Write(MainColorR);
+            writer.Write(MainColorG);
+            writer.Write(MainColorB);
         }
 
         public static HeadSettingData ReadFrom(System.IO.BinaryReader reader)
@@ -126,13 +134,16 @@ namespace DuckyNet.Shared.Data
                 OffsetZ = reader.ReadInt16(),
                 RotationX = reader.ReadInt16(),
                 RotationY = reader.ReadInt16(),
-                RotationZ = reader.ReadInt16()
+                RotationZ = reader.ReadInt16(),
+                MainColorR = reader.ReadInt16(),
+                MainColorG = reader.ReadInt16(),
+                MainColorB = reader.ReadInt16()
             };
         }
     }
 
     /// <summary>
-    /// 部位数据（21字节）
+    /// 部位数据（27字节）
     /// </summary>
     [Serializable]
     public class PartData
@@ -158,6 +169,11 @@ namespace DuckyNet.Shared.Data
         public short RotationY { get; set; }
         public short RotationZ { get; set; }
 
+        // 颜色（6字节）
+        public short ColorR { get; set; }
+        public short ColorG { get; set; }
+        public short ColorB { get; set; }
+
         public void WriteTo(System.IO.BinaryWriter writer)
         {
             writer.Write(PartType);
@@ -171,6 +187,9 @@ namespace DuckyNet.Shared.Data
             writer.Write(RotationX);
             writer.Write(RotationY);
             writer.Write(RotationZ);
+            writer.Write(ColorR);
+            writer.Write(ColorG);
+            writer.Write(ColorB);
         }
 
         public static PartData ReadFrom(System.IO.BinaryReader reader)
@@ -187,7 +206,10 @@ namespace DuckyNet.Shared.Data
                 OffsetZ = reader.ReadInt16(),
                 RotationX = reader.ReadInt16(),
                 RotationY = reader.ReadInt16(),
-                RotationZ = reader.ReadInt16()
+                RotationZ = reader.ReadInt16(),
+                ColorR = reader.ReadInt16(),
+                ColorG = reader.ReadInt16(),
+                ColorB = reader.ReadInt16()
             };
         }
     }

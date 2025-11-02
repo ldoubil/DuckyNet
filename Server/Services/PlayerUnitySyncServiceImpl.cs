@@ -73,10 +73,6 @@ namespace DuckyNet.Server.Services
                     return;
                 }
                 
-                // 🔥 临时启用日志（用于调试）
-                var (posX, posY, posZ) = syncData.GetPosition();
-                Console.WriteLine($"[PlayerUnitySyncService] 🔥 收到 {senderPlayer.SteamName} 的位置同步: Pos({posX:F2},{posY:F2},{posZ:F2}) 场景:{senderPlayer.CurrentScenelData.SceneName}/{senderPlayer.CurrentScenelData.SubSceneName}");
-                
                 // 确保 SteamId 与发送者匹配（安全验证）
                 syncData.SteamId = senderPlayer.SteamId;
                 
@@ -124,9 +120,6 @@ namespace DuckyNet.Server.Services
                     {
                         continue;
                     }
-
-                    // 🔥 临时日志：显示满足条件的目标玩家
-                    Console.WriteLine($"[PlayerUnitySyncService] 准备转发 {senderPlayer.SteamName} -> {targetPlayer.SteamName}");
                     
                     // 获取目标玩家的连接上下文
                     var targetClientId = _playerManager.GetClientIdBySteamId(targetPlayer.SteamId);
@@ -143,9 +136,6 @@ namespace DuckyNet.Server.Services
                         {
                             // 通过 RPC 调用客户端接收同步数据
                             targetClientContext.Call<IPlayerClientService>().OnPlayerUnitySyncReceived(syncData);
-                            
-                            // 🔥 临时启用转发日志（用于调试）
-                            Console.WriteLine($"[PlayerUnitySyncService] ✅ 已转发 {senderPlayer.SteamName} -> {targetPlayer.SteamName}");
                         }
                         catch (Exception ex)
                         {

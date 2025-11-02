@@ -34,6 +34,7 @@ namespace DuckyNet.Shared.RPC.Generated
                 typeof(DuckyNet.Shared.RPC.RpcResponse),
 
                 // 应用数据类型 (自动发现)
+                typeof(DuckyNet.Shared.Data.CharacterAppearanceData),
                 typeof(DuckyNet.Shared.Data.ScenelData),
                 typeof(DuckyNet.Shared.Data.UnitySyncData),
                 typeof(DuckyNet.Shared.Services.CreateRoomRequest),

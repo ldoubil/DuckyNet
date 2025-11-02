@@ -109,19 +109,26 @@ namespace DuckyNet.Client.Services
             try
             {
                 // 解析位置、旋转、速度数据
-                var (posX, posY, posZ) = syncData.GetPosition();
-                var (rotX, rotY, rotZ, rotW) = syncData.GetRotation();
-                var (velX, velY, velZ) = syncData.GetVelocity();
-
-                // 🔥 临时启用位置同步日志（用于调试）
-                Debug.Log($"[PlayerClientService] ✅ 接收到玩家 {syncData.SteamId} 的位置同步: " +
-                         $"Pos({posX:F2},{posY:F2},{posZ:F2}) " +
-                         $"Rot({rotX:F2},{rotY:F2},{rotZ:F2},{rotW:F2})");
-
                 // 通过全局 EventBus 发布玩家同步事件，供远程玩家位置更新系统处理
                 if (GameContext.IsInitialized)
                 {
                     GameContext.Instance.EventBus.Publish(new Core.PlayerUnitySyncEvent(syncData.SteamId, syncData));
+                    
+                    // 🔥 修复：更新房间玩家列表中的场景信息
+                    // 因为服务器已过滤场景，收到位置同步说明该玩家在同一场景
+                    var localPlayer = GameContext.Instance.PlayerManager?.LocalPlayer;
+                    var roomManager = GameContext.Instance.RoomManager;
+                    
+                    if (localPlayer != null && roomManager != null)
+                    {
+                        var playerToUpdate = roomManager.RoomPlayers.Find(p => p.SteamId == syncData.SteamId);
+                        if (playerToUpdate != null && 
+                            playerToUpdate.CurrentScenelData?.SceneName != localPlayer.Info.CurrentScenelData.SceneName)
+                        {
+                            playerToUpdate.CurrentScenelData = localPlayer.Info.CurrentScenelData;
+                            Debug.Log($"[PlayerClientService] 更新玩家 {syncData.SteamId} 的场景为: {localPlayer.Info.CurrentScenelData.SceneName}");
+                        }
+                    }
                 }
                 else
                 {

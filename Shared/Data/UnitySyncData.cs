@@ -24,19 +24,19 @@ namespace DuckyNet.Shared.Data
         public string SteamId { get; set; } = string.Empty;
 
         /// <summary>
-        /// 位置 X (量化为 short: -327.68m ~ 327.67m, 精度 1cm)
+        /// 位置 X (量化为 int: -21474836.48m ~ 21474836.47m, 精度 1cm)
         /// </summary>
-        public short PosX { get; set; }
+        public int PosX { get; set; }
 
         /// <summary>
-        /// 位置 Y (量化为 short: -327.68m ~ 327.67m, 精度 1cm)
+        /// 位置 Y (量化为 int: -21474836.48m ~ 21474836.47m, 精度 1cm)
         /// </summary>
-        public short PosY { get; set; }
+        public int PosY { get; set; }
 
         /// <summary>
-        /// 位置 Z (量化为 short: -327.68m ~ 327.67m, 精度 1cm)
+        /// 位置 Z (量化为 int: -21474836.48m ~ 21474836.47m, 精度 1cm)
         /// </summary>
-        public short PosZ { get; set; }
+        public int PosZ { get; set; }
 
         /// <summary>
         /// 压缩的旋转数据 (使用 Smallest Three 算法)
@@ -89,9 +89,9 @@ namespace DuckyNet.Shared.Data
         /// </summary>
         public void SetPosition(float x, float y, float z)
         {
-            PosX = (short)Math.Clamp((int)(x * POSITION_MULTIPLIER), short.MinValue, short.MaxValue);
-            PosY = (short)Math.Clamp((int)(y * POSITION_MULTIPLIER), short.MinValue, short.MaxValue);
-            PosZ = (short)Math.Clamp((int)(z * POSITION_MULTIPLIER), short.MinValue, short.MaxValue);
+            PosX = (int)(x * POSITION_MULTIPLIER);
+            PosY = (int)(y * POSITION_MULTIPLIER);
+            PosZ = (int)(z * POSITION_MULTIPLIER);
         }
 
         /// <summary>

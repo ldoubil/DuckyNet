@@ -159,10 +159,38 @@ namespace DuckyNet.Client.Core.Utils
         }
 
         /// <summary>
-        /// 禁用角色的移动脚本 - 防止角色掉落和移动
-        /// Movement 脚本会在每帧手动添加重力，即使 Rigidbody.isKinematic = true 也无法阻止
-        /// 必须禁用 Movement 组件才能完全停止角色的移动和下落
+        /// 标记角色为远程玩家 - 通过名称后缀让 Movement 补丁识别并跳过更新
         /// </summary>
+        public static void MarkAsRemotePlayer(object character)
+        {
+            Component? characterComponent = character as Component;
+            if (characterComponent == null)
+            {
+                UnityEngine.Debug.LogWarning("[CharacterCreationUtils] 无法标记远程玩家: character 不是 Component");
+                return;
+            }
+
+            try
+            {
+                // 使用名称后缀标记（避免 Tag 未定义的错误）
+                if (!characterComponent.gameObject.name.Contains("[RemotePlayer]"))
+                {
+                    characterComponent.gameObject.name += " [RemotePlayer]";
+                }
+                UnityEngine.Debug.Log($"[CharacterCreationUtils] ✅ 已标记为远程玩家: {characterComponent.gameObject.name}");
+            }
+            catch (System.Exception ex)
+            {
+                UnityEngine.Debug.LogError($"[CharacterCreationUtils] 标记失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 禁用角色的移动脚本 - 防止角色掉落和移动
+        /// ⚠️ 已废弃：现在使用 MarkAsRemotePlayer() + Movement 补丁实现
+        /// 参见：Client/Patches/MovementPatch.cs
+        /// </summary>
+        [System.Obsolete("已废弃：现在使用 MarkAsRemotePlayer() + Movement 补丁实现")]
         public static void DisableMovement(object character)
         {
             Component? characterComponent = character as Component;
@@ -210,6 +238,44 @@ namespace DuckyNet.Client.Core.Utils
 
            
             UnityEngine.Debug.Log($"[CharacterCreationUtils] 已完成禁用角色移动脚本，角色应保持静止");
+        }
+
+        /// <summary>
+        /// 从距离管理系统中移除角色（防止远程玩家被自动禁用）
+        /// </summary>
+        public static void UnregisterFromDistanceSystem(object character)
+        {
+            Component? characterComponent = character as Component;
+            if (characterComponent == null) return;
+
+            try
+            {
+                var setActiveByPlayerDistanceType = AccessTools.TypeByName("Duckov.Utilities.SetActiveByPlayerDistance");
+                if (setActiveByPlayerDistanceType != null)
+                {
+                    var unregisterMethod = AccessTools.Method(setActiveByPlayerDistanceType, "Unregister",
+                        new[] { typeof(GameObject), typeof(int) });
+
+                    if (unregisterMethod != null)
+                    {
+                        int sceneBuildIndex = characterComponent.gameObject.scene.buildIndex;
+                        unregisterMethod.Invoke(null, new object[] { characterComponent.gameObject, sceneBuildIndex });
+                        UnityEngine.Debug.Log($"[CharacterCreationUtils] ✅ 已从距离管理系统移除角色 (场景索引: {sceneBuildIndex})");
+                    }
+                    else
+                    {
+                        UnityEngine.Debug.LogWarning("[CharacterCreationUtils] 未找到 SetActiveByPlayerDistance.Unregister 方法");
+                    }
+                }
+                else
+                {
+                    UnityEngine.Debug.LogWarning("[CharacterCreationUtils] 未找到 SetActiveByPlayerDistance 类型");
+                }
+            }
+            catch (Exception ex)
+            {
+                UnityEngine.Debug.LogError($"[CharacterCreationUtils] 从距离系统移除失败: {ex.Message}");
+            }
         }
 
         public static void RequestHealthBar(object character, string displayName, UnityEngine.Sprite? customIcon = null)
@@ -401,6 +467,59 @@ namespace DuckyNet.Client.Core.Utils
             }
             
             return null;
+        }
+
+        /// <summary>
+        /// 应用自定义外观数据到角色
+        /// </summary>
+        /// <param name="character">角色对象（CharacterMainControl 或类似类型）</param>
+        /// <param name="faceData">CustomFaceSettingData 外观数据</param>
+        /// <returns>成功返回 true</returns>
+        public static bool ApplyCustomFace(object character, object faceData)
+        {
+            try
+            {
+                if (character == null)
+                {
+                    UnityEngine.Debug.LogWarning("[CharacterCreationUtils] character 为空");
+                    return false;
+                }
+
+                if (faceData == null)
+                {
+                    UnityEngine.Debug.LogWarning("[CharacterCreationUtils] faceData 为空");
+                    return false;
+                }
+
+                // 通过字段获取 CharacterModel（字段是正确的方式）
+                var characterModelField = AccessTools.Field(character.GetType(), "characterModel");
+                var characterModel = characterModelField?.GetValue(character);
+                
+                if (characterModel == null)
+                {
+                    UnityEngine.Debug.LogWarning("[CharacterCreationUtils] CharacterModel 为空");
+                    return false;
+                }
+
+                // 调用 SetFaceFromData 方法应用外观
+                var setFaceMethod = AccessTools.Method(characterModel.GetType(), "SetFaceFromData");
+                if (setFaceMethod != null)
+                {
+                    setFaceMethod.Invoke(characterModel, new object[] { faceData });
+                    UnityEngine.Debug.Log("[CharacterCreationUtils] 成功应用外观数据");
+                    return true;
+                }
+                else
+                {
+                    UnityEngine.Debug.LogWarning("[CharacterCreationUtils] 未找到 SetFaceFromData 方法");
+                    return false;
+                }
+            }
+            catch (System.Exception ex)
+            {
+                UnityEngine.Debug.LogError($"[CharacterCreationUtils] 应用外观失败: {ex.Message}\n{ex.StackTrace}");
+                return false;
+            }
         }
     }
 }

@@ -213,13 +213,14 @@ namespace DuckyNet.Client.Core.Players
         
         /// <summary>
         /// 应用到 Transform - O(1)
-        /// 🔥 新增：使用平滑阻尼（SmoothDamp）替代直接赋值，消除卡顿
+        /// 使用指数衰减平滑插值
         /// </summary>
-        public void ApplyToTransform(Transform targetTransform)
+        /// <param name="targetTransform">目标Transform（用于位置）</param>
+        /// <param name="rotationTransform">旋转目标Transform（可选，默认与targetTransform相同）</param>
+        public void ApplyToTransform(Transform targetTransform, Transform? rotationTransform = null)
         {
             if (targetTransform == null || !_hasReceivedData) return;
             
-            // 🔥 使用 Lerp 进行平滑过渡（而非直接赋值）
             float deltaTime = Time.deltaTime;
             
             // 位置平滑（指数衰减）
@@ -230,8 +231,10 @@ namespace DuckyNet.Client.Core.Players
             );
             
             // 旋转平滑（球面线性插值）
-            targetTransform.rotation = Quaternion.Slerp(
-                targetTransform.rotation, 
+            // 🔥 如果指定了旋转目标，使用它；否则使用位置目标
+            Transform rotTarget = rotationTransform ?? targetTransform;
+            rotTarget.rotation = Quaternion.Slerp(
+                rotTarget.rotation, 
                 _currentSnapshot.Rotation, 
                 _rotationSmoothSpeed * deltaTime
             );
