@@ -336,6 +336,15 @@ namespace DuckyNet.Client.Core.Players
                     Log($"[RemotePlayer] ✅ 角色创建成功: {displayName}, 位置: {characterPosition}");
                     Log($"[RemotePlayer] GameObject Layer: {CharacterObject.layer} ({LayerMask.LayerToName(CharacterObject.layer)})");
                     
+                    // 🎯 发布角色创建事件（用于动画同步注册）
+                    if (GameContext.IsInitialized && GameContext.Instance.EventBus != null)
+                    {
+                        GameContext.Instance.EventBus.Publish(
+                            new RemoteCharacterCreatedEvent(Info.SteamId, CharacterObject)
+                        );
+                        Log($"[RemotePlayer] 🎬 发布角色创建事件: {Info.SteamId}");
+                    }
+                    
                     // 🔥 检查所有子对象的激活状态
                     var renderers = CharacterObject.GetComponentsInChildren<UnityEngine.Renderer>(true);
                     Log($"[RemotePlayer] 找到 {renderers.Length} 个渲染器");

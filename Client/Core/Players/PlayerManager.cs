@@ -21,6 +21,9 @@ namespace DuckyNet.Client.Core.Players
         
         public LocalPlayer LocalPlayer { get; private set; }
         private readonly EventSubscriberHelper _eventSubscriber = new EventSubscriberHelper();
+        
+        // 🎯 新增：远程动画同步管理器
+        private readonly RemoteAnimatorSyncManager _remoteAnimatorSync = new RemoteAnimatorSyncManager();
         public PlayerManager()
         {
             LocalPlayer = new LocalPlayer(new PlayerInfo());
@@ -35,7 +38,13 @@ namespace DuckyNet.Client.Core.Players
             _eventSubscriber.Subscribe<PlayerLeftSceneEvent>(OnPlayerLeftScene);
             _eventSubscriber.Subscribe<PlayerLeftEvent>(OnPlayerDisconnected);
             
-            Log($"[PlayerManager] 初始化完成 - 房间+场景双层架构");
+            // 🎯 订阅角色创建事件（用于动画同步注册）
+            _eventSubscriber.Subscribe<RemoteCharacterCreatedEvent>(OnRemoteCharacterCreated);
+            
+            // 🎯 订阅动画同步事件
+            _eventSubscriber.Subscribe<RemoteAnimatorUpdateEvent>(OnRemoteAnimatorUpdate);
+            
+            Log($"[PlayerManager] 初始化完成 - 房间+场景双层架构 + 动画同步");
         }
 
         /// <summary>
@@ -125,6 +134,8 @@ namespace DuckyNet.Client.Core.Players
             
             Log($"[PlayerManager] ✅ 玩家进入当前场景，RemotePlayer 已存在，等待位置同步创建角色");
             // 🔥 注意：角色会在 RemotePlayer 收到位置同步时自动创建
+            // 🎯 角色创建后会发布 RemoteCharacterCreatedEvent，由 OnRemoteCharacterCreated 处理动画同步注册
+            
             Log($"[PlayerManager] ========== 处理完成 ==========");
         }
 
@@ -144,8 +155,35 @@ namespace DuckyNet.Client.Core.Players
             // 🔥 只销毁角色，RemotePlayer 保留（玩家还在房间中）
             if (_remotePlayers.TryGetValue(@event.PlayerInfo.SteamId, out var player))
             {
+                // 🎯 先注销动画同步
+                _remoteAnimatorSync.UnregisterRemotePlayer(@event.PlayerInfo.SteamId);
+                
                 player.DestroyCharacter();
                 Log($"[PlayerManager] 销毁角色（保留 RemotePlayer）: {@event.PlayerInfo.SteamName}");
+            }
+        }
+
+        /// <summary>
+        /// 远程角色创建完成 - 注册或更新动画同步系统
+        /// </summary>
+        private void OnRemoteCharacterCreated(RemoteCharacterCreatedEvent @event)
+        {
+            if (@event.Character == null)
+            {
+                LogWarning($"[PlayerManager] ⚠️ 角色创建事件的 Character 为空: {@event.PlayerId}");
+                return;
+            }
+            
+            // 🔥 检查是否已注册(场景切换后角色重新创建)
+            if (_remoteAnimatorSync != null)
+            {
+                // 尝试更新 GameObject (如果已注册)
+                _remoteAnimatorSync.UpdatePlayerGameObject(@event.PlayerId, @event.Character);
+                
+                // 如果是首次创建,则注册
+                _remoteAnimatorSync.RegisterRemotePlayer(@event.PlayerId, @event.Character);
+                
+                Log($"[PlayerManager] ✅ 动画同步已就绪: {@event.PlayerId}");
             }
         }
 
@@ -184,10 +222,20 @@ namespace DuckyNet.Client.Core.Players
             
             return sameScene;
         }
+        
+        /// <summary>
+        /// 🎯 处理远程动画更新事件
+        /// </summary>
+        private void OnRemoteAnimatorUpdate(RemoteAnimatorUpdateEvent @event)
+        {
+            Debug.Log($"[PlayerManager] 📬 接收到动画事件 - PlayerId:{@event.PlayerId}, State:{@event.AnimatorData.StateHash}");
+            _remoteAnimatorSync.ReceiveAnimatorUpdate(@event.PlayerId, @event.AnimatorData);
+        }
 
         public void Dispose()
         {
             LocalPlayer.Dispose();
+            _remoteAnimatorSync.Dispose();
             foreach (var kvp in _remotePlayers)
             {
                 kvp.Value.Dispose();
@@ -207,6 +255,14 @@ namespace DuckyNet.Client.Core.Players
             {
                 kvp.Value?.UpdatePosition();
             }
+        }
+        
+        /// <summary>
+        /// 🎯 LateUpdate - 更新远程动画
+        /// </summary>
+        public void LateUpdate()
+        {
+            _remoteAnimatorSync.UpdateAll();
         }
     }
 }

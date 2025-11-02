@@ -551,5 +551,28 @@ namespace DuckyNet.Client.Core
         }
     }
 
+    /// <summary>
+    /// 远程玩家动画更新事件
+    /// 当接收到其他玩家的动画同步数据时触发此事件
+    /// </summary>
+    public class RemoteAnimatorUpdateEvent
+    {
+        /// <summary>
+        /// 玩家ID
+        /// </summary>
+        public string PlayerId { get; }
+        
+        /// <summary>
+        /// 动画同步数据
+        /// </summary>
+        public AnimatorSyncData AnimatorData { get; }
+
+        public RemoteAnimatorUpdateEvent(string playerId, AnimatorSyncData animatorData)
+        {
+            PlayerId = playerId;
+            AnimatorData = animatorData;
+        }
+    }
+
     #endregion
 }

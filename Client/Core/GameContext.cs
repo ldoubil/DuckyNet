@@ -69,6 +69,15 @@ namespace DuckyNet.Client.Core
         /// </summary>
         public CharacterCustomizationManager CharacterCustomizationManager { get; private set; }
 
+        /// <summary>
+        /// 动画同步管理器
+        /// </summary>
+        public AnimatorSyncManager AnimatorSyncManager { get; private set; }
+
+        /// <summary>
+        /// 动画同步客户端服务
+        /// </summary>
+        public Services.AnimatorSyncClientServiceImpl? AnimatorSyncClientService { get; set; }
 
         /// <summary>
         /// 全局事件总线
@@ -90,6 +99,7 @@ namespace DuckyNet.Client.Core
             CharacterCustomizationManager = null!;
             SceneClientManager = null!;
             RoomManager = null!;
+            AnimatorSyncManager = null!;
             EventBus = EventBus.Instance;
         }
 
@@ -167,6 +177,15 @@ namespace DuckyNet.Client.Core
         }
 
         /// <summary>
+        /// 注册动画同步管理器
+        /// </summary>
+        public void RegisterAnimatorSyncManager(AnimatorSyncManager animatorSyncManager)
+        {
+            AnimatorSyncManager = animatorSyncManager ?? throw new ArgumentNullException(nameof(animatorSyncManager));
+            UnityEngine.Debug.Log("[GameContext] 动画同步管理器已注册");
+        }
+
+        /// <summary>
         /// 注册场景客户端管理器
         /// </summary>
         public void RegisterSceneClientManager(SceneClientManager sceneClientManager)
@@ -197,6 +216,7 @@ namespace DuckyNet.Client.Core
                 _instance.InputManager?.Dispose();
                 _instance.UIManager?.Dispose();
                 _instance.AvatarManager?.Dispose();
+                _instance.AnimatorSyncManager?.Dispose();
                 _instance.RpcClient?.Disconnect();
                 _instance.PlayerManager?.Dispose();
                 _instance.EventBus?.Dispose();
@@ -223,6 +243,17 @@ namespace DuckyNet.Client.Core
             InputManager?.Update();
             UIManager?.Update();
             PlayerManager?.Update();
+            AnimatorSyncManager?.Update();
+            AnimatorSyncClientService?.Update(); // 平滑插值远程玩家动画
+        }
+
+        /// <summary>
+        /// LateUpdate - 动画后处理（每帧调用）
+        /// </summary>
+        public void LateUpdate()
+        {
+            // 🎯 更新远程玩家动画（在 LateUpdate 中统一提交到 Animator）
+            PlayerManager?.LateUpdate();
         }
 
         /// <summary>

@@ -72,6 +72,7 @@ namespace DuckyNet.Client
             context.RegisterCharacterCustomizationManager(new Core.CharacterCustomizationManager());
             context.RegisterSceneClientManager(new Core.SceneClientManager());
             context.RegisterRoomManager(new Core.RoomManager());
+            context.RegisterAnimatorSyncManager(new Core.AnimatorSyncManager());
             context.RegisterUIManager(new Core.UIManager(context.RpcClient));
 
             // 注册客户端服务
@@ -80,6 +81,14 @@ namespace DuckyNet.Client
             context.RpcClient.RegisterClientService<Shared.Services.ISceneClientService>(new Services.SceneClientServiceImpl());
             context.RpcClient.RegisterClientService<Shared.Services.ICharacterClientService>(new Services.CharacterClientServiceImpl());
             context.RpcClient.RegisterClientService<Shared.Services.ICharacterAppearanceClientService>(new Services.CharacterAppearanceClientServiceImpl());
+            
+            // 注册动画同步客户端服务并保存实例
+            var animatorSyncClientService = new Services.AnimatorSyncClientServiceImpl();
+            context.RpcClient.RegisterClientService<Shared.Services.IAnimatorSyncClientService>(animatorSyncClientService);
+            context.AnimatorSyncClientService = animatorSyncClientService;
+
+            // 初始化动画同步管理器（需要在 PlayerManager 之后）
+            context.AnimatorSyncManager.Initialize();
 
             // 初始化 UI 系统
             context.UIManager.Initialize();
@@ -198,6 +207,22 @@ namespace DuckyNet.Client
             catch (Exception ex)
             {
                 Debug.LogError($"[ModBehaviour] Update 方法出错: {ex.Message}");
+                Debug.LogException(ex);
+            }
+        }
+
+        void LateUpdate()
+        {
+            try
+            {
+                if (GameContext.IsInitialized)
+                {
+                    GameContext.Instance.LateUpdate();
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ModBehaviour] LateUpdate 方法出错: {ex.Message}");
                 Debug.LogException(ex);
             }
         }
