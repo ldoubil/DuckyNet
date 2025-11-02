@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using DuckyNet.Shared.RPC;
+using DuckyNet.Shared.Data;
 namespace DuckyNet.Shared.Services.Generated
 {
     /// <summary>
@@ -16,5 +17,6 @@ namespace DuckyNet.Shared.Services.Generated
         public void OnPlayerJoined(PlayerInfo player) => _ctx.Invoke<DuckyNet.Shared.Services.IPlayerClientService>("OnPlayerJoined", player);
         public void OnPlayerLeft(PlayerInfo player) => _ctx.Invoke<DuckyNet.Shared.Services.IPlayerClientService>("OnPlayerLeft", player);
         public void OnServerMessage(string message, MessageType messageType) => _ctx.Invoke<DuckyNet.Shared.Services.IPlayerClientService>("OnServerMessage", message, messageType);
+        public void OnPlayerUnitySyncReceived(UnitySyncData syncData) => _ctx.Invoke<DuckyNet.Shared.Services.IPlayerClientService>("OnPlayerUnitySyncReceived", syncData);
     }
 }

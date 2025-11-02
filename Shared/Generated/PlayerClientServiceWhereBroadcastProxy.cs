@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using DuckyNet.Shared.Data;
 namespace DuckyNet.Shared.Services.Generated
 {
     /// <summary>
@@ -37,6 +38,12 @@ namespace DuckyNet.Shared.Services.Generated
         {
             var method = _server.GetType().GetMethod("BroadcastWhere").MakeGenericMethod(typeof(DuckyNet.Shared.Services.IPlayerClientService));
             method.Invoke(_server, new object[] { _predicate, "OnServerMessage", new object[] { message, messageType } });
+        }
+
+        public void OnPlayerUnitySyncReceived(UnitySyncData syncData)
+        {
+            var method = _server.GetType().GetMethod("BroadcastWhere").MakeGenericMethod(typeof(DuckyNet.Shared.Services.IPlayerClientService));
+            method.Invoke(_server, new object[] { _predicate, "OnPlayerUnitySyncReceived", new object[] { syncData } });
         }
 
     }

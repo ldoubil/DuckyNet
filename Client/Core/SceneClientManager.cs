@@ -61,6 +61,7 @@ namespace DuckyNet.Client.Core
         {
             Debug.Log($"[SceneClientManager] 场景加载: {evt.ScenelData.SceneName} {evt.ScenelData.SubSceneName}");
             _scenelDataList = evt.ScenelData;
+            Debug.Log($"[SceneClientManager] 🔥 发送场景进入请求: {_scenelDataList.SceneName}");
             _sceneServiceClient.EnterSceneAsync(_scenelDataList);
         }
 

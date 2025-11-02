@@ -68,12 +68,18 @@ namespace DuckyNet.Shared.Services
         [ServerToClient]
         void OnPlayerLeft(PlayerInfo player);
 
-
         /// <summary>
         /// 服务器消息通知
         /// </summary>
         [ServerToClient]
         void OnServerMessage(string message, MessageType messageType = MessageType.Info);
+
+        /// <summary>
+        /// 接收其他玩家的位置同步数据
+        /// 服务器广播给房间/场景内的其他玩家
+        /// </summary>
+        [ServerToClient]
+        void OnPlayerUnitySyncReceived(UnitySyncData syncData);
     }
 
     /// <summary>

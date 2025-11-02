@@ -68,10 +68,7 @@ namespace DuckyNet.Client
             context.RegisterRpcClient(new RPC.RpcClient());
             context.RegisterInputManager(new Core.InputManager());
             context.RegisterAvatarManager(new Core.AvatarManager());
-            var unitManager = new Core.UnitManager();
-            context.RegisterUnitManager(unitManager);
             // 确保 UnitManager 订阅事件
-            unitManager.EnsureSubscribed();
             context.RegisterCharacterCustomizationManager(new Core.CharacterCustomizationManager());
             context.RegisterSceneClientManager(new Core.SceneClientManager());
             context.RegisterRoomManager(new Core.RoomManager());
@@ -82,7 +79,6 @@ namespace DuckyNet.Client
             context.RpcClient.RegisterClientService<Shared.Services.IRoomClientService>(new Services.RoomClientServiceImpl());
             context.RpcClient.RegisterClientService<Shared.Services.ISceneClientService>(new Services.SceneClientServiceImpl());
             context.RpcClient.RegisterClientService<Shared.Services.ICharacterClientService>(new Services.CharacterClientServiceImpl());
-            context.RpcClient.RegisterClientService<Shared.Services.ICharacterSyncClientService>(new Services.CharacterSyncClientServiceImpl());
 
             // 初始化 UI 系统
             context.UIManager.Initialize();

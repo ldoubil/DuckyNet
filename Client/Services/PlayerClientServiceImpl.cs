@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using DuckyNet.Shared.Services;
+using DuckyNet.Shared.Data;
 using DuckyNet.Client.Core;
 
 namespace DuckyNet.Client.Services
@@ -24,7 +25,7 @@ namespace DuckyNet.Client.Services
         {
             // 在 Unity 控制台输出聊天消息日志，格式：[Chat] 玩家名称: 消息内容
             Debug.Log($"[Chat] {sender.SteamName}: {message}");
-            
+
             // 通过全局 EventBus 发布聊天消息事件，实现系统解耦
             if (GameContext.IsInitialized)
             {
@@ -48,7 +49,7 @@ namespace DuckyNet.Client.Services
         {
             // 在 Unity 控制台输出玩家加入日志
             Debug.Log($"[PlayerClientService] Player joined: {player.SteamName}");
-            
+
             // 通过全局 EventBus 发布玩家加入事件，实现系统解耦
             if (GameContext.IsInitialized)
             {
@@ -66,7 +67,7 @@ namespace DuckyNet.Client.Services
         {
             // 在 Unity 控制台输出玩家离开日志
             Debug.Log($"[PlayerClientService] Player left: {player.SteamName}");
-            
+
             // 通过全局 EventBus 发布玩家离开事件，实现系统解耦
             if (GameContext.IsInitialized)
             {
@@ -92,9 +93,45 @@ namespace DuckyNet.Client.Services
                 MessageType.Success => "[Server/Success]",     // 成功消息
                 _ => "[Server]"                               // 默认消息（未知类型）
             };
-            
+
             // 在 Unity 控制台输出带前缀的服务器消息
             Debug.Log($"{prefix} {message}");
+        }
+
+        /// <summary>
+        /// 接收其他玩家的位置同步数据回调方法
+        /// <para>由服务器调用，当房间/场景内的其他玩家发送位置同步数据时触发</para>
+        /// <para>此方法会解析同步数据并发布事件，供远程玩家位置更新系统处理</para>
+        /// </summary>
+        /// <param name="syncData">其他玩家的位置同步数据，包含位置、旋转、速度等信息</param>
+        public void OnPlayerUnitySyncReceived(UnitySyncData syncData)
+        {
+            try
+            {
+                // 解析位置、旋转、速度数据
+                var (posX, posY, posZ) = syncData.GetPosition();
+                var (rotX, rotY, rotZ, rotW) = syncData.GetRotation();
+                var (velX, velY, velZ) = syncData.GetVelocity();
+
+                // 🔥 临时启用位置同步日志（用于调试）
+                Debug.Log($"[PlayerClientService] ✅ 接收到玩家 {syncData.SteamId} 的位置同步: " +
+                         $"Pos({posX:F2},{posY:F2},{posZ:F2}) " +
+                         $"Rot({rotX:F2},{rotY:F2},{rotZ:F2},{rotW:F2})");
+
+                // 通过全局 EventBus 发布玩家同步事件，供远程玩家位置更新系统处理
+                if (GameContext.IsInitialized)
+                {
+                    GameContext.Instance.EventBus.Publish(new Core.PlayerUnitySyncEvent(syncData.SteamId, syncData));
+                }
+                else
+                {
+                    Debug.LogWarning("[PlayerClientService] GameContext 未初始化，无法发布玩家同步事件");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[PlayerClientService] 处理玩家同步数据失败: {ex.Message}");
+            }
         }
     }
 }

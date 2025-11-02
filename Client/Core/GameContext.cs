@@ -53,10 +53,6 @@ namespace DuckyNet.Client.Core
         /// </summary>
         public AvatarManager AvatarManager { get; private set; }
 
-        /// <summary>
-        /// 单位管理器
-        /// </summary>
-        public UnitManager UnitManager { get; private set; }
 
         /// <summary>
         /// 场景客户端管理器
@@ -91,7 +87,6 @@ namespace DuckyNet.Client.Core
             UIManager = null!;
             InputManager = null!;
             AvatarManager = null!;
-            UnitManager = null!;
             CharacterCustomizationManager = null!;
             SceneClientManager = null!;
             RoomManager = null!;
@@ -160,14 +155,7 @@ namespace DuckyNet.Client.Core
             UnityEngine.Debug.Log("[GameContext] 头像管理器已注册");
         }
 
-        /// <summary>
-        /// 注册单位管理器
-        /// </summary>
-        public void RegisterUnitManager(UnitManager unitManager)
-        {
-            UnitManager = unitManager ?? throw new ArgumentNullException(nameof(unitManager));
-            UnityEngine.Debug.Log("[GameContext] 单位管理器已注册");
-        }
+
 
         /// <summary>
         /// 注册角色自定义管理器
@@ -206,7 +194,6 @@ namespace DuckyNet.Client.Core
             try
             {
                 _instance.CharacterCustomizationManager?.Dispose();
-                _instance.UnitManager?.Dispose();
                 _instance.InputManager?.Dispose();
                 _instance.UIManager?.Dispose();
                 _instance.AvatarManager?.Dispose();
@@ -235,6 +222,7 @@ namespace DuckyNet.Client.Core
             RpcClient?.Update();
             InputManager?.Update();
             UIManager?.Update();
+            PlayerManager?.Update();
         }
 
         /// <summary>

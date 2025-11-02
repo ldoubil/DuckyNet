@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using DuckyNet.Shared.Data;
 namespace DuckyNet.Shared.Services.Generated
 {
     /// <summary>
@@ -38,6 +39,12 @@ namespace DuckyNet.Shared.Services.Generated
         {
             var method = _server.GetType().GetMethod("BroadcastToClients").MakeGenericMethod(typeof(DuckyNet.Shared.Services.IPlayerClientService));
             method.Invoke(_server, new object[] { _clientIds, "OnServerMessage", new object[] { message, messageType } });
+        }
+
+        public void OnPlayerUnitySyncReceived(UnitySyncData syncData)
+        {
+            var method = _server.GetType().GetMethod("BroadcastToClients").MakeGenericMethod(typeof(DuckyNet.Shared.Services.IPlayerClientService));
+            method.Invoke(_server, new object[] { _clientIds, "OnPlayerUnitySyncReceived", new object[] { syncData } });
         }
 
     }

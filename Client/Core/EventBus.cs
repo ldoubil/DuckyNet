@@ -125,7 +125,10 @@ namespace DuckyNet.Client.Core
 
                 // 复制订阅者列表，避免在迭代时修改
                 subscribers = _subscribers[eventType].ToList();
+                
+                #if UNITY_EDITOR || DEBUG_EVENTBUS
                 UnityEngine.Debug.Log($"[EventBus] 发布事件: {eventType.Name}, 订阅者数: {subscribers.Count}");
+                #endif
             }
 
             // 在锁外执行回调，避免死锁
@@ -146,7 +149,9 @@ namespace DuckyNet.Client.Core
                     try
                     {
                         handlerCount++;
+                        #if UNITY_EDITOR || DEBUG_EVENTBUS
                         UnityEngine.Debug.Log($"[EventBus] 调用事件处理器 #{handlerCount} ({eventType.Name})");
+                        #endif
                         handler(eventData);
                     }
                     catch (Exception ex)
@@ -524,6 +529,25 @@ namespace DuckyNet.Client.Core
         public PlayerLeftEvent(Shared.Services.PlayerInfo player)
         {
             Player = player;
+        }
+    }
+
+    /// <summary>
+    /// 玩家位置同步事件
+    /// 当接收到其他玩家的位置同步数据时触发此事件
+    /// </summary>
+    public class PlayerUnitySyncEvent
+    {
+        /// <summary>
+        /// 其他玩家的位置同步数据（包含位置、旋转、速度等）
+        /// </summary>
+        public Shared.Data.UnitySyncData SyncData { get; }
+        public string SteamID { get; }
+
+        public PlayerUnitySyncEvent(string steamID, Shared.Data.UnitySyncData syncData)
+        {
+            SteamID = steamID;
+            SyncData = syncData;
         }
     }
 

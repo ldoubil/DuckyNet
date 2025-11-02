@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using DuckyNet.Shared.RPC;
+using DuckyNet.Shared.Data;
 namespace DuckyNet.Shared.Services.Generated
 {
     public class PlayerClientServiceServerDispatcher
@@ -16,6 +17,7 @@ namespace DuckyNet.Shared.Services.Generated
                 case "OnPlayerJoined": _impl.OnPlayerJoined((PlayerInfo)args[0]); return null;
                 case "OnPlayerLeft": _impl.OnPlayerLeft((PlayerInfo)args[0]); return null;
                 case "OnServerMessage": _impl.OnServerMessage((string)args[0], (MessageType)args[1]); return null;
+                case "OnPlayerUnitySyncReceived": _impl.OnPlayerUnitySyncReceived((UnitySyncData)args[0]); return null;
                 default: throw new Exception("Unknown method");
             }
         }

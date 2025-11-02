@@ -197,6 +197,30 @@ namespace DuckyNet.Client.UI
                 if (result.Success && result.Room != null)
                 {
                     UnityEngine.Debug.Log($"[LobbyPage] 房间创建成功：{result.Room.RoomId}");
+                    
+                    // 🔥 创建房间成功后，立即同步场景信息（现在已经在房间中了）
+                    if (GameContext.IsInitialized)
+                    {
+                        var sceneManager = GameContext.Instance.SceneClientManager;
+                        var localPlayer = GameContext.Instance.PlayerManager.LocalPlayer;
+                        
+                        if (!string.IsNullOrEmpty(sceneManager._scenelDataList.SceneName))
+                        {
+                            // 🔥 更新本地玩家的场景信息
+                            localPlayer.Info.CurrentScenelData = sceneManager._scenelDataList;
+                            UnityEngine.Debug.Log($"[LobbyPage] 🔥 创建房间后同步场景信息: {sceneManager._scenelDataList.SceneName}");
+                            
+                            // 🔥 发送场景进入请求（现在服务器知道你在房间中了，会广播给房间内所有人）
+                            var sceneService = new SceneServiceClientProxy(new ClientServerContext(_client));
+                            await sceneService.EnterSceneAsync(sceneManager._scenelDataList);
+                            UnityEngine.Debug.Log($"[LobbyPage] 🔥 场景同步完成");
+                        }
+                        else
+                        {
+                            UnityEngine.Debug.Log($"[LobbyPage] ⚠️ 当前未在场景中，跳过场景同步");
+                        }
+                    }
+                    
                     _mainWindow.RoomPage.SetCurrentRoom(result.Room);
                     _mainWindow.SwitchToPage(MainMenuPage.Room);
                 }
@@ -234,6 +258,30 @@ namespace DuckyNet.Client.UI
                 if (result.Success && result.Room != null)
                 {
                     UnityEngine.Debug.Log($"[LobbyPage] 加入房间成功：{roomId}");
+                    
+                    // 🔥 加入房间成功后，立即同步场景信息（现在已经在房间中了）
+                    if (GameContext.IsInitialized)
+                    {
+                        var sceneManager = GameContext.Instance.SceneClientManager;
+                        var localPlayer = GameContext.Instance.PlayerManager.LocalPlayer;
+                        
+                        if (!string.IsNullOrEmpty(sceneManager._scenelDataList.SceneName))
+                        {
+                            // 🔥 更新本地玩家的场景信息
+                            localPlayer.Info.CurrentScenelData = sceneManager._scenelDataList;
+                            UnityEngine.Debug.Log($"[LobbyPage] 🔥 加入房间后同步场景信息: {sceneManager._scenelDataList.SceneName}");
+                            
+                            // 🔥 发送场景进入请求（现在服务器知道你在房间中了，会广播给房间内所有人）
+                            var sceneService = new SceneServiceClientProxy(new ClientServerContext(_client));
+                            await sceneService.EnterSceneAsync(sceneManager._scenelDataList);
+                            UnityEngine.Debug.Log($"[LobbyPage] 🔥 场景同步完成");
+                        }
+                        else
+                        {
+                            UnityEngine.Debug.Log($"[LobbyPage] ⚠️ 当前未在场景中，跳过场景同步");
+                        }
+                    }
+                    
                     _mainWindow.RoomPage.SetCurrentRoom(result.Room);
                     _mainWindow.SwitchToPage(MainMenuPage.Room);
                 }
