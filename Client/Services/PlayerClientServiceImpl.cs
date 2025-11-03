@@ -3,6 +3,7 @@ using UnityEngine;
 using DuckyNet.Shared.Services;
 using DuckyNet.Shared.Data;
 using DuckyNet.Client.Core;
+using DuckyNet.Client.Core.EventBus.Events;
 
 namespace DuckyNet.Client.Services
 {
