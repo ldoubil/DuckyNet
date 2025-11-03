@@ -43,6 +43,9 @@ namespace DuckyNet.Server
                 _roomManager = new RoomManager();
                 _playerManager = new PlayerManager(_server, _roomManager);
 
+                // 初始化房间广播辅助类（用于 BroadcastToRoom 扩展方法）
+                RPC.RoomBroadcastHelper.Initialize(_roomManager, _playerManager);
+
                 // 创建服务（注意顺序：SceneService 需要在 CharacterService 之前创建）
                 var playerService = new PlayerServiceImpl(_server, _playerManager, _roomManager);
                 var playerUnitySyncService = new PlayerUnitySyncServiceImpl(_server, _playerManager, _roomManager);
@@ -51,6 +54,7 @@ namespace DuckyNet.Server
                 var characterService = new CharacterServiceImpl(_server, _playerManager, _roomManager, sceneService);
                 var appearanceService = new CharacterAppearanceServiceImpl(_server, _playerManager, _roomManager);
                 var animatorSyncService = new AnimatorSyncServiceImpl(_server, _playerManager, _roomManager);
+                var itemSyncService = new ItemSyncServiceImpl(_server, _playerManager, _roomManager);
 
                 // 注册服务
                 _server.RegisterServerService<IPlayerService>(playerService);
@@ -60,6 +64,7 @@ namespace DuckyNet.Server
                 _server.RegisterServerService<IPlayerUnitySyncService>(playerUnitySyncService);
                 _server.RegisterServerService<ICharacterAppearanceService>(appearanceService);
                 _server.RegisterServerService<IAnimatorSyncService>(animatorSyncService);
+                _server.RegisterServerService<IItemSyncService>(itemSyncService);
 
                 // 订阅事件
                 _server.ClientConnected += OnClientConnected;

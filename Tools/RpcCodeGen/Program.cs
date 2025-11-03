@@ -58,7 +58,10 @@ namespace RpcCodeGen
         {
             var sb = new StringBuilder();
             var ns = iface.Namespace + ".Generated";
-            var className = iface.Name.TrimStart('I') + "ClientProxy";
+            // 修复：只移除第一个 'I' 字符，避免 "IItemSync" 变成 "temSync"
+            var className = (iface.Name.StartsWith("I") && iface.Name.Length > 1 && char.IsUpper(iface.Name[1])) 
+                ? iface.Name.Substring(1) + "ClientProxy"
+                : iface.Name + "ClientProxy";
             
             // 收集所有需要的命名空间
             var namespaces = CollectNamespaces(iface);
@@ -115,7 +118,10 @@ namespace RpcCodeGen
         {
             var sb = new StringBuilder();
             var ns = iface.Namespace + ".Generated";
-            var className = iface.Name.TrimStart('I') + "ServerDispatcher";
+            // 修复：只移除第一个 'I' 字符
+            var className = (iface.Name.StartsWith("I") && iface.Name.Length > 1 && char.IsUpper(iface.Name[1])) 
+                ? iface.Name.Substring(1) + "ServerDispatcher"
+                : iface.Name + "ServerDispatcher";
             
             // 收集所有需要的命名空间
             var namespaces = CollectNamespaces(iface);
@@ -174,7 +180,10 @@ namespace RpcCodeGen
         {
             var sb = new StringBuilder();
             var ns = iface.Namespace + ".Generated";
-            var className = iface.Name.TrimStart('I') + "BroadcastProxy";
+            // 修复：只移除第一个 'I' 字符
+            var className = (iface.Name.StartsWith("I") && iface.Name.Length > 1 && char.IsUpper(iface.Name[1])) 
+                ? iface.Name.Substring(1) + "BroadcastProxy"
+                : iface.Name + "BroadcastProxy";
             
             // 收集所有需要的命名空间
             var namespaces = CollectNamespaces(iface);
@@ -245,7 +254,10 @@ namespace RpcCodeGen
         {
             var sb = new StringBuilder();
             var ns = iface.Namespace + ".Generated";
-            var className = iface.Name.TrimStart('I') + "ClientsBroadcastProxy";
+            // 修复：只移除第一个 'I' 字符
+            var className = (iface.Name.StartsWith("I") && iface.Name.Length > 1 && char.IsUpper(iface.Name[1])) 
+                ? iface.Name.Substring(1) + "ClientsBroadcastProxy"
+                : iface.Name + "ClientsBroadcastProxy";
             
             // 收集所有需要的命名空间
             var namespaces = CollectNamespaces(iface);
@@ -321,7 +333,10 @@ namespace RpcCodeGen
         {
             var sb = new StringBuilder();
             var ns = iface.Namespace + ".Generated";
-            var className = iface.Name.TrimStart('I') + "WhereBroadcastProxy";
+            // 修复：只移除第一个 'I' 字符
+            var className = (iface.Name.StartsWith("I") && iface.Name.Length > 1 && char.IsUpper(iface.Name[1])) 
+                ? iface.Name.Substring(1) + "WhereBroadcastProxy"
+                : iface.Name + "WhereBroadcastProxy";
             
             // 收集所有需要的命名空间
             var namespaces = CollectNamespaces(iface);
@@ -396,7 +411,10 @@ namespace RpcCodeGen
         {
             var sb = new StringBuilder();
             var ns = iface.Namespace + ".Generated";
-            var className = iface.Name.TrimStart('I') + "ClientCallProxy";
+            // 修复：只移除第一个 'I' 字符
+            var className = (iface.Name.StartsWith("I") && iface.Name.Length > 1 && char.IsUpper(iface.Name[1])) 
+                ? iface.Name.Substring(1) + "ClientCallProxy"
+                : iface.Name + "ClientCallProxy";
             
             // 收集所有需要的命名空间
             var namespaces = CollectNamespaces(iface);

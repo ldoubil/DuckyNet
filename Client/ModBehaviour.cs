@@ -99,6 +99,17 @@ namespace DuckyNet.Client
             context.RpcClient.RegisterClientService<Shared.Services.IAnimatorSyncClientService>(animatorSyncClientService);
             context.AnimatorSyncClientService = animatorSyncClientService;
 
+            // 注册物品同步服务
+            var itemSyncClientService = new Services.ItemSyncClientServiceImpl();
+            context.RpcClient.RegisterClientService<Shared.Services.IItemSyncClientService>(itemSyncClientService);
+
+            // 创建并注册物品网络协调器（需要在 RpcClient 之后）
+            // 使用生成的 ClientProxy 来调用服务器
+            var clientContext = new RPC.ClientServerContext(context.RpcClient);
+            var itemSyncServiceProxy = new Shared.Services.Generated.ItemSyncServiceClientProxy(clientContext);
+            var itemNetworkCoordinator = new Services.ItemNetworkCoordinator(itemSyncServiceProxy);
+            context.RegisterItemNetworkCoordinator(itemNetworkCoordinator);
+
             // 初始化动画同步管理器（需要在 PlayerManager 之后）
             context.AnimatorSyncManager.Initialize();
 

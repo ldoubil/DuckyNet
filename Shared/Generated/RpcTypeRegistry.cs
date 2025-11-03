@@ -36,6 +36,8 @@ namespace DuckyNet.Shared.RPC.Generated
                 // 应用数据类型 (自动发现)
                 typeof(DuckyNet.Shared.Data.AnimatorSyncData),
                 typeof(DuckyNet.Shared.Data.CharacterAppearanceData),
+                typeof(DuckyNet.Shared.Data.ItemDropData),
+                typeof(DuckyNet.Shared.Data.ItemPickupRequest),
                 typeof(DuckyNet.Shared.Data.ScenelData),
                 typeof(DuckyNet.Shared.Data.UnitySyncData),
                 typeof(DuckyNet.Shared.Services.CreateRoomRequest),

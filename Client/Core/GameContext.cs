@@ -81,6 +81,11 @@ namespace DuckyNet.Client.Core
         public Services.AnimatorSyncClientServiceImpl? AnimatorSyncClientService { get; set; }
 
         /// <summary>
+        /// 物品网络协调器
+        /// </summary>
+        public Services.ItemNetworkCoordinator? ItemNetworkCoordinator { get; set; }
+
+        /// <summary>
         /// 全局事件总线
         /// </summary>
         public EventBusCore EventBus { get; private set; }
@@ -202,6 +207,15 @@ namespace DuckyNet.Client.Core
         {
             RoomManager = roomManager ?? throw new ArgumentNullException(nameof(roomManager));
             UnityEngine.Debug.Log("[GameContext] 房间管理器已注册");
+        }
+
+        /// <summary>
+        /// 注册物品网络协调器
+        /// </summary>
+        public void RegisterItemNetworkCoordinator(Services.ItemNetworkCoordinator itemNetworkCoordinator)
+        {
+            ItemNetworkCoordinator = itemNetworkCoordinator ?? throw new ArgumentNullException(nameof(itemNetworkCoordinator));
+            UnityEngine.Debug.Log("[GameContext] 物品网络协调器已注册");
         }
 
         /// <summary>
