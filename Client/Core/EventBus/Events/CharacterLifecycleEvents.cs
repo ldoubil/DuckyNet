@@ -14,16 +14,16 @@ namespace DuckyNet.Client.Core.EventBus.Events
         public object CharacterMainControl { get; }
         
         /// <summary>
-        /// 角色 GameObject
+        /// 角色 GameObject（可能为 null）
         /// </summary>
-        public GameObject GameObject { get; }
+        public GameObject? GameObject { get; }
         
         /// <summary>
         /// 自动生成的唯一 ID（用于网络同步）
         /// </summary>
         public int CharacterId { get; }
 
-        public CharacterSpawnedEvent(object characterMainControl, GameObject gameObject, int characterId)
+        public CharacterSpawnedEvent(object characterMainControl, GameObject? gameObject, int characterId)
         {
             CharacterMainControl = characterMainControl;
             GameObject = gameObject;
@@ -43,16 +43,16 @@ namespace DuckyNet.Client.Core.EventBus.Events
         public object CharacterMainControl { get; }
         
         /// <summary>
-        /// 角色 GameObject
+        /// 角色 GameObject（可能为 null）
         /// </summary>
-        public GameObject GameObject { get; }
+        public GameObject? GameObject { get; }
         
         /// <summary>
         /// 角色 ID
         /// </summary>
         public int CharacterId { get; }
 
-        public CharacterDestroyedEvent(object characterMainControl, GameObject gameObject, int characterId)
+        public CharacterDestroyedEvent(object characterMainControl, GameObject? gameObject, int characterId)
         {
             CharacterMainControl = characterMainControl;
             GameObject = gameObject;
@@ -85,13 +85,19 @@ namespace DuckyNet.Client.Core.EventBus.Events
         /// 角色 GameObject
         /// </summary>
         public GameObject? GameObject { get; }
+        
+        /// <summary>
+        /// 角色 ID（与创建/销毁事件相同的ID）
+        /// </summary>
+        public int CharacterId { get; }
 
-        public CharacterDeathEvent(object health, object damageInfo, object? characterMainControl, GameObject? gameObject)
+        public CharacterDeathEvent(object health, object damageInfo, object? characterMainControl, GameObject? gameObject, int characterId)
         {
             Health = health;
             DamageInfo = damageInfo;
             CharacterMainControl = characterMainControl;
             GameObject = gameObject;
+            CharacterId = characterId;
         }
     }
 }

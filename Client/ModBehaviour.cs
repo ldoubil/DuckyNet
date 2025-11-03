@@ -30,6 +30,11 @@ namespace DuckyNet.Client
         /// 单位生命周期管理器
         /// </summary>
         private Core.CharacterLifecycleManager? _characterLifecycleManager;
+        
+        /// <summary>
+        /// 本地玩家开枪事件桥接器
+        /// </summary>
+        private Patches.LocalPlayerShootBridge? _localPlayerShootBridge;
 
         void Awake()
         {
@@ -112,6 +117,11 @@ namespace DuckyNet.Client
             // 创建并初始化单位生命周期管理器（监控怪物/NPC 创建、销毁、死亡）
             _characterLifecycleManager = new Core.CharacterLifecycleManager();
             Debug.Log("[ModBehaviour] 单位生命周期管理器已初始化");
+
+            // 创建并初始化本地玩家开枪事件桥接器
+            _localPlayerShootBridge = new Patches.LocalPlayerShootBridge();
+            _localPlayerShootBridge.Initialize();
+            Debug.Log("[ModBehaviour] 本地玩家开枪事件监听已启动");
 
             // 创建网络生命周期管理器
             var lifecycleManager = new Core.NetworkLifecycleManager(context);
@@ -273,6 +283,10 @@ namespace DuckyNet.Client
                 // 清理单位生命周期管理器
                 _characterLifecycleManager?.Dispose();
                 _characterLifecycleManager = null;
+
+                // 清理本地玩家开枪事件桥接器
+                _localPlayerShootBridge?.Dispose();
+                _localPlayerShootBridge = null;
 
                 // 注意：RPC 客户端会在 Disconnect 时自动清理事件订阅
 

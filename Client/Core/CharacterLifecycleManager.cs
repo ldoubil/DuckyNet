@@ -13,15 +13,10 @@ namespace DuckyNet.Client.Core
     public class CharacterLifecycleManager : IDisposable
     {
         private readonly EventSubscriberHelper _eventSubscriber = new EventSubscriberHelper();
-        private readonly CharacterEventBridge _eventBridge;
 
         public CharacterLifecycleManager()
         {
-            // 初始化事件桥接器（订阅游戏内静态事件）
-            _eventBridge = new CharacterEventBridge();
-            _eventBridge.Initialize();
-
-            // 订阅 EventBus 事件
+            // 订阅 EventBus 事件（事件由 Harmony Patch 自动发布）
             _eventSubscriber.EnsureInitializedAndSubscribe();
             _eventSubscriber.Subscribe<CharacterSpawnedEvent>(OnCharacterSpawned);
             _eventSubscriber.Subscribe<CharacterDestroyedEvent>(OnCharacterDestroyed);
@@ -30,7 +25,7 @@ namespace DuckyNet.Client.Core
             Debug.Log("[CharacterLifecycleManager] 已初始化单位生命周期管理器");
         }
 
-        /// <summary>1
+        /// <summary>
         /// 单位创建事件处理器
         /// </summary>
         private void OnCharacterSpawned(CharacterSpawnedEvent evt)
@@ -81,7 +76,7 @@ namespace DuckyNet.Client.Core
         {
             try
             {
-                Debug.Log($"[CharacterLifecycle] 💀 单位死亡: Name={evt.GameObject?.name}");
+                Debug.Log($"[CharacterLifecycle] 💀 单位死亡: ID={evt.CharacterId}, Name={evt.GameObject?.name}");
                 
                 // TODO: 在这里添加你的逻辑
                 // 例如：
@@ -103,7 +98,6 @@ namespace DuckyNet.Client.Core
         public void Dispose()
         {
             _eventSubscriber?.Dispose();
-            _eventBridge?.Dispose();
             CharacterCreationPatch.Clear();
             Debug.Log("[CharacterLifecycleManager] 已清理单位生命周期管理器");
         }

@@ -87,10 +87,7 @@ namespace DuckyNet.Client.Core
                 if (localPlayer?.CharacterObject != null)
                 {
                     _localPlayerAnimator = localPlayer.CharacterObject.GetComponentInChildren<Animator>();
-                    if (_localPlayerAnimator != null)
-                    {
-                        Debug.Log("[AnimatorSyncManager] ✅ 找到本地玩家 Animator");
-                    }
+                    
                 }
             }
             catch (Exception ex)
@@ -156,7 +153,6 @@ namespace DuckyNet.Client.Core
                 if (Time.time - _lastForceSyncTime >= _forceSyncInterval)
                 {
                     SendAnimatorState(currentData);
-                    Debug.Log("[AnimatorSyncManager] 强制同步（保持活跃）");
                 }
             }
             catch (Exception ex)
@@ -244,11 +240,7 @@ namespace DuckyNet.Client.Core
                 _lastSentData = syncData;
                 _lastForceSyncTime = Time.time;
                 
-                // 调试日志
-                Debug.Log($"[AnimatorSyncManager] 发送动画 - " +
-                          $"State:{syncData.StateHash}, " +
-                          $"Speed:{syncData.GetFloatParam(0):F2}, " +
-                          $"Dir:({syncData.GetFloatParam(1):F2},{syncData.GetFloatParam(2):F2})");
+              
             }
             catch (Exception ex)
             {
@@ -265,14 +257,12 @@ namespace DuckyNet.Client.Core
             // 1. 动画状态切换（最高优先级）
             if (current.StateHash != last.StateHash)
             {
-                Debug.Log("[AnimatorSyncManager] 检测到状态切换");
                 return true;
             }
             
             // 2. Bool 参数变化（高优先级）
             if (current.BoolParams != last.BoolParams)
             {
-                Debug.Log("[AnimatorSyncManager] 检测到 Bool 参数变化");
                 return true;
             }
             
@@ -288,7 +278,6 @@ namespace DuckyNet.Client.Core
                 
                 if (delta > threshold)
                 {
-                    Debug.Log($"[AnimatorSyncManager] Float[{i}] 变化: {lastVal:F3} → {currentVal:F3} (Δ={delta:F3})");
                     return true;
                 }
             }
@@ -301,7 +290,6 @@ namespace DuckyNet.Client.Core
             // 如果时间倒退（循环）或跳跃过大
             if (timeDelta > STATE_TIME_THRESHOLD && timeDelta < 0.9f)
             {
-                Debug.Log($"[AnimatorSyncManager] 动画时间跳跃: {lastTime:F2} → {currentTime:F2}");
                 return true;
             }
             

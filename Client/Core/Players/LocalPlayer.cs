@@ -50,24 +50,58 @@ namespace DuckyNet.Client.Core.Players
             _eventSubscriber.Subscribe<SceneUnloadingDetailEvent>(OnSceneUnloading);
             _eventSubscriber.Subscribe<RoomJoinedEvent>(OnRoomJoined);
             _eventSubscriber.Subscribe<RoomLeftEvent>(OnRoomLeft);
+            _eventSubscriber.Subscribe<LocalPlayerShootEvent>(OnLocalPlayerShoot);
             Initialize();
+        }
+
+        /// <summary>
+        /// 本地玩家开枪事件处理器
+        /// </summary>
+        private void OnLocalPlayerShoot(LocalPlayerShootEvent evt)
+        {
+            try
+            {
+                // 获取枪械名称
+                string gunName = "Unknown";
+                if (evt.Gun is Component gunComponent)
+                {
+                    gunName = gunComponent.gameObject.name;
+                }
+
+                // 输出开枪坐标信息到控制台（6位小数精度）
+                UnityEngine.Debug.Log("═══════════════════════════════════════");
+                UnityEngine.Debug.Log($"🔫 [本地玩家开枪]");
+                UnityEngine.Debug.Log($"    • 枪口位置: ({evt.MuzzlePosition.x:F6}, {evt.MuzzlePosition.y:F6}, {evt.MuzzlePosition.z:F6})");
+                UnityEngine.Debug.Log($"    • 射击方向: ({evt.ShootDirection.x:F6}, {evt.ShootDirection.y:F6}, {evt.ShootDirection.z:F6})");
+                UnityEngine.Debug.Log($"    • 枪口名称: {evt.Muzzle?.name ?? "Unknown"}");
+                UnityEngine.Debug.Log($"    • 枪械对象: {gunName}");
+                UnityEngine.Debug.Log("═══════════════════════════════════════");
+
+                // TODO: 在这里添加网络同步逻辑
+                // 例如：将开枪事件发送到服务器
+                // _playerService.SendShootEvent(evt.MuzzlePosition, evt.ShootDirection);
+            }
+            catch (Exception ex)
+            {
+                UnityEngine.Debug.LogError($"[LocalPlayer] 处理开枪事件失败: {ex.Message}");
+            }
         }
 
         private void OnRoomJoined(RoomJoinedEvent @event)
         {
             UnityEngine.Debug.Log($"[LocalPlayer] 加入房间: {@event.Room.RoomId}，启动位置同步");
-            
+
             // 🔥 关键修复：如果已经在场景中，立即发送一次位置同步
             // 这样其他玩家加入房间时,服务器缓存中就有我的位置了
             if (CharacterObject != null && !string.IsNullOrEmpty(Info.CurrentScenelData.SceneName))
             {
                 UnityEngine.Debug.Log($"[LocalPlayer] 🔥 已在场景中，立即发送位置同步");
                 SendImmediatePositionSync();
-                
+
                 // 如果角色已创建，立即上传外观数据
                 UploadAppearanceData();
             }
-            
+
             StartMainThreadSync();
         }
 
@@ -80,7 +114,7 @@ namespace DuckyNet.Client.Core.Players
         private void OnSceneUnloading(SceneUnloadingDetailEvent @event)
         {
             Info.CurrentScenelData = new ScenelData("", "");
-            
+
             // 🔥 修复：更新 RoomManager.RoomPlayers 中自己的场景信息
             if (GameContext.IsInitialized && GameContext.Instance.RoomManager != null)
             {
@@ -107,7 +141,7 @@ namespace DuckyNet.Client.Core.Players
                 _lastFramePosition = _lastSyncedPosition; // 🔥 初始化
                 _lastFrameTime = Time.time;
             }
-            
+
             // 🔥 修复：更新 RoomManager.RoomPlayers 中自己的场景信息
             if (GameContext.IsInitialized && GameContext.Instance.RoomManager != null)
             {
@@ -361,7 +395,7 @@ namespace DuckyNet.Client.Core.Players
                 return;
 
             // 检查是否已进入场景
-            if (string.IsNullOrEmpty(Info.CurrentScenelData.SceneName) || 
+            if (string.IsNullOrEmpty(Info.CurrentScenelData.SceneName) ||
                 string.IsNullOrEmpty(Info.CurrentScenelData.SubSceneName))
             {
                 // 未加入场景/子场景，不发送
@@ -372,7 +406,7 @@ namespace DuckyNet.Client.Core.Players
             {
                 // ========== 在主线程安全地读取 Unity 对象数据 ==========
                 Vector3 currentPosition = CharacterObject.transform.position;
-                
+
                 // 🔥 使用 CharacterMainControl.CurrentAimDirection 获取角色朝向
                 Quaternion currentRotation = Quaternion.identity;
                 if (_characterMainControl != null)
@@ -383,7 +417,7 @@ namespace DuckyNet.Client.Core.Players
                         currentRotation = Quaternion.LookRotation(aimDirection);
                     }
                 }
-                
+
                 Vector3 currentVelocity = Vector3.zero;
 
                 // 🔥 改进速度计算：优先使用 Rigidbody，否则手动计算
@@ -470,7 +504,7 @@ namespace DuckyNet.Client.Core.Players
             try
             {
                 var currentPosition = CharacterObject.transform.position;
-                
+
                 // 🔥 使用 CharacterMainControl.CurrentAimDirection 获取角色朝向
                 Quaternion currentRotation = Quaternion.identity;
                 if (_characterMainControl != null)
@@ -481,7 +515,7 @@ namespace DuckyNet.Client.Core.Players
                         currentRotation = Quaternion.LookRotation(aimDirection);
                     }
                 }
-                
+
                 var currentVelocity = Vector3.zero;
 
                 // 尝试获取速度
@@ -548,14 +582,14 @@ namespace DuckyNet.Client.Core.Players
             try
             {
                 UnityEngine.Debug.Log($"[LocalPlayer] 🎨 开始上传角色外观数据...");
-                
+
                 // 检查角色是否已创建
                 if (CharacterObject == null || _characterMainControl == null)
                 {
                     UnityEngine.Debug.LogWarning("[LocalPlayer] ⚠️ 角色尚未创建，跳过上传外观数据");
                     return;
                 }
-                
+
                 // 获取本地玩家外观数据
                 var appearanceData = Utils.AppearanceConverter.LoadMainCharacterAppearance();
                 if (appearanceData == null)
