@@ -8,6 +8,8 @@ using DuckyNet.Shared.RPC;
 using DuckyNet.Shared.Services;
 using CharacterServiceClientProxy = DuckyNet.Shared.Services.Generated.CharacterServiceClientProxy;
 using DuckyNet.Client.Core;
+using DuckyNet.Client.Core.EventBus;
+using DuckyNet.Client.Core.EventBus.Events;
 
 
 namespace DuckyNet.Client.Core.Helpers

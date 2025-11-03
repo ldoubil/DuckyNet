@@ -1,5 +1,6 @@
 using System;
 using DuckyNet.Client.Core;
+using DuckyNet.Client.Core.EventBus.Events;
 using UnityEngine;
 using Duckov.Scenes;
 using DuckyNet.Shared.Data;

@@ -2,6 +2,7 @@
 using UnityEngine;
 using DuckyNet.Client.Core;
 using DuckyNet.Client.Core.Helpers;
+using DuckyNet.Client.Core.EventBus;
 using DuckyNet.Client.Core.Utils;
 using HarmonyLib;
 
@@ -14,6 +15,7 @@ namespace DuckyNet.Client
     public class ModBehaviour : Duckov.Modding.ModBehaviour
     {
         private readonly EventSubscriberHelper _eventSub = new EventSubscriberHelper();
+        
         /// <summary>
         /// 全局实例
         /// </summary>
@@ -23,6 +25,11 @@ namespace DuckyNet.Client
         /// Harmony 实例
         /// </summary>
         private static Harmony? _harmony;
+        
+        /// <summary>
+        /// 单位生命周期管理器
+        /// </summary>
+        private Core.CharacterLifecycleManager? _characterLifecycleManager;
 
         void Awake()
         {
@@ -101,6 +108,10 @@ namespace DuckyNet.Client
             sceneBridge.Initialize();
             // 初始化场景信息提供者（用于查询当前场景）
             Core.Helpers.SceneInfoProvider.Initialize(sceneBridge);
+
+            // 创建并初始化单位生命周期管理器（监控怪物/NPC 创建、销毁、死亡）
+            _characterLifecycleManager = new Core.CharacterLifecycleManager();
+            Debug.Log("[ModBehaviour] 单位生命周期管理器已初始化");
 
             // 创建网络生命周期管理器
             var lifecycleManager = new Core.NetworkLifecycleManager(context);
@@ -258,6 +269,10 @@ namespace DuckyNet.Client
                     _harmony.UnpatchAll("com.duckynet.client");
                     Debug.Log("[ModBehaviour] Harmony Patch 已移除");
                 }
+
+                // 清理单位生命周期管理器
+                _characterLifecycleManager?.Dispose();
+                _characterLifecycleManager = null;
 
                 // 注意：RPC 客户端会在 Disconnect 时自动清理事件订阅
 

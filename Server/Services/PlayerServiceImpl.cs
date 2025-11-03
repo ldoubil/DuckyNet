@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using DuckyNet.Server.RPC;
 using DuckyNet.Server.Managers;
+using DuckyNet.Server.Events;
 using DuckyNet.Shared.RPC;
 using DuckyNet.Shared.Services;
 
@@ -36,6 +37,9 @@ namespace DuckyNet.Server.Services
             {
                 // 通知其他玩家（强类型广播）
                 _server.Broadcast<IPlayerClientService>().OnPlayerJoined(playerInfo);
+                
+                // 发布登录事件
+                ServerEventPublisher.PublishPlayerLogin(client.ClientId, playerInfo);
             }
 
             return await Task.FromResult(result);
@@ -50,6 +54,9 @@ namespace DuckyNet.Server.Services
             {
                 _server.Broadcast<IPlayerClientService>().OnPlayerLeft(player);
                 Console.WriteLine($"[PlayerService] Player logged out: {player.SteamName}");
+                
+                // 发布登出事件
+                ServerEventPublisher.PublishPlayerLogout(client.ClientId, player);
             }
         }
 

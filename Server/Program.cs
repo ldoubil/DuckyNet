@@ -1,10 +1,14 @@
 ﻿using System;
+using System.IO;
 using System.Threading;
 using DuckyNet.Server.RPC;
 using DuckyNet.Server.Services;
 using DuckyNet.Server.Managers;
+using DuckyNet.Server.Plugin;
+using DuckyNet.Server.Events;
 using DuckyNet.Shared.Services;
 using DuckyNet.Shared.RPC;
+using EventBus = DuckyNet.Server.Events.EventBus;
 
 namespace DuckyNet.Server
 {
@@ -16,6 +20,8 @@ namespace DuckyNet.Server
         private static RpcServer _server = null!;
         private static PlayerManager _playerManager = null!;
         private static RoomManager _roomManager = null!;
+        private static EventBus _eventBus = null!;
+        private static PluginManager _pluginManager = null!;
         private static bool _running = true;
 
         static void Main(string[] args)
@@ -28,6 +34,10 @@ namespace DuckyNet.Server
                 // 创建服务器配置
                 var config = RpcConfig.Development;
                 _server = new RpcServer(config);
+
+                // 创建事件总线
+                _eventBus = new EventBus();
+                ServerEventPublisher.Initialize(_eventBus);
 
                 // 创建管理器
                 _roomManager = new RoomManager();
@@ -62,6 +72,24 @@ namespace DuckyNet.Server
                 Console.WriteLine("[Server] Login timeout: 3 seconds");
                 Console.WriteLine();
 
+                // 创建插件上下文
+                var pluginContext = new PluginContext(
+                    _playerManager,
+                    _roomManager,
+                    _server,
+                    _eventBus,
+                    new PluginLogger("System")
+                );
+
+                // 创建插件管理器并加载插件
+                _pluginManager = new PluginManager(pluginContext);
+                var pluginDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Plugins");
+                _pluginManager.LoadPluginsFromDirectory(pluginDir);
+                Console.WriteLine();
+
+                // 发布服务器启动事件
+                _eventBus.Publish(new ServerStartedEvent { Port = port });
+
                 // 启动更新线程
                 var updateThread = new Thread(UpdateLoop);
                 updateThread.IsBackground = true;
@@ -86,6 +114,8 @@ namespace DuckyNet.Server
                 }
 
                 Console.WriteLine("[Server] Shutting down...");
+                _eventBus.Publish(new ServerStoppingEvent());
+                _pluginManager.UnloadAllPlugins();
                 _server.Stop();
             }
             catch (Exception ex)
@@ -100,6 +130,7 @@ namespace DuckyNet.Server
             while (_running)
             {
                 _server?.Update();
+                _pluginManager?.UpdatePlugins();
                 Thread.Sleep(15); // ~60 FPS
             }
         }
@@ -117,12 +148,19 @@ namespace DuckyNet.Server
         {
             _playerManager?.OnClientConnected(clientId);
             Console.WriteLine($"[Server] Client connected: {clientId}");
+            _eventBus?.Publish(new PlayerConnectedEvent { ClientId = clientId });
         }
 
         static void OnClientDisconnected(string clientId)
         {
+            var player = _playerManager?.GetPlayer(clientId);
             _playerManager?.OnClientDisconnected(clientId);
             Console.WriteLine($"[Server] Client disconnected: {clientId}");
+            _eventBus?.Publish(new PlayerDisconnectedEvent 
+            { 
+                ClientId = clientId,
+                Player = player
+            });
         }
     }
 }

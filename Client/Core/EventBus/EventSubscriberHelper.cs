@@ -1,7 +1,8 @@
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 
-namespace DuckyNet.Client.Core.Helpers
+namespace DuckyNet.Client.Core.EventBus
 {
     /// <summary>
     /// EventBus 订阅辅助类 - 统一管理事件订阅，减少样板代码
@@ -10,6 +11,7 @@ namespace DuckyNet.Client.Core.Helpers
     {
         private EventBus? _eventBus;
         private readonly List<IDisposableSubscription> _subscriptions = new List<IDisposableSubscription>();
+        private bool _isDisposed = false;
 
         /// <summary>
         /// 获取 EventBus 实例（自动初始化）
@@ -27,11 +29,31 @@ namespace DuckyNet.Client.Core.Helpers
         }
 
         /// <summary>
+        /// 是否已初始化
+        /// </summary>
+        public bool IsInitialized => _eventBus != null;
+
+        /// <summary>
+        /// 订阅事件数量
+        /// </summary>
+        public int SubscriptionCount => _subscriptions.Count;
+
+        /// <summary>
         /// 订阅事件（自动管理，如果 GameContext 未初始化则延迟订阅）
         /// </summary>
         public void Subscribe<TEvent>(Action<TEvent> handler) where TEvent : class
         {
-            if (handler == null) return;
+            if (_isDisposed)
+            {
+                Debug.LogWarning("[EventSubscriberHelper] 尝试在已释放的 Helper 上订阅事件，已忽略");
+                return;
+            }
+
+            if (handler == null)
+            {
+                Debug.LogWarning("[EventSubscriberHelper] 尝试订阅空处理器，已忽略");
+                return;
+            }
 
             try
             {
@@ -41,19 +63,18 @@ namespace DuckyNet.Client.Core.Helpers
                     var eventBus = GameContext.Instance.EventBus;
                     eventBus.Subscribe(handler);
                     _subscriptions.Add(new Subscription<TEvent>(eventBus, handler));
-                    UnityEngine.Debug.Log($"[EventSubscriberHelper] 已订阅事件: {typeof(TEvent).Name}");
+                    Debug.Log($"[EventSubscriberHelper] 已订阅事件: {typeof(TEvent).Name}");
                 }
                 else
                 {
                     // 如果未初始化，先保存 handler，稍后通过 EnsureInitializedAndSubscribe 订阅
-                    // 注意：这需要调用者稍后调用 EnsureInitializedAndSubscribe，否则订阅会丢失
-                    UnityEngine.Debug.LogWarning($"[EventSubscriberHelper] GameContext 未初始化，已保存订阅请求 {typeof(TEvent).Name}，请稍后调用 EnsureInitializedAndSubscribe");
+                    Debug.LogWarning($"[EventSubscriberHelper] GameContext 未初始化，已保存订阅请求 {typeof(TEvent).Name}，请稍后调用 EnsureInitializedAndSubscribe");
                     _subscriptions.Add(new PendingSubscription<TEvent>(handler));
                 }
             }
             catch (Exception ex)
             {
-                UnityEngine.Debug.LogError($"[EventSubscriberHelper] 订阅事件失败 {typeof(TEvent).Name}: {ex.Message}");
+                Debug.LogError($"[EventSubscriberHelper] 订阅事件失败 {typeof(TEvent).Name}: {ex.Message}");
             }
         }
 
@@ -62,12 +83,23 @@ namespace DuckyNet.Client.Core.Helpers
         /// </summary>
         public void EnsureInitializedAndSubscribe()
         {
-            if (!GameContext.IsInitialized) return;
+            if (_isDisposed)
+            {
+                Debug.LogWarning("[EventSubscriberHelper] 尝试在已释放的 Helper 上初始化订阅，已忽略");
+                return;
+            }
+
+            if (!GameContext.IsInitialized)
+            {
+                Debug.LogWarning("[EventSubscriberHelper] GameContext 仍未初始化，无法完成订阅");
+                return;
+            }
 
             var eventBus = GameContext.Instance.EventBus;
             _eventBus = eventBus;
 
             // 处理所有待处理的订阅
+            int processedCount = 0;
             for (int i = _subscriptions.Count - 1; i >= 0; i--)
             {
                 if (_subscriptions[i] is PendingSubscription pending)
@@ -76,12 +108,18 @@ namespace DuckyNet.Client.Core.Helpers
                     if (subscription != null)
                     {
                         _subscriptions[i] = subscription;
+                        processedCount++;
                     }
                     else
                     {
                         _subscriptions.RemoveAt(i);
                     }
                 }
+            }
+
+            if (processedCount > 0)
+            {
+                Debug.Log($"[EventSubscriberHelper] 已完成 {processedCount} 个待处理订阅");
             }
         }
 
@@ -96,7 +134,10 @@ namespace DuckyNet.Client.Core.Helpers
             }
         }
 
-        public void Dispose()
+        /// <summary>
+        /// 取消所有订阅
+        /// </summary>
+        public void UnsubscribeAll()
         {
             foreach (var subscription in _subscriptions)
             {
@@ -106,11 +147,21 @@ namespace DuckyNet.Client.Core.Helpers
                 }
                 catch (Exception ex)
                 {
-                    UnityEngine.Debug.LogWarning($"[EventSubscriberHelper] 取消订阅失败: {ex.Message}");
+                    Debug.LogWarning($"[EventSubscriberHelper] 取消订阅失败: {ex.Message}");
                 }
             }
             _subscriptions.Clear();
+            Debug.Log("[EventSubscriberHelper] 已取消所有订阅");
+        }
+
+        public void Dispose()
+        {
+            if (_isDisposed)
+                return;
+
+            UnsubscribeAll();
             _eventBus = null;
+            _isDisposed = true;
         }
 
         // 内部接口：可取消的订阅
@@ -142,7 +193,7 @@ namespace DuckyNet.Client.Core.Helpers
                 }
                 catch (Exception ex)
                 {
-                    UnityEngine.Debug.LogError($"[EventSubscriberHelper] 延迟订阅失败 {typeof(TEvent).Name}: {ex.Message}");
+                    Debug.LogError($"[EventSubscriberHelper] 延迟订阅失败 {typeof(TEvent).Name}: {ex.Message}");
                     return null;
                 }
             }
@@ -167,3 +218,4 @@ namespace DuckyNet.Client.Core.Helpers
         }
     }
 }
+

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using DuckyNet.Shared.Data;
 using DuckyNet.Shared.Services;
+using DuckyNet.Client.Core.EventBus.Events;
 
 namespace DuckyNet.Client.Services
 {
@@ -45,7 +46,7 @@ namespace DuckyNet.Client.Services
                 if (Core.GameContext.Instance.EventBus != null)
                 {
                     Core.GameContext.Instance.EventBus.Publish(
-                        new Core.RemoteAnimatorUpdateEvent(steamId, animatorData)
+                        new RemoteAnimatorUpdateEvent(steamId, animatorData)
                     );
                     Debug.Log($"[AnimatorSyncClientService] ✅ 事件已发布到 EventBus");
                 }

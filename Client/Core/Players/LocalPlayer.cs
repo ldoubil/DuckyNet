@@ -6,6 +6,8 @@ using static UnityEngine.Debug;
 using Steamworks;
 using DuckyNet.Shared.Services;
 using DuckyNet.Client.Core.Helpers;
+using DuckyNet.Client.Core.EventBus;
+using DuckyNet.Client.Core.EventBus.Events;
 using DuckyNet.Shared.Data;
 using Unity.VisualScripting;
 using DuckyNet.Client.RPC;

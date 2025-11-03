@@ -5,6 +5,8 @@ using Steamworks;
 using DuckyNet.Shared.Services;
 using DuckyNet.Shared.Data;
 using DuckyNet.Client.Core.Helpers;
+using DuckyNet.Client.Core.EventBus;
+using DuckyNet.Client.Core.EventBus.Events;
 using System.Collections.Generic;
 
 namespace DuckyNet.Client.Core.Players

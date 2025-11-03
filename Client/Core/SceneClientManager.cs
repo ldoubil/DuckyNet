@@ -6,8 +6,10 @@ using DuckyNet.Client.RPC;
 using DuckyNet.Client.Services;
 using DuckyNet.Shared.Services;
 using DuckyNet.Client.Core.Helpers;
+using DuckyNet.Client.Core.EventBus.Events;
 using DuckyNet.Shared.Data;
 using DuckyNet.Shared.Services.Generated;
+using DuckyNet.Client.Core.EventBus;
 
 namespace DuckyNet.Client.Core
 {

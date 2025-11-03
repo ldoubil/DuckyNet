@@ -2,6 +2,7 @@ using System;
 using UnityEngine;
 using DuckyNet.Client.RPC;
 using DuckyNet.Client.Core.Players;
+using EventBusCore = DuckyNet.Client.Core.EventBus.EventBus;
 
 namespace DuckyNet.Client.Core
 {
@@ -82,7 +83,7 @@ namespace DuckyNet.Client.Core
         /// <summary>
         /// 全局事件总线
         /// </summary>
-        public EventBus EventBus { get; private set; }
+        public EventBusCore EventBus { get; private set; }
 
         /// <summary>
         /// 是否已初始化
@@ -100,7 +101,7 @@ namespace DuckyNet.Client.Core
             SceneClientManager = null!;
             RoomManager = null!;
             AnimatorSyncManager = null!;
-            EventBus = EventBus.Instance;
+            EventBus = EventBusCore.Instance;
         }
 
         /// <summary>

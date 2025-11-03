@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using DuckyNet.Server.RPC;
 using DuckyNet.Server.Managers;
+using DuckyNet.Server.Events;
 using DuckyNet.Shared.RPC;
 using DuckyNet.Shared.Services;
 using DuckyNet.Shared.Data;
@@ -67,6 +68,9 @@ namespace DuckyNet.Server.Services
                 
                 Console.WriteLine($"[RoomService] Room created: {room.RoomId} by {player.SteamName}");
                 Console.WriteLine($"[RoomService] 房主当前场景: '{player.CurrentScenelData.SceneName}' (子场景: '{player.CurrentScenelData.SubSceneName}')");
+
+                // 发布房间创建事件
+                ServerEventPublisher.PublishRoomCreated(room, player);
 
                 // 🔥 虽然房间里只有房主，但我们不需要通知房主"自己加入了"
                 // 客户端会通过 RoomOperationResult.Room 知道自己在房间中
@@ -217,6 +221,9 @@ namespace DuckyNet.Server.Services
                 Console.WriteLine($"[RoomService] ========== 通知完成，共通知 {notifiedCount} 个玩家 ==========");
 
                 Console.WriteLine($"[RoomService] Player {player.SteamName} joined room {request.RoomId}");
+                
+                // 发布玩家加入房间事件
+                ServerEventPublisher.PublishPlayerJoinedRoom(result.Room, player);
             }
 
             return await Task.FromResult(result);
@@ -241,6 +248,9 @@ namespace DuckyNet.Server.Services
             {
                 // 🔥 清除玩家的位置缓存
                 _unitySyncService.ClearPlayerPosition(player.SteamId);
+                
+                // 发布玩家离开房间事件
+                ServerEventPublisher.PublishPlayerLeftRoom(room, player);
                 
                 // 通知房间内其他玩家
                 var roomPlayers = _roomManager.GetRoomPlayers(room.RoomId);

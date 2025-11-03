@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>ExamplePlugin</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 使用 ProjectReference 但设置 Private="false"，不复制引用的 DLL -->
+    <!-- 插件运行时会使用服务器已加载的 DLL，所以不需要复制 -->
+    <ProjectReference Include="..\Server\DuckyNetServer.csproj" Private="false" />
+    <ProjectReference Include="..\Shared\DuckyNetShared.csproj" Private="false" />
+  </ItemGroup>
+
+</Project>
+

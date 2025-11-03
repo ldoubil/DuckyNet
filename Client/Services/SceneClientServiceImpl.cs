@@ -2,6 +2,8 @@ using System;
 using DuckyNet.Shared.Services;
 using DuckyNet.Client.Core;
 using DuckyNet.Client.Core.Helpers;
+using DuckyNet.Client.Core.EventBus;
+using DuckyNet.Client.Core.EventBus.Events;
 using UnityEngine;
 using DuckyNet.Shared.Data;
 

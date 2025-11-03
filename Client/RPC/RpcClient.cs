@@ -6,6 +6,7 @@ using LiteNetLib;
 using LiteNetLib.Utils;
 using DuckyNet.Shared.RPC;
 using DuckyNet.Client.Core;
+using DuckyNet.Client.Core.EventBus.Events;
 
 namespace DuckyNet.Client.RPC
 {

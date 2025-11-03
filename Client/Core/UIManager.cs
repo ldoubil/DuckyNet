@@ -7,6 +7,8 @@ using DuckyNet.Client.Services;
 using DuckyNet.Shared.Services;
 using System.Diagnostics.Tracing;
 using DuckyNet.Client.Core.Helpers;
+using DuckyNet.Client.Core.EventBus;
+using DuckyNet.Client.Core.EventBus.Events;
 
 namespace DuckyNet.Client.Core
 {

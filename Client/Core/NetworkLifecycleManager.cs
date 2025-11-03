@@ -2,6 +2,7 @@ using System;
 using System.Threading.Tasks;
 using UnityEngine;
 using DuckyNet.Client.Core.Helpers;
+using DuckyNet.Client.Core.EventBus.Events;
 
 
 namespace DuckyNet.Client.Core

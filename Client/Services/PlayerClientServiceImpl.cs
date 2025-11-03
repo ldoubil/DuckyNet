@@ -113,7 +113,7 @@ namespace DuckyNet.Client.Services
                 // 通过全局 EventBus 发布玩家同步事件，供远程玩家位置更新系统处理
                 if (GameContext.IsInitialized)
                 {
-                    GameContext.Instance.EventBus.Publish(new Core.PlayerUnitySyncEvent(syncData.SteamId, syncData));
+                    GameContext.Instance.EventBus.Publish(new PlayerUnitySyncEvent(syncData.SteamId, syncData));
                     
                     // 🔥 修复：更新房间玩家列表中的场景信息
                     // 因为服务器已过滤场景，收到位置同步说明该玩家在同一场景
