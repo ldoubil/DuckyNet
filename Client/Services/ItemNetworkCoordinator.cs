@@ -11,7 +11,6 @@ using System.Linq;
 using System.IO;
 using System.Threading.Tasks;
 using NetSerializer;
-using K4os.Compression.LZ4;
 
 namespace DuckyNet.Client.Services
 {
@@ -306,7 +305,7 @@ namespace DuckyNet.Client.Services
         }
 
         /// <summary>
-        /// 序列化并压缩物品（LZ4 压缩）
+        /// 序列化物品（移除 LZ4 压缩，直接序列化）
         /// </summary>
         private string SerializeAndCompressItem(Item item)
         {
@@ -377,7 +376,7 @@ namespace DuckyNet.Client.Services
                     simpleData.Entries.Add(simpleEntry);
                 }
 
-                // 序列化为字节数组
+                // 🔥 简化：直接序列化为字节数组，不压缩
                 byte[] rawBytes;
                 using (var ms = new MemoryStream())
                 {
@@ -385,16 +384,10 @@ namespace DuckyNet.Client.Services
                     rawBytes = ms.ToArray();
                 }
 
-                // LZ4 压缩
-                byte[] compressedBytes = K4os.Compression.LZ4.LZ4Pickler.Pickle(rawBytes, K4os.Compression.LZ4.LZ4Level.L00_FAST);
-
-                // 计算压缩率
-                float compressionRatio = (1 - (float)compressedBytes.Length / rawBytes.Length) * 100;
-
-                Debug.Log($"[ItemNetworkCoordinator] 序列化+压缩: {rawBytes.Length} → {compressedBytes.Length} bytes (压缩率: {compressionRatio:F1}%)");
+                Debug.Log($"[ItemNetworkCoordinator] 序列化完成: {rawBytes.Length} bytes (无压缩)");
 
                 // Base64 编码
-                return Convert.ToBase64String(compressedBytes);
+                return Convert.ToBase64String(rawBytes);
             }
             catch (Exception ex)
             {
@@ -412,7 +405,7 @@ namespace DuckyNet.Client.Services
         }
 
         /// <summary>
-        /// 解压缩并反序列化物品
+        /// 反序列化物品（移除 LZ4 解压缩）
         /// </summary>
         private Item? DecompressAndDeserializeItem(string base64Data, int itemTypeId)
         {
@@ -424,13 +417,10 @@ namespace DuckyNet.Client.Services
                     return null;
                 }
 
-                // Base64 解码
-                byte[] compressedBytes = Convert.FromBase64String(base64Data);
+                // 🔥 简化：直接 Base64 解码，不解压缩
+                byte[] rawBytes = Convert.FromBase64String(base64Data);
 
-                // LZ4 解压缩
-                byte[] rawBytes = K4os.Compression.LZ4.LZ4Pickler.Unpickle(compressedBytes);
-
-                Debug.Log($"[ItemNetworkCoordinator] 解压缩: {compressedBytes.Length} → {rawBytes.Length} bytes");
+                Debug.Log($"[ItemNetworkCoordinator] 反序列化: {rawBytes.Length} bytes (无压缩)");
 
                 // 反序列化
                 SerializableItemData simpleData;

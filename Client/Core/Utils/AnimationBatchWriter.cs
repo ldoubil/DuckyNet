@@ -76,8 +76,6 @@ namespace DuckyNet.Client.Core.Utils
                 return;
             }
 
-            UnityEngine.Debug.Log($"[AnimationBatchWriter] 开始提交 - Float: {_floatTargets.Count}, Bool: {_boolValues.Count}, Int: {_intValues.Count}, Trigger: {_triggerHashes.Count}");
-
             // Float 参数 - 使用卡尔曼滤波平滑
             foreach (var kv in _floatTargets)
             {
@@ -100,28 +98,24 @@ namespace DuckyNet.Client.Core.Utils
                 
                 // 应用到 Animator
                 animator.SetFloat(hash, smoothed);
-                UnityEngine.Debug.Log($"[AnimationBatchWriter] Float参数 Hash:{hash}, 目标:{target:F3} → 滤波:{smoothed:F3} (不确定性:{filter.GetUncertainty():F4})");
             }
 
             // Bool 参数 - 直接写入
             foreach (var kv in _boolValues)
             {
                 animator.SetBool(kv.Key, kv.Value);
-                UnityEngine.Debug.Log($"[AnimationBatchWriter] Bool参数 Hash:{kv.Key}, 值:{kv.Value}");
             }
 
             // Int 参数 - 直接写入
             foreach (var kv in _intValues)
             {
                 animator.SetInteger(kv.Key, kv.Value);
-                UnityEngine.Debug.Log($"[AnimationBatchWriter] Int参数 Hash:{kv.Key}, 值:{kv.Value}");
             }
 
             // Trigger - 统一触发
             foreach (var hash in _triggerHashes)
             {
                 animator.SetTrigger(hash);
-                UnityEngine.Debug.Log($"[AnimationBatchWriter] 触发 Trigger Hash:{hash}");
             }
 
             // 清理 Trigger（Float/Bool/Int 保留用于下一帧）

@@ -264,108 +264,45 @@ namespace DuckyNet.Client.Core.Players
                     return;
                 }
                 
-                if (!IsActive)
+                if (!IsActive || Animator == null || FrameBuffer.Count == 0)
                 {
-                    // 静默返回,不输出日志(避免刷屏)
                     return;
                 }
                 
-                if (Animator == null)
-                {
-                    // 静默返回,等待 UpdateGameObject 调用
-                    return;
-                }
-                
-                if (FrameBuffer.Count == 0)
-                {
-                    // UnityEngine.Debug.LogWarning($"[RemoteAnimatorSync] 帧缓冲为空: {PlayerId}");
-                    return;
-                }
-                
-                double now = Time.unscaledTimeAsDouble;
-                double targetTime = now - (playbackDelayMs / 1000.0);
-                
-                // 获取目标帧
-                AnimationFrame targetFrame;
-                
-                // 检查数据是否过旧,需要预测
-                double timeSinceLastData = now - LastFrameTime;
-                if (enableExtrapolation && timeSinceLastData > 0.1 && timeSinceLastData < KalmanPredictor.MaxPredictionTime)
-                {
-                    // 数据过旧,使用卡尔曼滤波预测
-                    var lastFrame = FrameBuffer.GetLatest();
-                    float predictionDelta = (float)timeSinceLastData;
-                    targetFrame = KalmanPredictor.Predict(lastFrame, predictionDelta);
-                    
-                    // UnityEngine.Debug.Log($"[RemoteAnimatorSync] 使用卡尔曼预测: {PlayerId}, 延迟={timeSinceLastData:F3}s, 置信度={KalmanPredictor.GetConfidence():F2}");
-                }
-                else
-                {
-                    // 从缓冲区获取插值帧
-                    targetFrame = FrameBuffer.FindFrameAtTime(targetTime);
-                }
+                // 🔥 简化逻辑：直接使用最新帧，不做复杂预测
+                // 原因：20Hz 同步频率已经足够流畅，预测反而引入抖动
+                var targetFrame = FrameBuffer.GetLatest();
                 
                 // 应用到批写入器
                 ApplyFrameToBatchWriter(targetFrame);
                 
-                // 提交到 Animator
-                UnityEngine.Debug.Log($"[RemoteAnimatorSync] 正在提交动画到 Animator: {PlayerId}, 参数数量: {BatchWriter.GetCachedParamCount()}");
+                // 提交到 Animator（移除调试日志，提高性能）
                 BatchWriter.Commit(Animator, deltaTime);
             }
             
             private void ApplyFrameToBatchWriter(AnimationFrame frame)
             {
-                UnityEngine.Debug.Log($"[RemoteAnimatorSync] 应用动画帧: {PlayerId}, MoveSpeed={frame.MoveSpeed:F2}, MoveDirX={frame.MoveDirX:F2}, MoveDirY={frame.MoveDirY:F2}");
+                // 🔥 移除所有日志，提高性能（每帧调用，日志会严重拖慢游戏）
                 
                 // Float 参数
                 if (_floatParamHashes.TryGetValue(0, out int moveSpeedHash))
-                {
                     BatchWriter.SetFloat(moveSpeedHash, frame.MoveSpeed);
-                    UnityEngine.Debug.Log($"[RemoteAnimatorSync] 设置 MoveSpeed: {frame.MoveSpeed:F2} (Hash: {moveSpeedHash})");
-                }
-                else
-                {
-                    UnityEngine.Debug.LogWarning($"[RemoteAnimatorSync] 未找到 MoveSpeed 参数哈希");
-                }
                 
                 if (_floatParamHashes.TryGetValue(1, out int moveDirXHash))
-                {
                     BatchWriter.SetFloat(moveDirXHash, frame.MoveDirX);
-                    UnityEngine.Debug.Log($"[RemoteAnimatorSync] 设置 MoveDirX: {frame.MoveDirX:F2} (Hash: {moveDirXHash})");
-                }
-                else
-                {
-                    UnityEngine.Debug.LogWarning($"[RemoteAnimatorSync] 未找到 MoveDirX 参数哈希");
-                }
                 
                 if (_floatParamHashes.TryGetValue(2, out int moveDirYHash))
-                {
                     BatchWriter.SetFloat(moveDirYHash, frame.MoveDirY);
-                    UnityEngine.Debug.Log($"[RemoteAnimatorSync] 设置 MoveDirY: {frame.MoveDirY:F2} (Hash: {moveDirYHash})");
-                }
-                else
-                {
-                    UnityEngine.Debug.LogWarning($"[RemoteAnimatorSync] 未找到 MoveDirY 参数哈希");
-                }
                 
                 if (_floatParamHashes.TryGetValue(3, out int handStateHash))
-                {
                     BatchWriter.SetInt(handStateHash, frame.HandState);
-                    UnityEngine.Debug.Log($"[RemoteAnimatorSync] 设置 HandState: {frame.HandState} (Hash: {handStateHash})");
-                }
                 
                 // Bool 参数
                 if (_boolParamHashes.TryGetValue(0, out int dashingHash))
-                {
                     BatchWriter.SetBool(dashingHash, frame.IsDashing);
-                    UnityEngine.Debug.Log($"[RemoteAnimatorSync] 设置 Dashing: {frame.IsDashing} (Hash: {dashingHash})");
-                }
                 
                 if (_boolParamHashes.TryGetValue(3, out int gunReadyHash))
-                {
                     BatchWriter.SetBool(gunReadyHash, frame.IsGunReady);
-                    UnityEngine.Debug.Log($"[RemoteAnimatorSync] 设置 GunReady: {frame.IsGunReady} (Hash: {gunReadyHash})");
-                }
             }
             
             public void Dispose()
@@ -428,17 +365,12 @@ namespace DuckyNet.Client.Core.Players
         /// </summary>
         public void ReceiveAnimatorUpdate(string playerId, AnimatorSyncData syncData)
         {
-            UnityEngine.Debug.Log($"[RemoteAnimatorSync] 🎬 接收动画 - PlayerId:{playerId}, State:{syncData.StateHash}, 已注册玩家数:{_playerStates.Count}");
-            
+            // 🔥 移除日志，提高性能（每帧调用多次）
             if (_playerStates.TryGetValue(playerId, out var state))
             {
-                UnityEngine.Debug.Log($"[RemoteAnimatorSync] ✅ 找到玩家状态: {playerId}");
                 state.ReceiveAnimatorData(syncData);
             }
-            else
-            {
-                UnityEngine.Debug.LogWarning($"[RemoteAnimatorSync] ⚠️ 未找到玩家状态: {playerId}，已注册玩家: {string.Join(", ", _playerStates.Keys)}");
-            }
+            // 静默失败，避免刷屏
         }
         
         /// <summary>

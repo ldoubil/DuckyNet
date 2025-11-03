@@ -69,11 +69,11 @@ namespace DuckyNet.Server.Services
                 Console.WriteLine($"[ItemSyncService] 物品丢弃 - DropId={dropId}, Item={dropData.ItemName}, " +
                                  $"Player={player.SteamName}, Room={room.RoomId}, IsDefault={dropData.IsDefaultItem}");
 
-                // 广播到房间内其他玩家（排除自己）
-                _server.BroadcastToRoom<IItemSyncClientService>(room.RoomId, exceptClientId: client.ClientId)
-                    .OnRemoteItemDropped(dropData);
+                // 广播到同场景的其他玩家（排除自己）
+                BroadcastToSameScene(room.RoomId, player, client.ClientId, 
+                    (targetContext) => targetContext.Call<IItemSyncClientService>().OnRemoteItemDropped(dropData));
 
-                Console.WriteLine($"[ItemSyncService] 已广播到房间 {room.RoomId} 的其他玩家");
+                Console.WriteLine($"[ItemSyncService] 已广播到房间 {room.RoomId} 同场景的其他玩家");
 
                 return await Task.FromResult(dropId);
             }
@@ -125,11 +125,11 @@ namespace DuckyNet.Server.Services
                 Console.WriteLine($"[ItemSyncService] 物品拾取 - DropId={request.DropId}, Item={itemInfo.ItemData.ItemName}, " +
                                  $"Player={player.SteamName}, Room={room.RoomId}");
 
-                // 广播到房间内其他玩家（排除自己）
-                _server.BroadcastToRoom<IItemSyncClientService>(room.RoomId, exceptClientId: client.ClientId)
-                    .OnRemoteItemPickedUp(request.DropId, player.SteamId);
+                // 广播到同场景的其他玩家（排除自己）
+                BroadcastToSameScene(room.RoomId, player, client.ClientId, 
+                    (targetContext) => targetContext.Call<IItemSyncClientService>().OnRemoteItemPickedUp(request.DropId, player.SteamId));
 
-                Console.WriteLine($"[ItemSyncService] 已广播拾取到房间 {room.RoomId} 的其他玩家");
+                Console.WriteLine($"[ItemSyncService] 已广播拾取到房间 {room.RoomId} 同场景的其他玩家");
 
                 return await Task.FromResult(true);
             }
@@ -188,6 +188,81 @@ namespace DuckyNet.Server.Services
             return $"ItemSyncService Stats:\n" +
                    $"  Total Dropped Items: {_droppedItems.Count}\n" +
                    $"  Next DropId: {_nextDropId}";
+        }
+
+        /// <summary>
+        /// 广播到同场景的玩家（排除发送者）
+        /// </summary>
+        private void BroadcastToSameScene(string roomId, PlayerInfo senderPlayer, string exceptClientId, Action<IClientContext> action)
+        {
+            try
+            {
+                // 获取房间内的所有玩家
+                var roomPlayers = _roomManager.GetRoomPlayers(roomId);
+                int notifiedCount = 0;
+
+                // 遍历房间内的每个玩家
+                foreach (var targetPlayer in roomPlayers)
+                {
+                    // 条件1: 跳过发送者自己
+                    if (targetPlayer.SteamId == senderPlayer.SteamId)
+                    {
+                        continue;
+                    }
+
+                    // 条件2: 检查是否在同一个房间（冗余检查，但保证安全）
+                    var targetRoom = _roomManager.GetPlayerRoom(targetPlayer);
+                    if (targetRoom == null || targetRoom.RoomId != roomId)
+                    {
+                        continue;
+                    }
+
+                    // 条件3: 检查是否在同一个场景（SceneName）
+                    if (targetPlayer.CurrentScenelData.SceneName != senderPlayer.CurrentScenelData.SceneName)
+                    {
+                        continue;
+                    }
+
+                    // 条件4: 检查是否在同一个子场景（SubSceneName）
+                    if (targetPlayer.CurrentScenelData.SubSceneName != senderPlayer.CurrentScenelData.SubSceneName)
+                    {
+                        continue;
+                    }
+
+                    // 获取目标玩家的连接上下文
+                    var targetClientId = _playerManager.GetClientIdBySteamId(targetPlayer.SteamId);
+                    if (string.IsNullOrEmpty(targetClientId))
+                    {
+                        Console.WriteLine($"[ItemSyncService] ⚠️ 目标玩家 {targetPlayer.SteamName} 无 ClientId");
+                        continue;
+                    }
+
+                    var targetClientContext = _server.GetClientContext(targetClientId);
+                    if (targetClientContext != null)
+                    {
+                        try
+                        {
+                            // 执行回调（发送消息）
+                            action(targetClientContext);
+                            notifiedCount++;
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[ItemSyncService] ❌ 向 {targetPlayer.SteamName} 发送消息失败: {ex.Message}");
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[ItemSyncService] ⚠️ 目标玩家 {targetPlayer.SteamName} 无上下文");
+                    }
+                }
+
+                Console.WriteLine($"[ItemSyncService] 已通知 {notifiedCount} 个同场景玩家");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ItemSyncService] 广播到同场景异常: {ex.Message}");
+            }
         }
     }
 }
