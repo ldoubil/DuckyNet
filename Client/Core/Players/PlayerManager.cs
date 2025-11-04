@@ -234,6 +234,18 @@ namespace DuckyNet.Client.Core.Players
             _remoteAnimatorSync.ReceiveAnimatorUpdate(@event.PlayerId, @event.AnimatorData);
         }
 
+        /// <summary>
+        /// 获取远程玩家
+        /// </summary>
+        public RemotePlayer? GetRemotePlayer(string steamId)
+        {
+            if (_remotePlayers.TryGetValue(steamId, out var player))
+            {
+                return player;
+            }
+            return null;
+        }
+
         public void Dispose()
         {
             LocalPlayer.Dispose();

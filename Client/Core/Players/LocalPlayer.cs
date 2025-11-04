@@ -100,6 +100,9 @@ namespace DuckyNet.Client.Core.Players
 
                 // 如果角色已创建，立即上传外观数据
                 UploadAppearanceData();
+                
+                // 🔥 立即上传装备数据
+                UploadEquipmentData();
             }
 
             StartMainThreadSync();
@@ -153,11 +156,12 @@ namespace DuckyNet.Client.Core.Players
                 }
             }
 
-            // 🔥 场景加载完成，角色已创建，上传外观数据
+            // 🔥 场景加载完成，角色已创建，上传外观数据和装备数据
             if (CharacterObject != null)
             {
-                UnityEngine.Debug.Log($"[LocalPlayer] 场景加载完成，角色已创建，准备上传外观数据");
+                UnityEngine.Debug.Log($"[LocalPlayer] 场景加载完成，角色已创建，准备上传外观数据和装备数据");
                 UploadAppearanceData();
+                UploadEquipmentData();
             }
 
             // 注意：不在这里启动同步，由加入房间事件触发
@@ -618,6 +622,81 @@ namespace DuckyNet.Client.Core.Players
             catch (Exception ex)
             {
                 UnityEngine.Debug.LogError($"[LocalPlayer] ❌ 上传外观数据失败: {ex.Message}\n{ex.StackTrace}");
+            }
+        }
+
+        /// <summary>
+        /// 上传装备数据到服务器（加入房间时调用）
+        /// </summary>
+        private async void UploadEquipmentData()
+        {
+            try
+            {
+                UnityEngine.Debug.Log($"[LocalPlayer] 🎽 开始上传角色装备数据...");
+
+                if (CharacterObject == null)
+                {
+                    UnityEngine.Debug.LogWarning("[LocalPlayer] ⚠️ 角色尚未创建，跳过上传装备数据");
+                    return;
+                }
+
+                var characterMainControl = CharacterObject.GetComponent<CharacterMainControl>();
+                if (characterMainControl == null || characterMainControl.CharacterItem == null)
+                {
+                    UnityEngine.Debug.LogWarning("[LocalPlayer] ❌ 无法获取角色装备数据");
+                    return;
+                }
+
+                var characterItem = characterMainControl.CharacterItem;
+                
+                // 获取所有装备槽位
+                var equipmentSlots = new[]
+                {
+                    (CharacterEquipmentController.armorHash, Shared.Data.EquipmentSlotType.Armor, "护甲"),
+                    (CharacterEquipmentController.helmatHash, Shared.Data.EquipmentSlotType.Helmet, "头盔"),
+                    (CharacterEquipmentController.faceMaskHash, Shared.Data.EquipmentSlotType.FaceMask, "面罩"),
+                    (CharacterEquipmentController.backpackHash, Shared.Data.EquipmentSlotType.Backpack, "背包"),
+                    (CharacterEquipmentController.headsetHash, Shared.Data.EquipmentSlotType.Headset, "耳机")
+                };
+
+                if (_serverContext == null)
+                {
+                    UnityEngine.Debug.LogWarning("[LocalPlayer] ❌ RPC上下文未初始化，无法上传装备数据");
+                    return;
+                }
+
+                // 创建装备服务代理
+                var equipmentService = new Shared.Services.Generated.EquipmentServiceClientProxy(_serverContext);
+                int uploadedCount = 0;
+
+                // 上传每个槽位的装备
+                foreach (var (slotHash, slotType, slotName) in equipmentSlots)
+                {
+                    var slot = characterItem.Slots.GetSlot(slotHash);
+                    int? itemTypeId = slot?.Content?.TypeID;
+
+                    if (itemTypeId.HasValue && itemTypeId.Value > 0)
+                    {
+                        var request = new Shared.Data.EquipmentSlotUpdateRequest
+                        {
+                            SlotType = slotType,
+                            ItemTypeId = itemTypeId
+                        };
+
+                        bool success = await equipmentService.UpdateEquipmentSlotAsync(request);
+                        if (success)
+                        {
+                            uploadedCount++;
+                            UnityEngine.Debug.Log($"[LocalPlayer] ✅ 已上传装备: {slotName} = TypeID {itemTypeId}");
+                        }
+                    }
+                }
+
+                UnityEngine.Debug.Log($"[LocalPlayer] 🎽 装备数据上传完成: {uploadedCount} 件装备");
+            }
+            catch (Exception ex)
+            {
+                UnityEngine.Debug.LogError($"[LocalPlayer] ❌ 上传装备数据失败: {ex.Message}\n{ex.StackTrace}");
             }
         }
 

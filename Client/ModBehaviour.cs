@@ -103,6 +103,10 @@ namespace DuckyNet.Client
             var itemSyncClientService = new Services.ItemSyncClientServiceImpl();
             context.RpcClient.RegisterClientService<Shared.Services.IItemSyncClientService>(itemSyncClientService);
 
+            // 注册装备同步服务
+            var equipmentClientService = new Services.EquipmentClientServiceImpl();
+            context.RpcClient.RegisterClientService<Shared.Services.IEquipmentClientService>(equipmentClientService);
+
             // 创建并注册物品网络协调器（需要在 RpcClient 之后）
             // 使用生成的 ClientProxy 来调用服务器
             var clientContext = new RPC.ClientServerContext(context.RpcClient);

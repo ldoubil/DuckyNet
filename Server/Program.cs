@@ -55,6 +55,10 @@ namespace DuckyNet.Server
                 var appearanceService = new CharacterAppearanceServiceImpl(_server, _playerManager, _roomManager);
                 var animatorSyncService = new AnimatorSyncServiceImpl(_server, _playerManager, _roomManager);
                 var itemSyncService = new ItemSyncServiceImpl(_server, _playerManager, _roomManager);
+                var equipmentService = new EquipmentServerServiceImpl(_server, _playerManager, _roomManager);
+                
+                // 设置装备服务到 RoomService（延迟注入）
+                roomService.SetEquipmentService(equipmentService);
 
                 // 注册服务
                 _server.RegisterServerService<IPlayerService>(playerService);
@@ -65,6 +69,7 @@ namespace DuckyNet.Server
                 _server.RegisterServerService<ICharacterAppearanceService>(appearanceService);
                 _server.RegisterServerService<IAnimatorSyncService>(animatorSyncService);
                 _server.RegisterServerService<IItemSyncService>(itemSyncService);
+                _server.RegisterServerService<IEquipmentService>(equipmentService);
 
                 // 订阅事件
                 _server.ClientConnected += OnClientConnected;

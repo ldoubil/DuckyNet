@@ -8,6 +8,8 @@ using DuckyNet.Client.Core.Helpers;
 using DuckyNet.Client.Core.Utils;
 using DuckyNet.Client.Core.EventBus;
 using DuckyNet.Client.Core.EventBus.Events;
+using ItemStatsSystem;
+using Duckov.Utilities;
 using CharacterAppearanceReceivedEvent = DuckyNet.Client.Services.CharacterAppearanceReceivedEvent;
 
 namespace DuckyNet.Client.Core.Players
@@ -34,6 +36,7 @@ namespace DuckyNet.Client.Core.Players
         private SmoothSyncManager? _smoothSyncManager;
         private Transform? _characterTransform; // 缓存 Transform 引用
         private CharacterAppearanceData? _cachedAppearanceData; // 缓存外观数据
+        private PlayerEquipmentData? _equipmentData; // 缓存装备数据
         
         /// <summary>
         /// 远程玩家当前所在的场景名称
@@ -334,6 +337,17 @@ namespace DuckyNet.Client.Core.Players
                         Log($"[RemotePlayer]   - 角色创建位置: {_characterTransform.position}");
                     }
                     
+                    // 🔥 延迟应用装备数据（等待角色初始化）
+                    if (ModBehaviour.Instance != null)
+                    {
+                        ModBehaviour.Instance.StartCoroutine(ApplyCachedEquipmentDelayed());
+                    }
+                    else
+                    {
+                        // 直接应用
+                        ApplyCachedEquipment();
+                    }
+                    
                     // 打印角色位置信息
                     Vector3 characterPosition = _characterTransform.position;
                     Log($"[RemotePlayer] ✅ 角色创建成功: {displayName}, 位置: {characterPosition}");
@@ -518,6 +532,155 @@ namespace DuckyNet.Client.Core.Players
             // 如果角色已创建,可以更新血条图标
             // TODO: 实现运行时更新血条图标的逻辑
         }
+
+        #region 装备数据管理
+
+        /// <summary>
+        /// 设置完整的装备数据（加入房间时批量设置）
+        /// </summary>
+        public void SetEquipmentData(PlayerEquipmentData equipmentData)
+        {
+            if (equipmentData == null)
+            {
+                LogWarning($"[RemotePlayer] 装备数据为空");
+                return;
+            }
+
+            _equipmentData = equipmentData.Clone(); // 克隆一份避免引用共享
+            Log($"[RemotePlayer] 装备数据已设置: {Info.SteamName}, {_equipmentData.GetEquippedCount()} 件装备");
+        }
+
+        /// <summary>
+        /// 更新单个装备槽位（实时更新）
+        /// </summary>
+        public void UpdateEquipmentSlot(EquipmentSlotType slotType, int? itemTypeId)
+        {
+            if (_equipmentData == null)
+            {
+                _equipmentData = new PlayerEquipmentData();
+            }
+
+            _equipmentData.SetEquipment(slotType, itemTypeId);
+
+            string action = itemTypeId.HasValue && itemTypeId.Value > 0 ? "装备" : "卸下";
+            Log($"[RemotePlayer] 装备更新: {Info.SteamName} {action} {slotType} (TypeID={itemTypeId})");
+        }
+
+        /// <summary>
+        /// 获取装备数据
+        /// </summary>
+        public PlayerEquipmentData? GetEquipmentData()
+        {
+            return _equipmentData;
+        }
+
+        /// <summary>
+        /// 获取指定槽位的装备TypeID
+        /// </summary>
+        public int? GetEquipmentTypeId(EquipmentSlotType slotType)
+        {
+            return _equipmentData?.GetEquipment(slotType);
+        }
+
+        /// <summary>
+        /// 延迟应用装备数据
+        /// </summary>
+        private System.Collections.IEnumerator ApplyCachedEquipmentDelayed()
+        {
+            Log($"[RemotePlayer] ⏳ 等待角色初始化完成（装备系统）...");
+            
+            // 等待 2 帧，确保 characterModel 已初始化
+            yield return null;
+            yield return null;
+            
+            ApplyCachedEquipment();
+        }
+
+        /// <summary>
+        /// 应用缓存的装备数据到角色（角色创建时调用）
+        /// </summary>
+        private void ApplyCachedEquipment()
+        {
+            if (_equipmentData == null || _equipmentData.GetEquippedCount() == 0)
+            {
+                Log($"[RemotePlayer] 没有缓存的装备数据需要应用");
+                return;
+            }
+
+            if (CharacterObject == null)
+            {
+                LogWarning($"[RemotePlayer] 角色对象为空，无法应用装备");
+                return;
+            }
+
+            var characterMainControl = CharacterObject.GetComponent<CharacterMainControl>();
+            if (characterMainControl == null || characterMainControl.CharacterItem == null)
+            {
+                LogWarning($"[RemotePlayer] 角色组件无效，无法应用装备");
+                return;
+            }
+
+            Log($"[RemotePlayer] 🎽 开始应用缓存的装备: {_equipmentData.GetEquippedCount()} 件");
+
+            int successCount = 0;
+            foreach (var kvp in _equipmentData.Equipment)
+            {
+                EquipmentSlotType slotType = kvp.Key;
+                int itemTypeId = kvp.Value;
+
+                if (itemTypeId > 0)
+                {
+                    int slotHash = GetSlotHash(slotType);
+                    var slot = characterMainControl.CharacterItem.Slots.GetSlot(slotHash);
+                    
+                    if (slot != null)
+                    {
+                        bool success = Core.Utils.EquipmentTools.CreateAndEquip(
+                            itemTypeId,
+                            slot,
+                            HandleUnpluggedEquipment
+                        );
+
+                        if (success)
+                        {
+                            successCount++;
+                            Log($"[RemotePlayer] ✅ 已应用装备: {slotType} = TypeID {itemTypeId}");
+                        }
+                    }
+                }
+            }
+
+            Log($"[RemotePlayer] 🎽 装备应用完成: {successCount}/{_equipmentData.GetEquippedCount()}");
+        }
+
+        /// <summary>
+        /// 获取槽位Hash值
+        /// </summary>
+        private int GetSlotHash(EquipmentSlotType slotType)
+        {
+            return slotType switch
+            {
+                EquipmentSlotType.Armor => CharacterEquipmentController.armorHash,
+                EquipmentSlotType.Helmet => CharacterEquipmentController.helmatHash,
+                EquipmentSlotType.FaceMask => CharacterEquipmentController.faceMaskHash,
+                EquipmentSlotType.Backpack => CharacterEquipmentController.backpackHash,
+                EquipmentSlotType.Headset => CharacterEquipmentController.headsetHash,
+                _ => 0
+            };
+        }
+
+        /// <summary>
+        /// 处理被替换的装备（销毁）
+        /// </summary>
+        private void HandleUnpluggedEquipment(Item item)
+        {
+            if (item != null)
+            {
+                item.DestroyTree();
+            }
+        }
+
+        #endregion
 
         /// <summary>
         /// 释放资源（离开房间时调用）

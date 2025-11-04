@@ -24,7 +24,12 @@ namespace DuckyNet.Shared.RPC
             return (TService)_clientProxyCache.GetOrAdd(cacheKey, key =>
             {
                 // 根据接口类型创建对应的客户端调用代理
-                var proxyTypeName = $"{serviceType.Namespace}.Generated.{serviceType.Name.TrimStart('I')}ClientCallProxy";
+                // 移除接口名开头的 'I' (只移除第一个字符，避免 IItemSync 变成 temSync)
+                string serviceName = serviceType.Name.StartsWith("I") && serviceType.Name.Length > 1
+                    ? serviceType.Name.Substring(1)  // IItemSyncClientService -> ItemSyncClientService ✅
+                    : serviceType.Name;
+                
+                var proxyTypeName = $"{serviceType.Namespace}.Generated.{serviceName}ClientCallProxy";
                 var proxyType = serviceType.Assembly.GetType(proxyTypeName);
                 
                 if (proxyType == null)

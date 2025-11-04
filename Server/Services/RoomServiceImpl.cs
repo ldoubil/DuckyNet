@@ -19,6 +19,7 @@ namespace DuckyNet.Server.Services
         private readonly RoomManager _roomManager;
         private readonly PlayerManager _playerManager;
         private readonly PlayerUnitySyncServiceImpl _unitySyncService;
+        private EquipmentServerServiceImpl? _equipmentService; // 装备服务（延迟注入）
 
         public RoomServiceImpl(RpcServer server, RoomManager roomManager, PlayerManager playerManager, PlayerUnitySyncServiceImpl unitySyncService)
         {
@@ -26,6 +27,14 @@ namespace DuckyNet.Server.Services
             _roomManager = roomManager;
             _playerManager = playerManager;
             _unitySyncService = unitySyncService;
+        }
+
+        /// <summary>
+        /// 设置装备服务（延迟注入，因为循环依赖）
+        /// </summary>
+        public void SetEquipmentService(EquipmentServerServiceImpl equipmentService)
+        {
+            _equipmentService = equipmentService;
         }
 
         public async Task<RoomInfo[]> GetRoomListAsync(IClientContext client)
@@ -156,6 +165,9 @@ namespace DuckyNet.Server.Services
                                 }
                             }
                         }
+                        
+                        // 🔥 发送装备数据给新玩家
+                        _equipmentService?.SendAllEquipmentDataToPlayer(client.ClientId, request.RoomId);
                     }
                 }
                 
