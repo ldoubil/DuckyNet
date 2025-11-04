@@ -137,6 +137,11 @@ namespace DuckyNet.Shared.Services
         public PlayerEquipmentData EquipmentData { get; set; } = new PlayerEquipmentData();
 
         /// <summary>
+        /// 玩家武器数据（3个武器槽位的完整物品数据）
+        /// </summary>
+        public PlayerWeaponData? WeaponData { get; set; }
+
+        /// <summary>
         /// 验证玩家信息是否有效
         /// </summary>
         public bool IsValid()

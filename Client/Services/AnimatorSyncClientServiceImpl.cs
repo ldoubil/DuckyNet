@@ -40,7 +40,7 @@ namespace DuckyNet.Client.Services
                     return;
                 }
 
-                Debug.Log($"[AnimatorSyncClientService] 📥 收到远程动画 - PlayerId:{steamId}, State:{animatorData.StateHash}, Speed:{animatorData.GetFloatParam(0):F2}");
+                // Debug.Log($"[AnimatorSyncClientService] 📥 收到远程动画 - PlayerId:{steamId}, State:{animatorData.StateHash}, Speed:{animatorData.GetFloatParam(0):F2}");
 
                 // 🎯 新架构：直接发布事件到 EventBus，由 RemoteAnimatorSyncManager 处理
                 if (Core.GameContext.Instance.EventBus != null)
@@ -48,7 +48,7 @@ namespace DuckyNet.Client.Services
                     Core.GameContext.Instance.EventBus.Publish(
                         new RemoteAnimatorUpdateEvent(steamId, animatorData)
                     );
-                    Debug.Log($"[AnimatorSyncClientService] ✅ 事件已发布到 EventBus");
+                    // Debug.Log($"[AnimatorSyncClientService] ✅ 事件已发布到 EventBus");
                 }
                 else
                 {

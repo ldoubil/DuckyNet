@@ -35,6 +35,7 @@ namespace DuckyNet.Shared.RPC.Generated
 
                 // 应用数据类型 (自动发现)
                 typeof(DuckyNet.Shared.Data.AllPlayersEquipmentData),
+                typeof(DuckyNet.Shared.Data.AllPlayersWeaponData),
                 typeof(DuckyNet.Shared.Data.AnimatorSyncData),
                 typeof(DuckyNet.Shared.Data.CharacterAppearanceData),
                 typeof(DuckyNet.Shared.Data.EquipmentSlotUpdateNotification),
@@ -43,6 +44,12 @@ namespace DuckyNet.Shared.RPC.Generated
                 typeof(DuckyNet.Shared.Data.ItemPickupRequest),
                 typeof(DuckyNet.Shared.Data.ScenelData),
                 typeof(DuckyNet.Shared.Data.UnitySyncData),
+                typeof(DuckyNet.Shared.Data.WeaponFireData),
+                typeof(DuckyNet.Shared.Data.WeaponSlotUnequipRequest),
+                typeof(DuckyNet.Shared.Data.WeaponSlotUpdateNotification),
+                typeof(DuckyNet.Shared.Data.WeaponSlotUpdateRequest),
+                typeof(DuckyNet.Shared.Data.WeaponSwitchNotification),
+                typeof(DuckyNet.Shared.Data.WeaponSwitchRequest),
                 typeof(DuckyNet.Shared.Services.CreateRoomRequest),
                 typeof(DuckyNet.Shared.Services.JoinRoomRequest),
                 typeof(DuckyNet.Shared.Services.LoginResult),

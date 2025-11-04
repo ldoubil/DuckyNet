@@ -37,6 +37,7 @@ namespace DuckyNet.Client.Core.Players
         private Transform? _characterTransform; // 缓存 Transform 引用
         private CharacterAppearanceData? _cachedAppearanceData; // 缓存外观数据
         private PlayerEquipmentData? _equipmentData; // 缓存装备数据
+        private PlayerWeaponData? _weaponData; // 缓存武器数据
         
         /// <summary>
         /// 远程玩家当前所在的场景名称
@@ -337,15 +338,16 @@ namespace DuckyNet.Client.Core.Players
                         Log($"[RemotePlayer]   - 角色创建位置: {_characterTransform.position}");
                     }
                     
-                    // 🔥 延迟应用装备数据（等待角色初始化）
+                    // 🔥 延迟应用装备和武器数据（等待角色初始化）
                     if (ModBehaviour.Instance != null)
                     {
-                        ModBehaviour.Instance.StartCoroutine(ApplyCachedEquipmentDelayed());
+                        ModBehaviour.Instance.StartCoroutine(ApplyCachedEquipmentAndWeaponsDelayed());
                     }
                     else
                     {
                         // 直接应用
                         ApplyCachedEquipment();
+                        ApplyCachedWeapons();
                     }
                     
                     // 打印角色位置信息
@@ -597,6 +599,21 @@ namespace DuckyNet.Client.Core.Players
         }
 
         /// <summary>
+        /// 延迟应用装备和武器数据
+        /// </summary>
+        private System.Collections.IEnumerator ApplyCachedEquipmentAndWeaponsDelayed()
+        {
+            Log($"[RemotePlayer] ⏳ 等待角色初始化完成（装备和武器系统）...");
+            
+            // 等待 2 帧，确保 characterModel 已初始化
+            yield return null;
+            yield return null;
+            
+            ApplyCachedEquipment();
+            ApplyCachedWeapons();
+        }
+
+        /// <summary>
         /// 应用缓存的装备数据到角色（角色创建时调用）
         /// </summary>
         private void ApplyCachedEquipment()
@@ -677,6 +694,216 @@ namespace DuckyNet.Client.Core.Players
             if (item != null)
             {
                 item.DestroyTree();
+            }
+        }
+
+        #endregion
+
+        #region 武器数据管理
+
+        /// <summary>
+        /// 设置武器数据（批量更新，加入房间时）
+        /// </summary>
+        public void SetWeaponData(PlayerWeaponData weaponData)
+        {
+            if (weaponData == null)
+            {
+                LogWarning($"[RemotePlayer] 武器数据为空");
+                return;
+            }
+
+            _weaponData = weaponData; // 直接使用（服务器已经是新实例）
+            Log($"[RemotePlayer] 武器数据已设置: {Info.SteamName}, {_weaponData.GetEquippedCount()} 件武器");
+        }
+
+        /// <summary>
+        /// 更新单个武器槽位（增量更新）
+        /// </summary>
+        public void UpdateWeaponSlot(WeaponSlotType slotType, WeaponItemData? weaponData)
+        {
+            if (_weaponData == null)
+            {
+                _weaponData = new PlayerWeaponData();
+            }
+
+            _weaponData.SetWeapon(slotType, weaponData);
+
+            string action = weaponData != null ? "装备" : "卸下";
+            string weaponName = weaponData?.ItemName ?? "无";
+            Log($"[RemotePlayer] 武器更新: {Info.SteamName} {action} {slotType} ({weaponName})");
+        }
+
+        /// <summary>
+        /// 获取武器数据
+        /// </summary>
+        public PlayerWeaponData? GetWeaponData()
+        {
+            return _weaponData;
+        }
+
+        /// <summary>
+        /// 获取指定槽位的武器数据
+        /// </summary>
+        public WeaponItemData? GetWeaponItemData(WeaponSlotType slotType)
+        {
+            return _weaponData?.GetWeapon(slotType);
+        }
+
+        /// <summary>
+        /// 应用缓存的武器（角色创建后调用）
+        /// </summary>
+        private void ApplyCachedWeapons()
+        {
+            if (_weaponData == null || _weaponData.GetEquippedCount() == 0)
+            {
+                Log($"[RemotePlayer] 没有缓存的武器数据需要应用");
+                return;
+            }
+
+            if (CharacterObject == null)
+            {
+                LogWarning($"[RemotePlayer] 角色对象为空，无法应用武器");
+                return;
+            }
+
+            var characterMainControl = CharacterObject.GetComponent<CharacterMainControl>();
+            if (characterMainControl == null || characterMainControl.CharacterItem == null)
+            {
+                LogWarning($"[RemotePlayer] 角色组件无效，无法应用武器");
+                return;
+            }
+
+            Log($"[RemotePlayer] 🔫 开始应用缓存的武器: {_weaponData.GetEquippedCount()} 件");
+
+            int successCount = 0;
+            var weaponSlots = new[]
+            {
+                (WeaponSlotType.PrimaryWeapon, _weaponData.PrimaryWeapon),
+                (WeaponSlotType.SecondaryWeapon, _weaponData.SecondaryWeapon),
+                (WeaponSlotType.MeleeWeapon, _weaponData.MeleeWeapon)
+            };
+
+            foreach (var (slotType, weaponData) in weaponSlots)
+            {
+                if (weaponData != null && weaponData.ItemTypeId > 0)
+                {
+                    int slotHash = GetWeaponSlotHash(slotType);
+                    var slot = characterMainControl.CharacterItem.Slots.GetSlot(slotHash);
+
+                    if (slot != null)
+                    {
+                        // 反序列化武器数据并装备
+                        Item? weaponItem = Services.WeaponSyncHelper.DeserializeItem(
+                            weaponData.ItemDataCompressed,
+                            weaponData.ItemTypeId
+                        );
+
+                        if (weaponItem != null)
+                        {
+                            bool success = slot.Plug(weaponItem, out Item unpluggedItem);
+                            if (success)
+                            {
+                                successCount++;
+                                Log($"[RemotePlayer] ✅ 武器已应用: {slotType} = {weaponData.ItemName}");
+
+                                // 处理被替换的武器
+                                if (unpluggedItem != null)
+                                {
+                                    unpluggedItem.DestroyTree();
+                                }
+                            }
+                            else
+                            {
+                                LogWarning($"[RemotePlayer] ⚠️ 武器装备失败: {slotType}");
+                                weaponItem.DestroyTree();
+                            }
+                        }
+                        else
+                        {
+                            LogWarning($"[RemotePlayer] ⚠️ 武器反序列化失败: {slotType}");
+                        }
+                    }
+                }
+            }
+
+            Log($"[RemotePlayer] 🔫 武器应用完成: {successCount}/{_weaponData.GetEquippedCount()}");
+        }
+
+        /// <summary>
+        /// 获取武器槽位Hash值
+        /// </summary>
+        private int GetWeaponSlotHash(WeaponSlotType slotType)
+        {
+            return slotType switch
+            {
+                WeaponSlotType.PrimaryWeapon => "PrimaryWeapon".GetHashCode(),
+                WeaponSlotType.SecondaryWeapon => "SecondaryWeapon".GetHashCode(),
+                WeaponSlotType.MeleeWeapon => "MeleeWeapon".GetHashCode(),
+                _ => 0
+            };
+        }
+
+        /// <summary>
+        /// 切换武器槽位（显示对应的武器）
+        /// </summary>
+        public void SwitchWeaponSlot(WeaponSlotType slotType)
+        {
+            try
+            {
+                Log($"[RemotePlayer] 🔫 切换武器槽位: {Info.SteamName} → {slotType}");
+
+                if (CharacterObject == null)
+                {
+                    LogWarning($"[RemotePlayer] 角色对象为空，无法切换武器");
+                    return;
+                }
+
+                var characterMainControl = CharacterObject.GetComponent<CharacterMainControl>();
+                if (characterMainControl == null || characterMainControl.CharacterItem == null)
+                {
+                    LogWarning($"[RemotePlayer] 角色组件无效，无法切换武器");
+                    return;
+                }
+
+                // 更新当前武器槽位
+                if (_weaponData != null)
+                {
+                    _weaponData.CurrentWeaponSlot = slotType;
+                }
+
+                // 获取对应槽位的武器数据
+                var weaponData = _weaponData?.GetWeapon(slotType);
+                if (weaponData == null || weaponData.ItemTypeId == 0)
+                {
+                    Log($"[RemotePlayer] 槽位 {slotType} 没有武器，清除手持武器");
+                    characterMainControl.ChangeHoldItem(null);
+                    return;
+                }
+
+                // 从角色的槽位中获取武器Item
+                int slotHash = GetWeaponSlotHash(slotType);
+                var slot = characterMainControl.CharacterItem.Slots.GetSlot(slotHash);
+
+                if (slot == null || slot.Content == null)
+                {
+                    LogWarning($"[RemotePlayer] 槽位 {slotType} 中没有武器Item");
+                    return;
+                }
+
+                // 调用 ChangeHoldItem 显示武器
+                try
+                {
+                    characterMainControl.ChangeHoldItem(slot.Content);
+                    Log($"[RemotePlayer] ✅ 已切换到武器: {slotType} ({weaponData.ItemName})");
+                }
+                catch (Exception ex)
+                {
+                    LogWarning($"[RemotePlayer] ChangeHoldItem 失败: {ex.Message}");
+                }
+            }
+            catch (Exception ex)
+            {
+                LogWarning($"[RemotePlayer] 切换武器槽位失败: {ex.Message}");
             }
         }
 

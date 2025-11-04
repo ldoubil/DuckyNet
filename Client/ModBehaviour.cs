@@ -107,6 +107,10 @@ namespace DuckyNet.Client
             var equipmentClientService = new Services.EquipmentClientServiceImpl();
             context.RpcClient.RegisterClientService<Shared.Services.IEquipmentClientService>(equipmentClientService);
 
+            // 注册武器同步服务
+            var weaponSyncClientService = new Services.WeaponSyncClientServiceImpl();
+            context.RpcClient.RegisterClientService<Shared.Services.IWeaponSyncClientService>(weaponSyncClientService);
+
             // 创建并注册物品网络协调器（需要在 RpcClient 之后）
             // 使用生成的 ClientProxy 来调用服务器
             var clientContext = new RPC.ClientServerContext(context.RpcClient);
@@ -137,6 +141,11 @@ namespace DuckyNet.Client
             _localPlayerShootBridge = new Patches.LocalPlayerShootBridge();
             _localPlayerShootBridge.Initialize();
             Debug.Log("[ModBehaviour] 本地玩家开枪事件监听已启动");
+
+            // 🔥 提前初始化武器特效系统（避免第一次开火时的反射查找开销）
+            Core.Utils.WeaponEffectsPlayer.Initialize();
+            Services.WeaponFireEffectsPlayer.Initialize();
+            Debug.Log("[ModBehaviour] 武器特效系统已预初始化");
 
             // 创建网络生命周期管理器
             var lifecycleManager = new Core.NetworkLifecycleManager(context);

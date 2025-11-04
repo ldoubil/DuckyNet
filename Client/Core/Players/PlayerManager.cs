@@ -230,7 +230,7 @@ namespace DuckyNet.Client.Core.Players
         /// </summary>
         private void OnRemoteAnimatorUpdate(RemoteAnimatorUpdateEvent @event)
         {
-            Debug.Log($"[PlayerManager] 📬 接收到动画事件 - PlayerId:{@event.PlayerId}, State:{@event.AnimatorData.StateHash}");
+            // Debug.Log($"[PlayerManager] 📬 接收到动画事件 - PlayerId:{@event.PlayerId}, State:{@event.AnimatorData.StateHash}");
             _remoteAnimatorSync.ReceiveAnimatorUpdate(@event.PlayerId, @event.AnimatorData);
         }
 

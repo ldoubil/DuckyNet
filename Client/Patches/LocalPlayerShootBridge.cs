@@ -8,8 +8,7 @@ namespace DuckyNet.Client.Patches
 {
     /// <summary>
     /// 本地玩家开枪事件桥接器
-    /// 订阅游戏内 ItemAgent_Gun.OnMainCharacterShootEvent 静态事件
-    /// 并转发到 EventBus
+    /// 通过 Harmony Patch 拦截 ShootOneBullet() 获取散射后的真实子弹方向
     /// </summary>
     public class LocalPlayerShootBridge : IDisposable
     {
@@ -17,6 +16,11 @@ namespace DuckyNet.Client.Patches
         private System.Reflection.PropertyInfo? _muzzleProperty;
         private Delegate? _shootEventHandler;
         private bool _initialized = false;
+        
+        // 🔥 存储最后一次开火的散射方向（从 Harmony Patch 传递）
+        private static Vector3 _lastScatteredDirection = Vector3.forward;
+        private static Vector3 _lastMuzzlePosition = Vector3.zero;
+        private static object? _lastGunInstance = null;
 
         /// <summary>
         /// 初始化桥接器
@@ -87,15 +91,83 @@ namespace DuckyNet.Client.Patches
                 Transform? muzzle = _muzzleProperty?.GetValue(gun) as Transform;
                 if (muzzle == null) return;
 
-                Vector3 position = muzzle.position;
-                Vector3 direction = muzzle.forward;
+                // 🔥 优先使用从 Harmony Patch 捕获的散射后方向
+                Vector3 position = _lastMuzzlePosition != Vector3.zero ? _lastMuzzlePosition : muzzle.position;
+                Vector3 direction = (_lastGunInstance == gun && _lastScatteredDirection != Vector3.zero) 
+                    ? _lastScatteredDirection 
+                    : muzzle.forward;
+                
                 // 发布到 EventBus
                 var evt = new LocalPlayerShootEvent(gun, position, direction, muzzle);
                 GameContext.Instance.EventBus.Publish(evt);
+
+                // 🔥 同步开火特效到服务器（使用散射后的方向）
+                SendWeaponFireToServer(gun, position, direction);
             }
             catch (Exception ex)
             {
                 Debug.LogWarning($"[LocalPlayerShootBridge] 处理开枪事件失败: {ex.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// 从 Harmony Patch 接收散射后的方向
+        /// </summary>
+        public static void OnBulletFired(object gunInstance, Vector3 muzzlePosition, Vector3 scatteredDirection)
+        {
+            _lastGunInstance = gunInstance;
+            _lastMuzzlePosition = muzzlePosition;
+            _lastScatteredDirection = scatteredDirection;
+        }
+
+        /// <summary>
+        /// 发送开火数据到服务器
+        /// </summary>
+        private void SendWeaponFireToServer(object gun, Vector3 position, Vector3 direction)
+        {
+            try
+            {
+                if (!GameContext.IsInitialized || GameContext.Instance?.RpcClient == null)
+                {
+                    return; // RPC 未初始化，跳过
+                }
+
+                // 获取是否使用消音器
+                bool isSilenced = false;
+                if (_itemAgentGunType != null)
+                {
+                    var silencedProperty = AccessTools.Property(_itemAgentGunType, "Silenced");
+                    if (silencedProperty != null)
+                    {
+                        isSilenced = (bool)(silencedProperty.GetValue(gun) ?? false);
+                    }
+                }
+
+                // 创建开火数据
+                var fireData = new Shared.Data.WeaponFireData
+                {
+                    MuzzlePositionX = position.x,
+                    MuzzlePositionY = position.y,
+                    MuzzlePositionZ = position.z,
+                    MuzzleDirectionX = direction.x,
+                    MuzzleDirectionY = direction.y,
+                    MuzzleDirectionZ = direction.z,
+                    IsSilenced = isSilenced,
+                    WeaponTypeId = 0
+                };
+
+                // 创建服务代理
+                var clientContext = new RPC.ClientServerContext(GameContext.Instance.RpcClient);
+                var weaponService = new Shared.Services.Generated.WeaponSyncServiceClientProxy(clientContext);
+
+                // 发送到服务器（单向通知）
+                weaponService.NotifyWeaponFire(fireData);
+
+                Debug.Log($"[LocalPlayerShootBridge] ✅ 开火数据已发送到服务器");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[LocalPlayerShootBridge] 发送失败: {ex.Message}");
             }
         }
 
@@ -122,6 +194,62 @@ namespace DuckyNet.Client.Patches
             catch (Exception ex)
             {
                 Debug.LogWarning($"[LocalPlayerShootBridge] 清理失败: {ex.Message}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Harmony Patch: 拦截 ItemAgent_Gun.ShootOneBullet() 获取散射后的真实方向
+    /// </summary>
+    [HarmonyPatch]
+    public static class ShootOneBulletPatch
+    {
+        /// <summary>
+        /// 目标方法：ItemAgent_Gun.ShootOneBullet
+        /// </summary>
+        static System.Reflection.MethodBase TargetMethod()
+        {
+            var type = AccessTools.TypeByName("ItemAgent_Gun");
+            return AccessTools.Method(type, "ShootOneBullet");
+        }
+
+        /// <summary>
+        /// 后置补丁：捕获散射后的方向
+        /// </summary>
+        static void Postfix(
+            object __instance,
+            Vector3 _muzzlePoint,
+            Vector3 _shootDirection,  // 🔥 这是散射后的真实方向！
+            Vector3 firstFrameCheckStartPoint)
+        {
+            try
+            {
+                // 只处理主角色的开枪
+                var holderProperty = AccessTools.Property(__instance.GetType(), "Holder");
+                if (holderProperty != null)
+                {
+                    object? holder = holderProperty.GetValue(__instance);
+                    if (holder != null)
+                    {
+                        var isMainCharacterProperty = AccessTools.Property(holder.GetType(), "IsMainCharacter");
+                        bool isMainCharacter = (bool)(isMainCharacterProperty?.GetValue(holder) ?? false);
+                        
+                        if (isMainCharacter)
+                        {
+                            // 传递散射后的方向到桥接器
+                            LocalPlayerShootBridge.OnBulletFired(__instance, _muzzlePoint, _shootDirection);
+                            
+                            #if DEBUG || UNITY_EDITOR
+                            Debug.Log($"[ShootOneBulletPatch] 捕获散射方向: {_shootDirection}");
+                            Debug.Log($"    • 枪口位置: {_muzzlePoint}");
+                            #endif
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ShootOneBulletPatch] 处理失败: {ex.Message}");
             }
         }
     }

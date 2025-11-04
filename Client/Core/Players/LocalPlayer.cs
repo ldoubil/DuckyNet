@@ -101,8 +101,9 @@ namespace DuckyNet.Client.Core.Players
                 // 如果角色已创建，立即上传外观数据
                 UploadAppearanceData();
                 
-                // 🔥 立即上传装备数据
+                // 🔥 立即上传装备数据和武器数据
                 UploadEquipmentData();
+                UploadWeaponData();
             }
 
             StartMainThreadSync();
@@ -156,12 +157,13 @@ namespace DuckyNet.Client.Core.Players
                 }
             }
 
-            // 🔥 场景加载完成，角色已创建，上传外观数据和装备数据
+            // 🔥 场景加载完成，角色已创建，上传外观数据、装备数据和武器数据
             if (CharacterObject != null)
             {
-                UnityEngine.Debug.Log($"[LocalPlayer] 场景加载完成，角色已创建，准备上传外观数据和装备数据");
+                UnityEngine.Debug.Log($"[LocalPlayer] 场景加载完成，角色已创建，准备上传外观数据、装备数据和武器数据");
                 UploadAppearanceData();
                 UploadEquipmentData();
+                UploadWeaponData();
             }
 
             // 注意：不在这里启动同步，由加入房间事件触发
@@ -697,6 +699,139 @@ namespace DuckyNet.Client.Core.Players
             catch (Exception ex)
             {
                 UnityEngine.Debug.LogError($"[LocalPlayer] ❌ 上传装备数据失败: {ex.Message}\n{ex.StackTrace}");
+            }
+        }
+
+        /// <summary>
+        /// 上传武器数据到服务器（加入房间时调用）
+        /// </summary>
+        private async void UploadWeaponData()
+        {
+            try
+            {
+                UnityEngine.Debug.Log($"[LocalPlayer] 🔫 开始上传角色武器数据...");
+
+                if (CharacterObject == null)
+                {
+                    UnityEngine.Debug.LogWarning("[LocalPlayer] ⚠️ 角色尚未创建，跳过上传武器数据");
+                    return;
+                }
+
+                var characterMainControl = CharacterObject.GetComponent<CharacterMainControl>();
+                if (characterMainControl == null || characterMainControl.CharacterItem == null)
+                {
+                    UnityEngine.Debug.LogWarning("[LocalPlayer] ❌ 无法获取角色武器数据");
+                    return;
+                }
+
+                var characterItem = characterMainControl.CharacterItem;
+                
+                // 获取所有武器槽位
+                var weaponSlots = new[]
+                {
+                    ("PrimaryWeapon".GetHashCode(), Shared.Data.WeaponSlotType.PrimaryWeapon, "主武器"),
+                    ("SecondaryWeapon".GetHashCode(), Shared.Data.WeaponSlotType.SecondaryWeapon, "副武器"),
+                    ("MeleeWeapon".GetHashCode(), Shared.Data.WeaponSlotType.MeleeWeapon, "近战武器")
+                };
+
+                if (_serverContext == null)
+                {
+                    UnityEngine.Debug.LogWarning("[LocalPlayer] ❌ RPC上下文未初始化，无法上传武器数据");
+                    return;
+                }
+
+                // 创建武器服务代理
+                var weaponService = new Shared.Services.Generated.WeaponSyncServiceClientProxy(_serverContext);
+                int uploadedCount = 0;
+
+                // 上传每个槽位的武器
+                foreach (var (slotHash, slotType, slotName) in weaponSlots)
+                {
+                    var slot = characterItem.Slots.GetSlot(slotHash);
+                    if (slot?.Content != null)
+                    {
+                        var weaponItem = slot.Content;
+
+                        // 使用 WeaponSyncHelper 创建请求（包含序列化数据）
+                        var request = Services.WeaponSyncHelper.CreateWeaponSlotUpdateRequest(slotType, weaponItem);
+
+                        bool success = await weaponService.EquipWeaponAsync(request);
+                        if (success)
+                        {
+                            uploadedCount++;
+                            string dataInfo = request.IsDefaultItem ? "默认" : $"{request.ItemDataCompressed.Length}字节";
+                            UnityEngine.Debug.Log($"[LocalPlayer] ✅ 已上传武器: {slotName} = {weaponItem.DisplayName} (数据={dataInfo})");
+                        }
+                    }
+                }
+
+                UnityEngine.Debug.Log($"[LocalPlayer] 🔫 武器数据上传完成: {uploadedCount} 件武器");
+
+                // 🔥 上传当前手持的武器槽位
+                await UploadCurrentWeaponSlot(characterMainControl);
+            }
+            catch (Exception ex)
+            {
+                UnityEngine.Debug.LogError($"[LocalPlayer] ❌ 上传武器数据失败: {ex.Message}\n{ex.StackTrace}");
+            }
+        }
+
+        /// <summary>
+        /// 上传当前手持的武器槽位
+        /// </summary>
+        private async System.Threading.Tasks.Task UploadCurrentWeaponSlot(CharacterMainControl characterMainControl)
+        {
+            try
+            {
+                if (characterMainControl == null || characterMainControl.CurrentHoldItemAgent == null)
+                {
+                    UnityEngine.Debug.Log("[LocalPlayer] 当前没有手持武器，跳过槽位同步");
+                    return;
+                }
+
+                var currentWeapon = characterMainControl.CurrentHoldItemAgent.Item;
+                if (currentWeapon == null)
+                {
+                    return;
+                }
+
+                // 确定当前武器在哪个槽位
+                Shared.Data.WeaponSlotType? slotType = null;
+                
+                if (characterMainControl.PrimWeaponSlot()?.Content == currentWeapon)
+                    slotType = Shared.Data.WeaponSlotType.PrimaryWeapon;
+                else if (characterMainControl.SecWeaponSlot()?.Content == currentWeapon)
+                    slotType = Shared.Data.WeaponSlotType.SecondaryWeapon;
+                else if (characterMainControl.MeleeWeaponSlot()?.Content == currentWeapon)
+                    slotType = Shared.Data.WeaponSlotType.MeleeWeapon;
+
+                if (!slotType.HasValue)
+                {
+                    UnityEngine.Debug.LogWarning($"[LocalPlayer] 无法确定当前武器的槽位: {currentWeapon.DisplayName}");
+                    return;
+                }
+
+                if (_serverContext == null)
+                {
+                    UnityEngine.Debug.LogWarning("[LocalPlayer] ❌ RPC上下文未初始化，无法上传武器槽位");
+                    return;
+                }
+
+                var weaponService = new Shared.Services.Generated.WeaponSyncServiceClientProxy(_serverContext);
+                var request = new Shared.Data.WeaponSwitchRequest
+                {
+                    CurrentWeaponSlot = slotType.Value
+                };
+
+                bool success = await weaponService.SwitchWeaponSlotAsync(request);
+                if (success)
+                {
+                    UnityEngine.Debug.Log($"[LocalPlayer] ✅ 已上传当前武器槽位: {slotType} ({currentWeapon.DisplayName})");
+                }
+            }
+            catch (Exception ex)
+            {
+                UnityEngine.Debug.LogError($"[LocalPlayer] ❌ 上传当前武器槽位失败: {ex.Message}\n{ex.StackTrace}");
             }
         }
 

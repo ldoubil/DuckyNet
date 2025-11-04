@@ -20,6 +20,7 @@ namespace DuckyNet.Server.Services
         private readonly PlayerManager _playerManager;
         private readonly PlayerUnitySyncServiceImpl _unitySyncService;
         private EquipmentServerServiceImpl? _equipmentService; // 装备服务（延迟注入）
+        private WeaponSyncServerServiceImpl? _weaponSyncService; // 武器服务（延迟注入）
 
         public RoomServiceImpl(RpcServer server, RoomManager roomManager, PlayerManager playerManager, PlayerUnitySyncServiceImpl unitySyncService)
         {
@@ -35,6 +36,14 @@ namespace DuckyNet.Server.Services
         public void SetEquipmentService(EquipmentServerServiceImpl equipmentService)
         {
             _equipmentService = equipmentService;
+        }
+
+        /// <summary>
+        /// 设置武器服务（延迟注入，因为循环依赖）
+        /// </summary>
+        public void SetWeaponSyncService(WeaponSyncServerServiceImpl weaponSyncService)
+        {
+            _weaponSyncService = weaponSyncService;
         }
 
         public async Task<RoomInfo[]> GetRoomListAsync(IClientContext client)
@@ -168,6 +177,9 @@ namespace DuckyNet.Server.Services
                         
                         // 🔥 发送装备数据给新玩家
                         _equipmentService?.SendAllEquipmentDataToPlayer(client.ClientId, request.RoomId);
+                        
+                        // 🔥 发送武器数据给新玩家
+                        _weaponSyncService?.SendAllWeaponDataToPlayer(client.ClientId, request.RoomId);
                     }
                 }
                 
