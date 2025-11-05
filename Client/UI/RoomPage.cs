@@ -117,10 +117,26 @@ namespace DuckyNet.Client.UI
             GUILayout.Space(5);
 
             // 房间控制
+            GUILayout.BeginHorizontal();
+            
             if (GUILayout.Button("离开房间"))
             {
                 LeaveRoomAsync();
             }
+            
+            GUILayout.FlexibleSpace();
+            
+            // 断开连接按钮
+            if (GUILayout.Button("断开连接", GUILayout.Width(100)))
+            {
+                // 先离开房间
+                LeaveRoomAsync();
+                // 断开连接
+                _client.Disconnect();
+                _mainWindow?.SwitchToPage(MainMenuPage.Connect);
+            }
+            
+            GUILayout.EndHorizontal();
         }
 
         // 刷新逻辑已迁移至 RoomPageManager

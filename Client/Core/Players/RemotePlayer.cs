@@ -51,6 +51,10 @@ namespace DuckyNet.Client.Core.Players
         private CharacterAppearanceData? _cachedAppearanceData; // 缓存外观数据
         private PlayerEquipmentData? _equipmentData; // 缓存装备数据
         private PlayerWeaponData? _weaponData; // 缓存武器数据
+        
+        // 血量同步缓存
+        private object? _cachedHealth; // 缓存 Health 组件
+        private System.Reflection.MethodInfo? _cachedSetHealthMethod; // 缓存 SetHealth 方法
 
         /// <summary>装备槽位Hash映射缓存</summary>
         private static readonly Dictionary<EquipmentSlotType, int> _equipmentSlotHashCache = new Dictionary<EquipmentSlotType, int>()
@@ -122,8 +126,270 @@ namespace DuckyNet.Client.Core.Players
             _eventSubscriber.Subscribe<CharacterAppearanceReceivedEvent>(OnAppearanceReceived);
             _eventSubscriber.Subscribe<BeforeDamageAppliedEvent>(OnBeforeDamageApplied);
 
+            // 订阅血量同步事件
+            _eventSubscriber.Subscribe<RemotePlayerHealthSyncEvent>(OnHealthSyncReceived);
+
         }
 
+
+        /// <summary>
+        /// 处理血量同步事件
+        /// </summary>
+        private void OnHealthSyncReceived(RemotePlayerHealthSyncEvent @event)
+        {
+            try
+            {
+                // 只处理自己的血量同步数据
+                if (@event.HealthData.SteamId != Info.SteamId)
+                {
+                    return;
+                }
+
+                // 检查角色是否已创建
+                if (CharacterObject == null)
+                {
+                    Log($"[RemotePlayer] ⚠️ 角色尚未创建，无法同步血量");
+                    return;
+                }
+
+                // 如果缓存失效，重新获取 Health 组件
+                if (_cachedHealth == null || _cachedSetHealthMethod == null)
+                {
+                    Log($"[RemotePlayer] 🔧 Health 缓存未初始化，正在初始化...");
+                    if (!InitializeHealthCache())
+                    {
+                        LogError($"[RemotePlayer] ❌ Health 缓存初始化失败，跳过血量同步");
+                        return;
+                    }
+                }
+
+                // 读取当前血量（调用前）
+                var healthType = _cachedHealth!.GetType();
+                var currentHealthProp = HarmonyLib.AccessTools.Property(healthType, "CurrentHealth");
+                float beforeHealth = currentHealthProp != null ? (float)(currentHealthProp.GetValue(_cachedHealth) ?? 0f) : 0f;
+
+                // 使用缓存的 SetHealth 方法设置当前血量
+                _cachedSetHealthMethod!.Invoke(_cachedHealth, new object[] { @event.HealthData.CurrentHealth });
+
+                // 读取当前血量（调用后，验证是否设置成功）
+                float afterHealth = currentHealthProp != null ? (float)(currentHealthProp.GetValue(_cachedHealth) ?? 0f) : 0f;
+
+                Log($"[RemotePlayer] 💚 同步血量: {beforeHealth:F0} → {afterHealth:F0} (目标:{@event.HealthData.CurrentHealth:F0}/{@event.HealthData.MaxHealth:F0})");
+
+                // 验证是否设置成功
+                if (Math.Abs(afterHealth - @event.HealthData.CurrentHealth) > 0.1f)
+                {
+                    LogWarning($"[RemotePlayer] ⚠️ 血量设置不准确！期望:{@event.HealthData.CurrentHealth:F0}, 实际:{afterHealth:F0}");
+                }
+
+                // 🔥 手动触发 HealthBar 刷新（确保 UI 更新）
+                RefreshHealthBar();
+            }
+            catch (Exception ex)
+            {
+                // 缓存可能失效，清空缓存
+                _cachedHealth = null;
+                _cachedSetHealthMethod = null;
+                LogError($"[RemotePlayer] 处理血量同步失败: {ex.Message}\n{ex.StackTrace}");
+            }
+        }
+
+        /// <summary>
+        /// 初始化 Health 缓存
+        /// </summary>
+        private bool InitializeHealthCache()
+        {
+            try
+            {
+                // 获取 CharacterMainControl 组件
+                var characterMainControlType = HarmonyLib.AccessTools.TypeByName("CharacterMainControl");
+                if (characterMainControlType == null)
+                {
+                    LogError("[RemotePlayer] 找不到 CharacterMainControl 类型");
+                    return false;
+                }
+
+                var characterMainControl = CharacterObject!.GetComponent(characterMainControlType);
+                if (characterMainControl == null)
+                {
+                    LogError("[RemotePlayer] CharacterObject 上没有 CharacterMainControl 组件");
+                    return false;
+                }
+
+                // 获取 Health 属性
+                var healthProperty = HarmonyLib.AccessTools.Property(characterMainControlType, "Health");
+                if (healthProperty == null)
+                {
+                    LogError("[RemotePlayer] 找不到 Health 属性");
+                    return false;
+                }
+
+                _cachedHealth = healthProperty.GetValue(characterMainControl);
+                if (_cachedHealth == null)
+                {
+                    LogError("[RemotePlayer] Health 组件为空");
+                    return false;
+                }
+
+                // 缓存 SetHealth 方法
+                var healthType = _cachedHealth.GetType();
+                _cachedSetHealthMethod = HarmonyLib.AccessTools.Method(healthType, "SetHealth");
+                if (_cachedSetHealthMethod == null)
+                {
+                    LogError("[RemotePlayer] 找不到 SetHealth 方法");
+                    _cachedHealth = null;
+                    return false;
+                }
+
+                // 🔥 关键修复：调用 SetItemAndCharacter 绑定 item
+                // Health.MaxHealth 需要从 item.GetStatValue() 读取，如果 item 为 null，MaxHealth 就是 0
+                Log($"[RemotePlayer] 🔍 正在获取 CharacterItem...");
+                var characterItemProp = HarmonyLib.AccessTools.Property(characterMainControlType, "CharacterItem");
+                if (characterItemProp == null)
+                {
+                    LogError("[RemotePlayer] 找不到 CharacterItem 属性");
+                }
+                else
+                {
+                    var characterItem = characterItemProp.GetValue(characterMainControl);
+                    Log($"[RemotePlayer] CharacterItem: {(characterItem != null ? characterItem.GetType().Name : "null")}");
+                    
+                    if (characterItem != null)
+                    {
+                        Log($"[RemotePlayer] 🔍 正在查找 SetItemAndCharacter 方法...");
+                        var setItemAndCharacterMethod = HarmonyLib.AccessTools.Method(healthType, "SetItemAndCharacter");
+                        if (setItemAndCharacterMethod != null)
+                        {
+                            Log($"[RemotePlayer] 🔧 正在调用 Health.SetItemAndCharacter()...");
+                            setItemAndCharacterMethod.Invoke(_cachedHealth, new object[] { characterItem, characterMainControl });
+                            Log($"[RemotePlayer] ✅ 已调用 Health.SetItemAndCharacter()");
+                            
+                            // 验证 item 字段是否设置成功
+                            var itemField = HarmonyLib.AccessTools.Field(healthType, "item");
+                            var itemValue = itemField?.GetValue(_cachedHealth);
+                            Log($"[RemotePlayer] 验证 Health.item: {(itemValue != null ? "已设置" : "null")}");
+                        }
+                        else
+                        {
+                            LogError("[RemotePlayer] ❌ 找不到 SetItemAndCharacter 方法");
+                        }
+                    }
+                    else
+                    {
+                        LogError("[RemotePlayer] ❌ CharacterItem 为 null，无法绑定到 Health");
+                    }
+                }
+
+                // 🔥 确保 showHealthBar = true
+                var showHealthBarProp = HarmonyLib.AccessTools.Property(healthType, "showHealthBar");
+                if (showHealthBarProp != null && showHealthBarProp.CanWrite)
+                {
+                    showHealthBarProp.SetValue(_cachedHealth, true);
+                }
+
+                // 验证 MaxHealth 是否正确
+                var maxHealthProp = HarmonyLib.AccessTools.Property(healthType, "MaxHealth");
+                float maxHealth = maxHealthProp != null ? (float)(maxHealthProp.GetValue(_cachedHealth) ?? 0f) : 0f;
+                Log($"[RemotePlayer] ✅ Health 缓存初始化成功，MaxHealth={maxHealth:F0}");
+                
+                return true;
+            }
+            catch (Exception ex)
+            {
+                LogError($"[RemotePlayer] 初始化 Health 缓存失败: {ex.Message}");
+                _cachedHealth = null;
+                _cachedSetHealthMethod = null;
+                return false;
+            }
+        }
+
+
+        /// <summary>
+        /// 刷新血条显示（同时刷新名字）
+        /// </summary>
+        private void RefreshHealthBar()
+        {
+            try
+            {
+                if (_cachedHealth == null) return;
+
+                // 调用 RequestHealthBar 方法强制刷新
+                var requestHealthBarMethod = HarmonyLib.AccessTools.Method(_cachedHealth.GetType(), "RequestHealthBar");
+                if (requestHealthBarMethod != null)
+                {
+                    requestHealthBarMethod.Invoke(_cachedHealth, null);
+                }
+
+                // 🔥 血量同步时也刷新名字（防止被 RefreshCharacterIcon 覆盖）
+                RefreshHealthBarName();
+
+                Log($"[RemotePlayer] 🔄 已触发 HealthBar 刷新");
+            }
+            catch (Exception ex)
+            {
+                LogWarning($"[RemotePlayer] 刷新 HealthBar 失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 刷新血条名字显示
+        /// </summary>
+        private void RefreshHealthBarName()
+        {
+            try
+            {
+                if (_cachedHealth == null) return;
+
+                // 获取 HealthBarManager
+                var healthBarManagerType = HarmonyLib.AccessTools.TypeByName("Duckov.UI.HealthBarManager");
+                if (healthBarManagerType == null) return;
+
+                var instanceProp = HarmonyLib.AccessTools.Property(healthBarManagerType, "Instance");
+                var healthBarManager = instanceProp?.GetValue(null);
+                if (healthBarManager == null) return;
+
+                // 获取当前 Health 对应的 HealthBar
+                var getActiveHealthBarMethod = HarmonyLib.AccessTools.Method(healthBarManagerType, "GetActiveHealthBar");
+                if (getActiveHealthBarMethod == null) return;
+
+                var healthBar = getActiveHealthBarMethod.Invoke(healthBarManager, new object[] { _cachedHealth });
+                if (healthBar == null) return;
+
+                // 强制刷新图标（会重新读取 characterPreset.showName）
+                var refreshIconMethod = HarmonyLib.AccessTools.Method(healthBar.GetType(), "RefreshCharacterIcon");
+                if (refreshIconMethod != null)
+                {
+                    refreshIconMethod.Invoke(healthBar, null);
+                }
+
+                // 直接设置名字文本（双重保险）
+                var nameTextField = HarmonyLib.AccessTools.Field(healthBar.GetType(), "nameText");
+                var nameText = nameTextField?.GetValue(healthBar);
+                
+                if (nameText != null)
+                {
+                    var textProp = HarmonyLib.AccessTools.Property(nameText.GetType(), "text");
+                    if (textProp != null && textProp.CanWrite)
+                    {
+                        textProp.SetValue(nameText, Info.SteamName);
+                    }
+                    
+                    // 强制激活名字显示
+                    var gameObjectProp = HarmonyLib.AccessTools.Property(nameText.GetType(), "gameObject");
+                    var gameObject = gameObjectProp?.GetValue(nameText);
+                    if (gameObject != null)
+                    {
+                        var setActiveMethod = HarmonyLib.AccessTools.Method(gameObject.GetType(), "SetActive");
+                        setActiveMethod?.Invoke(gameObject, new object[] { true });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // 静默失败，不影响血量同步
+                LogWarning($"[RemotePlayer] 刷新血条名字失败: {ex.Message}");
+            }
+        }
 
         private void OnBeforeDamageApplied(BeforeDamageAppliedEvent @event)
         {
@@ -245,6 +511,73 @@ namespace DuckyNet.Client.Core.Players
             // 更新平滑值并应用到角色对象
             _smoothSyncManager.Update();
             _smoothSyncManager.ApplyToTransform(_characterTransform, _characterTransform);
+            
+            // 🔥 每帧强制激活名字显示（防止被 RefreshCharacterIcon 隐藏）
+            ForceShowHealthBarName();
+        }
+        
+        private int _nameRefreshFrameCounter = 0;
+        
+        /// <summary>
+        /// 强制激活血条名字显示（每帧调用，但限制频率）
+        /// </summary>
+        private void ForceShowHealthBarName()
+        {
+            // 每 30 帧刷新一次（约 0.5 秒）避免性能问题
+            _nameRefreshFrameCounter++;
+            if (_nameRefreshFrameCounter < 30) return;
+            _nameRefreshFrameCounter = 0;
+            
+            try
+            {
+                if (_cachedHealth == null) return;
+
+                // 获取 HealthBarManager
+                var healthBarManagerType = HarmonyLib.AccessTools.TypeByName("Duckov.UI.HealthBarManager");
+                if (healthBarManagerType == null) return;
+
+                var instanceProp = HarmonyLib.AccessTools.Property(healthBarManagerType, "Instance");
+                var healthBarManager = instanceProp?.GetValue(null);
+                if (healthBarManager == null) return;
+
+                // 获取当前 Health 对应的 HealthBar
+                var getActiveHealthBarMethod = HarmonyLib.AccessTools.Method(healthBarManagerType, "GetActiveHealthBar");
+                if (getActiveHealthBarMethod == null) return;
+
+                var healthBar = getActiveHealthBarMethod.Invoke(healthBarManager, new object[] { _cachedHealth });
+                if (healthBar == null) return;
+
+                // 直接激活名字显示（不调用 RefreshCharacterIcon，避免被覆盖）
+                var nameTextField = HarmonyLib.AccessTools.Field(healthBar.GetType(), "nameText");
+                var nameText = nameTextField?.GetValue(healthBar);
+                
+                if (nameText != null)
+                {
+                    // 强制激活名字的 GameObject
+                    var gameObjectProp = HarmonyLib.AccessTools.Property(nameText.GetType(), "gameObject");
+                    var gameObject = gameObjectProp?.GetValue(nameText);
+                    if (gameObject != null)
+                    {
+                        var setActiveMethod = HarmonyLib.AccessTools.Method(gameObject.GetType(), "SetActive");
+                        setActiveMethod?.Invoke(gameObject, new object[] { true });
+                    }
+                    
+                    // 确保文本正确
+                    var textProp = HarmonyLib.AccessTools.Property(nameText.GetType(), "text");
+                    if (textProp != null && textProp.CanWrite)
+                    {
+                        string currentText = textProp.GetValue(nameText)?.ToString() ?? "";
+                        if (currentText != Info.SteamName)
+                        {
+                            textProp.SetValue(nameText, Info.SteamName);
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // 静默失败，不影响位置同步
+            }
         }
 
         #endregion
@@ -918,6 +1251,21 @@ namespace DuckyNet.Client.Core.Players
         #endregion
 
         /// <summary>
+        /// 销毁角色（覆盖基类方法以清理缓存）
+        /// </summary>
+        public override void DestroyCharacter()
+        {
+            // 清除所有角色相关的缓存
+            _characterTransform = null;
+            _smoothSyncManager = null;
+            _cachedHealth = null;
+            _cachedSetHealthMethod = null;
+            
+            // 调用基类方法销毁角色对象
+            base.DestroyCharacter();
+        }
+
+        /// <summary>
         /// 释放资源（离开房间时调用）
         /// </summary>
         public override void Dispose()
@@ -925,6 +1273,8 @@ namespace DuckyNet.Client.Core.Players
             Log($"[RemotePlayer] 远程玩家销毁（房间层）: {Info.SteamId}");
             _characterTransform = null; // 清除 Transform 缓存
             _smoothSyncManager = null;  // 清除同步管理器
+            _cachedHealth = null;       // 清除 Health 缓存
+            _cachedSetHealthMethod = null; // 清除 SetHealth 方法缓存
             _eventSubscriber.Dispose();  // 取消事件订阅
             base.Dispose(); // 会自动销毁角色对象
         }

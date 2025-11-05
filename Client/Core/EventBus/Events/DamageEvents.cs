@@ -180,5 +180,222 @@ namespace DuckyNet.Client.Core.EventBus.Events
             CausedDeath = causedDeath;
         }
     }
+
+    /// <summary>
+    /// 角色血量变化事件
+    /// </summary>
+    public class HealthChangedEvent
+    {
+        /// <summary>
+        /// Health 组件实例
+        /// </summary>
+        public object Health { get; }
+
+        /// <summary>
+        /// 受伤角色的 GameObject
+        /// </summary>
+        public GameObject? TargetGameObject { get; }
+
+        /// <summary>
+        /// 受伤角色的 CharacterMainControl
+        /// </summary>
+        public object? TargetCharacter { get; }
+
+        /// <summary>
+        /// 是否是本地玩家
+        /// </summary>
+        public bool IsLocalPlayer { get; }
+
+        /// <summary>
+        /// 当前血量
+        /// </summary>
+        public float CurrentHealth { get; }
+
+        /// <summary>
+        /// 最大血量
+        /// </summary>
+        public float MaxHealth { get; }
+
+        public HealthChangedEvent(
+            object health,
+            GameObject? targetGameObject,
+            object? targetCharacter,
+            bool isLocalPlayer,
+            float currentHealth,
+            float maxHealth)
+        {
+            Health = health;
+            TargetGameObject = targetGameObject;
+            TargetCharacter = targetCharacter;
+            IsLocalPlayer = isLocalPlayer;
+            CurrentHealth = currentHealth;
+            MaxHealth = maxHealth;
+        }
+    }
+
+    /// <summary>
+    /// 角色最大血量变化事件
+    /// </summary>
+    public class MaxHealthChangedEvent
+    {
+        /// <summary>
+        /// Health 组件实例
+        /// </summary>
+        public object Health { get; }
+
+        /// <summary>
+        /// 受伤角色的 GameObject
+        /// </summary>
+        public GameObject? TargetGameObject { get; }
+
+        /// <summary>
+        /// 受伤角色的 CharacterMainControl
+        /// </summary>
+        public object? TargetCharacter { get; }
+
+        /// <summary>
+        /// 是否是本地玩家
+        /// </summary>
+        public bool IsLocalPlayer { get; }
+
+        /// <summary>
+        /// 新的最大血量
+        /// </summary>
+        public float MaxHealth { get; }
+
+        public MaxHealthChangedEvent(
+            object health,
+            GameObject? targetGameObject,
+            object? targetCharacter,
+            bool isLocalPlayer,
+            float maxHealth)
+        {
+            Health = health;
+            TargetGameObject = targetGameObject;
+            TargetCharacter = targetCharacter;
+            IsLocalPlayer = isLocalPlayer;
+            MaxHealth = maxHealth;
+        }
+    }
+
+    /// <summary>
+    /// 角色受伤事件
+    /// </summary>
+    public class CharacterHurtEvent
+    {
+        /// <summary>
+        /// Health 组件实例
+        /// </summary>
+        public object Health { get; }
+
+        /// <summary>
+        /// DamageInfo 对象
+        /// </summary>
+        public object DamageInfo { get; }
+
+        /// <summary>
+        /// 受伤角色的 GameObject
+        /// </summary>
+        public GameObject? TargetGameObject { get; }
+
+        /// <summary>
+        /// 受伤角色的 CharacterMainControl
+        /// </summary>
+        public object? TargetCharacter { get; }
+
+        /// <summary>
+        /// 是否是本地玩家
+        /// </summary>
+        public bool IsLocalPlayer { get; }
+
+        /// <summary>
+        /// 当前血量
+        /// </summary>
+        public float CurrentHealth { get; }
+
+        /// <summary>
+        /// 最大血量
+        /// </summary>
+        public float MaxHealth { get; }
+
+        public CharacterHurtEvent(
+            object health,
+            object damageInfo,
+            GameObject? targetGameObject,
+            object? targetCharacter,
+            bool isLocalPlayer,
+            float currentHealth,
+            float maxHealth)
+        {
+            Health = health;
+            DamageInfo = damageInfo;
+            TargetGameObject = targetGameObject;
+            TargetCharacter = targetCharacter;
+            IsLocalPlayer = isLocalPlayer;
+            CurrentHealth = currentHealth;
+            MaxHealth = maxHealth;
+        }
+    }
+
+    /// <summary>
+    /// 角色死亡事件
+    /// </summary>
+    public class CharacterDeadEvent
+    {
+        /// <summary>
+        /// Health 组件实例
+        /// </summary>
+        public object Health { get; }
+
+        /// <summary>
+        /// DamageInfo 对象
+        /// </summary>
+        public object DamageInfo { get; }
+
+        /// <summary>
+        /// 受伤角色的 GameObject
+        /// </summary>
+        public GameObject? TargetGameObject { get; }
+
+        /// <summary>
+        /// 受伤角色的 CharacterMainControl
+        /// </summary>
+        public object? TargetCharacter { get; }
+
+        /// <summary>
+        /// 是否是本地玩家
+        /// </summary>
+        public bool IsLocalPlayer { get; }
+
+        public CharacterDeadEvent(
+            object health,
+            object damageInfo,
+            GameObject? targetGameObject,
+            object? targetCharacter,
+            bool isLocalPlayer)
+        {
+            Health = health;
+            DamageInfo = damageInfo;
+            TargetGameObject = targetGameObject;
+            TargetCharacter = targetCharacter;
+            IsLocalPlayer = isLocalPlayer;
+        }
+    }
+
+    /// <summary>
+    /// 远程玩家血量同步事件
+    /// </summary>
+    public class RemotePlayerHealthSyncEvent
+    {
+        /// <summary>
+        /// 血量同步数据
+        /// </summary>
+        public Shared.Data.HealthSyncData HealthData { get; }
+
+        public RemotePlayerHealthSyncEvent(Shared.Data.HealthSyncData healthData)
+        {
+            HealthData = healthData;
+        }
+    }
 }
 

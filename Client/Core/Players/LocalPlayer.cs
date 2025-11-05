@@ -26,6 +26,7 @@ namespace DuckyNet.Client.Core.Players
         private ClientServerContext? _serverContext;
         private PlayerUnitySyncServiceClientProxy? _playerService;
         private SceneServiceClientProxy? _sceneServiceClient;
+        private Shared.Services.Generated.HealthSyncServiceClientProxy? _healthSyncService;
 
         // 位置同步相关
         private Vector3 _lastSyncedPosition;
@@ -38,10 +39,15 @@ namespace DuckyNet.Client.Core.Players
         private float _velocityThreshold = 0.1f; // 0.1 m/s 速度阈值
 
         // 主线程定时同步相关
-        private float _syncInterval = 0.033f; // 33ms 同步间隔 (30 times/sec)
+        private float _syncInterval = 0.05f; // 50ms 同步间隔 (20 times/sec)
         private float _syncTimer = 0f; // 同步计时器
         private uint _sequenceNumber = 0; // 同步包序列号
         private bool _isSyncEnabled = false; // 是否启用同步
+
+        // 血量同步相关
+        private float _lastSyncedHealth = -1f; // 上次同步的血量值
+        private float _lastSyncedMaxHealth = -1f; // 上次同步的最大血量值
+        private float _healthThreshold = 0.5f; // 血量变化阈值（0.5 点）
 
         public LocalPlayer(PlayerInfo info) : base(info)
         {
@@ -56,8 +62,171 @@ namespace DuckyNet.Client.Core.Players
             _eventSubscriber.Subscribe<PlayerLeftSceneEvent>(OnPlayerLeftScene);
             _eventSubscriber.Subscribe<LocalPlayerShootEvent>(OnLocalPlayerShoot);
             _eventSubscriber.Subscribe<BeforeDamageAppliedEvent>(OnBeforeDamageApplied);
+            
+            // 订阅血量相关事件
+            _eventSubscriber.Subscribe<HealthChangedEvent>(OnHealthChanged);
+            _eventSubscriber.Subscribe<MaxHealthChangedEvent>(OnMaxHealthChanged);
+            _eventSubscriber.Subscribe<CharacterHurtEvent>(OnCharacterHurt);
+            _eventSubscriber.Subscribe<CharacterDeadEvent>(OnCharacterDead);
+            
             Initialize();
         }
+
+        #region 血量事件处理
+
+        /// <summary>
+        /// 血量变化事件处理器
+        /// </summary>
+        private void OnHealthChanged(HealthChangedEvent @event)
+        {
+            // 只处理本地玩家的血量变化
+            if (!@event.IsLocalPlayer) return;
+
+            try
+            {
+                // 🔥 去重：只在血量真正变化时才同步
+                float healthDelta = Math.Abs(@event.CurrentHealth - _lastSyncedHealth);
+                float maxHealthDelta = Math.Abs(@event.MaxHealth - _lastSyncedMaxHealth);
+                
+                // 如果血量或最大血量变化超过阈值，才同步
+                if (healthDelta >= _healthThreshold || maxHealthDelta >= _healthThreshold)
+                {
+                    UnityEngine.Debug.Log($"[LocalPlayer] 💚 血量变化: {_lastSyncedHealth:F0}/{_lastSyncedMaxHealth:F0} → {@event.CurrentHealth:F0}/{@event.MaxHealth:F0}");
+                    
+                    // 同步血量到服务器
+                    SyncHealthToServer(@event.CurrentHealth, @event.MaxHealth, false);
+                    
+                    // 更新缓存
+                    _lastSyncedHealth = @event.CurrentHealth;
+                    _lastSyncedMaxHealth = @event.MaxHealth;
+                }
+                // else: 血量变化太小，跳过同步（减少网络流量）
+            }
+            catch (Exception ex)
+            {
+                UnityEngine.Debug.LogError($"[LocalPlayer] 处理血量变化事件失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 最大血量变化事件处理器
+        /// </summary>
+        private void OnMaxHealthChanged(MaxHealthChangedEvent @event)
+        {
+            // 只处理本地玩家的最大血量变化
+            if (!@event.IsLocalPlayer) return;
+
+            try
+            {
+                UnityEngine.Debug.Log($"[LocalPlayer] 💪 最大血量变化: {@event.MaxHealth:F0}");
+                
+                // TODO: 同步最大血量到服务器（如果需要）
+                // SyncMaxHealthToServer(@event.MaxHealth);
+            }
+            catch (Exception ex)
+            {
+                UnityEngine.Debug.LogError($"[LocalPlayer] 处理最大血量变化事件失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 角色受伤事件处理器
+        /// </summary>
+        private void OnCharacterHurt(CharacterHurtEvent @event)
+        {
+            // 只处理本地玩家受伤
+            if (!@event.IsLocalPlayer) return;
+
+            try
+            {
+                UnityEngine.Debug.Log($"[LocalPlayer] 🩸 受伤: 剩余血量 {@event.CurrentHealth:F0}/{@event.MaxHealth:F0}");
+                
+                // TODO: 通知服务器玩家受伤（如果需要）
+                // NotifyServerPlayerHurt(@event.DamageInfo, @event.CurrentHealth);
+            }
+            catch (Exception ex)
+            {
+                UnityEngine.Debug.LogError($"[LocalPlayer] 处理受伤事件失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 角色死亡事件处理器
+        /// </summary>
+        private void OnCharacterDead(CharacterDeadEvent @event)
+        {
+            // 只处理本地玩家死亡
+            if (!@event.IsLocalPlayer) return;
+
+            try
+            {
+                UnityEngine.Debug.Log($"[LocalPlayer] 💀 本地玩家死亡");
+                
+                // 通知服务器玩家死亡（同步血量为 0，无条件发送）
+                SyncHealthToServer(0, 0, true);
+                
+                // 更新缓存（避免死亡后的血量变化再次触发同步）
+                _lastSyncedHealth = 0;
+                _lastSyncedMaxHealth = 0;
+                
+                // 停止位置同步
+                StopMainThreadSync();
+            }
+            catch (Exception ex)
+            {
+                UnityEngine.Debug.LogError($"[LocalPlayer] 处理死亡事件失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 同步血量到服务器
+        /// </summary>
+        private void SyncHealthToServer(float currentHealth, float maxHealth, bool isDead)
+        {
+            try
+            {
+                // 检查是否已加入房间
+                if (!GameContext.IsInitialized || GameContext.Instance.RoomManager?.CurrentRoom == null)
+                {
+                    return;
+                }
+
+                // 检查血量同步服务是否已初始化
+                if (_healthSyncService == null)
+                {
+                    // 尝试延迟初始化
+                    if (_serverContext != null)
+                    {
+                        _healthSyncService = new Shared.Services.Generated.HealthSyncServiceClientProxy(_serverContext);
+                    }
+                    else
+                    {
+                        UnityEngine.Debug.LogWarning("[LocalPlayer] 血量同步服务未初始化");
+                        return;
+                    }
+                }
+
+                // 创建血量同步数据
+                var healthData = new Shared.Data.HealthSyncData
+                {
+                    SteamId = Info.SteamId,
+                    CurrentHealth = currentHealth,
+                    MaxHealth = maxHealth,
+                    IsDead = isDead
+                };
+
+                // 发送到服务器
+                _healthSyncService.SendHealthSync(healthData);
+
+                UnityEngine.Debug.Log($"[LocalPlayer] 📤 已发送血量同步: {currentHealth:F0}/{maxHealth:F0} (死亡:{isDead})");
+            }
+            catch (Exception ex)
+            {
+                UnityEngine.Debug.LogError($"[LocalPlayer] 同步血量到服务器失败: {ex.Message}");
+            }
+        }
+
+        #endregion
 
         private void OnBeforeDamageApplied(BeforeDamageAppliedEvent @event)
         {
@@ -216,6 +385,7 @@ namespace DuckyNet.Client.Core.Players
                     _serverContext = new ClientServerContext(GameContext.Instance.RpcClient);
                     _playerService = new PlayerUnitySyncServiceClientProxy(_serverContext);
                     _sceneServiceClient = new SceneServiceClientProxy(_serverContext);
+                    _healthSyncService = new Shared.Services.Generated.HealthSyncServiceClientProxy(_serverContext);
                     UnityEngine.Debug.Log($"[LocalPlayer] RPC 客户端已初始化");
                 }
                 else

@@ -109,6 +109,10 @@ namespace DuckyNet.Client
             var weaponSyncClientService = new Services.WeaponSyncClientServiceImpl();
             context.RpcClient.RegisterClientService<Shared.Services.IWeaponSyncClientService>(weaponSyncClientService);
 
+            // 注册血量同步服务
+            var healthSyncClientService = new Services.HealthSyncClientServiceImpl();
+            context.RpcClient.RegisterClientService<Shared.Services.IHealthSyncClientService>(healthSyncClientService);
+
             // 创建并注册物品网络协调器（需要在 RpcClient 之后）
             // 使用生成的 ClientProxy 来调用服务器
             var clientContext = new RPC.ClientServerContext(context.RpcClient);

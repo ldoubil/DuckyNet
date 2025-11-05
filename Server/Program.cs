@@ -49,6 +49,7 @@ namespace DuckyNet.Server
                 // 创建服务（注意顺序：SceneService 需要在 CharacterService 之前创建）
                 var playerService = new PlayerServiceImpl(_server, _playerManager, _roomManager);
                 var playerUnitySyncService = new PlayerUnitySyncServiceImpl(_server, _playerManager, _roomManager);
+                var healthSyncService = new HealthSyncServiceImpl(_server, _playerManager, _roomManager);
                 var roomService = new RoomServiceImpl(_server, _roomManager, _playerManager, playerUnitySyncService);
                 var sceneService = new SceneServiceImpl(_server, _playerManager, _roomManager);
                 var characterService = new CharacterServiceImpl(_server, _playerManager, _roomManager, sceneService);
@@ -68,6 +69,7 @@ namespace DuckyNet.Server
                 _server.RegisterServerService<ISceneService>(sceneService);
                 _server.RegisterServerService<ICharacterService>(characterService);
                 _server.RegisterServerService<IPlayerUnitySyncService>(playerUnitySyncService);
+                _server.RegisterServerService<IHealthSyncService>(healthSyncService);
                 _server.RegisterServerService<ICharacterAppearanceService>(appearanceService);
                 _server.RegisterServerService<IAnimatorSyncService>(animatorSyncService);
                 _server.RegisterServerService<IItemSyncService>(itemSyncService);

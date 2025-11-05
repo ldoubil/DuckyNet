@@ -40,6 +40,7 @@ namespace DuckyNet.Shared.RPC.Generated
                 typeof(DuckyNet.Shared.Data.CharacterAppearanceData),
                 typeof(DuckyNet.Shared.Data.EquipmentSlotUpdateNotification),
                 typeof(DuckyNet.Shared.Data.EquipmentSlotUpdateRequest),
+                typeof(DuckyNet.Shared.Data.HealthSyncData),
                 typeof(DuckyNet.Shared.Data.ItemDropData),
                 typeof(DuckyNet.Shared.Data.ItemPickupRequest),
                 typeof(DuckyNet.Shared.Data.ScenelData),

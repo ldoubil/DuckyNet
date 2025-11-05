@@ -122,11 +122,12 @@ namespace DuckyNet.Client.Core.Utils
                     UnityEngine.Debug.Log("[CharacterCreationUtils] 设置 showHealthBar = true");
                 }
                 
-                var showNameProp = AccessTools.Property(presetType, "showName");
-                if (showNameProp != null && showNameProp.CanWrite)
+                // 🔥 修复：showName 是字段，不是属性
+                var showNameField = AccessTools.Field(presetType, "showName");
+                if (showNameField != null)
                 {
-                    showNameProp.SetValue(currentPreset, showName);
-                    UnityEngine.Debug.Log($"[CharacterCreationUtils] 设置 showName = {showName}");
+                    showNameField.SetValue(currentPreset, showName);
+                    UnityEngine.Debug.Log($"[CharacterCreationUtils] 设置 showName (Field) = {showName}");
                 }
 
                 var nameKeyField = AccessTools.Field(presetType, "nameKey");
@@ -155,6 +156,10 @@ namespace DuckyNet.Client.Core.Utils
                     object? actualDisplayName = displayNameProp.GetValue(currentPreset);
                     UnityEngine.Debug.Log($"[CharacterCreationUtils] 验证 DisplayName = {actualDisplayName}");
                 }
+                
+                // 🔥 验证 showName 字段
+                var verifyShowName = showNameField?.GetValue(currentPreset);
+                UnityEngine.Debug.Log($"[CharacterCreationUtils] 验证 showName (Field) = {verifyShowName}");
             }
         }
 
@@ -324,9 +329,9 @@ namespace DuckyNet.Client.Core.Utils
             
             var getActiveHealthBarMethod = AccessTools.Method(healthBarManagerType, "GetActiveHealthBar");
             
-            // 🔥 持续设置 5 秒，每 0.2 秒设置一次
+            // 🔥 持续设置 10 秒，每 0.2 秒设置一次
             // 这样可以覆盖任何因事件触发的 RefreshCharacterIcon()
-            float duration = 5f;
+            float duration = 10f;
             float interval = 0.2f;
             float elapsed = 0f;
             
@@ -336,7 +341,14 @@ namespace DuckyNet.Client.Core.Utils
                 
                 if (healthBar != null)
                 {
-                    // 直接设置 nameText
+                    // 🔥 强制刷新血条图标和名字（调用 RefreshCharacterIcon）
+                    var refreshIconMethod = AccessTools.Method(healthBar.GetType(), "RefreshCharacterIcon");
+                    if (refreshIconMethod != null)
+                    {
+                        refreshIconMethod.Invoke(healthBar, null);
+                    }
+
+                    // 直接设置 nameText（双重保险）
                     var nameTextField = AccessTools.Field(healthBar.GetType(), "nameText");
                     object? nameText = nameTextField?.GetValue(healthBar);
                     
@@ -351,10 +363,11 @@ namespace DuckyNet.Client.Core.Utils
                             if (currentText != displayName)
                             {
                                 textProp.SetValue(nameText, displayName);
-                                UnityEngine.Debug.Log($"[CharacterCreationUtils] 重新设置 HealthBar.nameText = {displayName} (被覆盖了，已修正)");
+                                UnityEngine.Debug.Log($"[CharacterCreationUtils] 🔄 重新设置 HealthBar.nameText = {displayName}");
                             }
                         }
                         
+                        // 强制激活名字显示
                         var gameObjectProp = AccessTools.Property(nameText.GetType(), "gameObject");
                         object? gameObject = gameObjectProp?.GetValue(nameText);
                         if (gameObject != null)
@@ -368,7 +381,7 @@ namespace DuckyNet.Client.Core.Utils
                     if (elapsed < interval)
                     {
                         SetHealthBarIcon(healthBar, customIcon);
-                        UnityEngine.Debug.Log($"[CharacterCreationUtils] 初始设置 HealthBar 名字 = {displayName}");
+                        UnityEngine.Debug.Log($"[CharacterCreationUtils] 🎨 初始设置 HealthBar 名字 = {displayName}");
                     }
                 }
                 
@@ -376,7 +389,7 @@ namespace DuckyNet.Client.Core.Utils
                 elapsed += interval;
             }
             
-            UnityEngine.Debug.Log($"[CharacterCreationUtils] HealthBar 名字持续设置完成 ({duration}秒)");
+            UnityEngine.Debug.Log($"[CharacterCreationUtils] ✅ HealthBar 名字持续设置完成 ({duration}秒)");
         }
 
         private static void SetHealthBarIcon(object healthBar, UnityEngine.Sprite? customIcon)

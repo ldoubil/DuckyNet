@@ -92,11 +92,24 @@ namespace DuckyNet.Client.UI
             GUILayout.Label("游戏大厅", GUI.skin.box);
             GUILayout.Space(10);
 
+            GUILayout.BeginHorizontal();
+            
             // 刷新房间列表按钮
             if (GUILayout.Button("刷新房间列表"))
             {
                 RefreshRoomListAsync();
             }
+
+            GUILayout.FlexibleSpace();
+            
+            // 断开连接按钮
+            if (GUILayout.Button("断开连接", GUILayout.Width(100)))
+            {
+                _client.Disconnect();
+                _mainWindow.SwitchToPage(MainMenuPage.Connect);
+            }
+            
+            GUILayout.EndHorizontal();
 
             GUILayout.Space(10);
         }

@@ -29,6 +29,10 @@ namespace DuckyNet.Client.UI
 
         private PlayerServiceClientProxy _playerServiceClient;
 
+        // 🔥 配置保存键
+        private const string PREF_KEY_SERVER_ADDRESS = "DuckyNet_ServerAddress";
+        private const string PREF_KEY_SERVER_PORT = "DuckyNet_ServerPort";
+
         // 连接页面
         private string _serverAddress = "127.0.0.1";
         private string _serverPort = "9050";
@@ -58,6 +62,10 @@ namespace DuckyNet.Client.UI
             RoomPage.SetChatWindow(chatWindow);
             var serverContext = new ClientServerContext(_client);
             _playerServiceClient = new PlayerServiceClientProxy(serverContext);
+            
+            // 🔥 加载保存的服务器配置
+            LoadServerConfig();
+            
             // 订阅连接事件
             _client.Connected += OnConnected;
             _client.Disconnected += OnDisconnectedHandler;
@@ -157,6 +165,28 @@ namespace DuckyNet.Client.UI
             GUILayout.BeginHorizontal();
             GUILayout.Label("端口:", GUILayout.Width(100));
             _serverPort = GUILayout.TextField(_serverPort);
+            GUILayout.EndHorizontal();
+
+            GUILayout.Space(5);
+            
+            // 🔥 配置管理按钮
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("💾 保存配置", GUILayout.Width(100)))
+            {
+                SaveServerConfig();
+                _connectionStatus = "✓ 配置已保存";
+            }
+            
+            if (GUILayout.Button("🗑️ 清除配置", GUILayout.Width(100)))
+            {
+                PlayerPrefs.DeleteKey(PREF_KEY_SERVER_ADDRESS);
+                PlayerPrefs.DeleteKey(PREF_KEY_SERVER_PORT);
+                PlayerPrefs.Save();
+                _serverAddress = "127.0.0.1";
+                _serverPort = "9050";
+                _connectionStatus = "✓ 配置已清除";
+                UnityEngine.Debug.Log("[MainMenu] 🗑️ 清除保存的配置");
+            }
             GUILayout.EndHorizontal();
 
             GUILayout.Space(10);
@@ -261,6 +291,10 @@ namespace DuckyNet.Client.UI
                 _isConnecting = true;
                 _connectionStatus = $"● 正在连接 {_serverAddress}:{port}...";
                 _client.Connect(_serverAddress, port);
+                
+                // 🔥 保存服务器配置（连接时保存，避免只有成功才保存）
+                SaveServerConfig();
+                
                 UnityEngine.Debug.Log($"[MainMenu] Connecting to {_serverAddress}:{port}...");
             }
             catch (Exception ex)
@@ -301,6 +335,35 @@ namespace DuckyNet.Client.UI
             {
                 UnityEngine.Debug.LogError($"[MainMenu] 登录错误: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// 🔥 加载保存的服务器配置
+        /// </summary>
+        private void LoadServerConfig()
+        {
+            if (PlayerPrefs.HasKey(PREF_KEY_SERVER_ADDRESS))
+            {
+                _serverAddress = PlayerPrefs.GetString(PREF_KEY_SERVER_ADDRESS, "127.0.0.1");
+                UnityEngine.Debug.Log($"[MainMenu] 📥 加载服务器地址: {_serverAddress}");
+            }
+            
+            if (PlayerPrefs.HasKey(PREF_KEY_SERVER_PORT))
+            {
+                _serverPort = PlayerPrefs.GetString(PREF_KEY_SERVER_PORT, "9050");
+                UnityEngine.Debug.Log($"[MainMenu] 📥 加载服务器端口: {_serverPort}");
+            }
+        }
+
+        /// <summary>
+        /// 🔥 保存服务器配置
+        /// </summary>
+        private void SaveServerConfig()
+        {
+            PlayerPrefs.SetString(PREF_KEY_SERVER_ADDRESS, _serverAddress);
+            PlayerPrefs.SetString(PREF_KEY_SERVER_PORT, _serverPort);
+            PlayerPrefs.Save();
+            UnityEngine.Debug.Log($"[MainMenu] 💾 保存服务器配置: {_serverAddress}:{_serverPort}");
         }
 
         public void Dispose()
