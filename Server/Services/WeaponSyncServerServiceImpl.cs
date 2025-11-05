@@ -484,7 +484,7 @@ namespace DuckyNet.Server.Services
                     .OnWeaponFired(fireData);
 
                 #if DEBUG
-                Log($"开枪特效已广播给 {targetClientIds.Count} 个玩家", ConsoleColor.DarkYellow);
+                // Log($"开枪特效已广播给 {targetClientIds.Count} 个玩家", ConsoleColor.DarkYellow);
                 #endif
             }
         }
@@ -519,7 +519,7 @@ namespace DuckyNet.Server.Services
                     clientContext.Call<IWeaponSyncClientService>()
                         .OnAllPlayersWeaponReceived(allWeaponData);
 
-                    Log($"已向玩家发送房间武器数据: {allWeaponData.PlayersWeapons.Count} 个玩家", ConsoleColor.Green);
+                    // Log($"已向玩家发送房间武器数据: {allWeaponData.PlayersWeapons.Count} 个玩家", ConsoleColor.Green);
                 }
             }
             catch (Exception ex)
@@ -571,7 +571,7 @@ namespace DuckyNet.Server.Services
                         .OnWeaponFired(fireData);
                 }
 
-                Log($"批量开火特效已广播: {batchData.BulletCount} 发子弹 → {targetClientIds.Count} 个玩家", ConsoleColor.Yellow);
+                // Log($"批量开火特效已广播: {batchData.BulletCount} 发子弹 → {targetClientIds.Count} 个玩家", ConsoleColor.Yellow);
             }
         }
 

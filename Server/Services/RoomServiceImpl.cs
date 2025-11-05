@@ -282,11 +282,10 @@ namespace DuckyNet.Server.Services
 
             if (room != null)
             {
-                // 🔥 注意：这里只清除位置缓存，不清空场景数据
-                // 原因：场景状态和房间状态是独立的，玩家可能还在场景中
-                // 如果清空场景数据，其他已在房间的玩家会丢失该玩家的场景信息
+                // 清除玩家的位置缓存和场景数据
                 _unitySyncService.ClearPlayerPosition(player.SteamId);
-                Console.WriteLine($"[RoomService] 已清除 {player.SteamName} 的位置缓存");
+                _playerManager.UpdatePlayerSceneDataByClientId(client.ClientId, new ScenelData("", ""));
+                Console.WriteLine($"[RoomService] 已清除 {player.SteamName} 的位置缓存和场景数据");
                 
                 // 发布玩家离开房间事件
                 ServerEventPublisher.PublishPlayerLeftRoom(room, player);

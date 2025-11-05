@@ -233,7 +233,7 @@ namespace DuckyNet.Client.Patches
 
     /// <summary>
     /// ShootOneBullet Patch - 捕获每发子弹的散射方向并入队
-    /// 🎯 不立即发送，而是收集到队列中，等待 OnMainCharacterShootEvent 触发后批量处理
+    /// 不立即发送，而是收集到队列中，等待 OnMainCharacterShootEvent 触发后批量处理
     /// </summary>
     [HarmonyPatch]
     public static class ShootOneBulletPatch
@@ -270,7 +270,6 @@ namespace DuckyNet.Client.Patches
 
                         if (isMainCharacter)
                         {
-                            // 🔥 只收集数据，不发送（等待 OnMainCharacterShootEvent）
                             LocalPlayerShootBridge.OnBulletFired(__instance, _muzzlePoint, _shootDirection);
                         }
                     }
