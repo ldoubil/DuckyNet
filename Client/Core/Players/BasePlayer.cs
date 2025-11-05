@@ -24,7 +24,7 @@ namespace DuckyNet.Client.Core.Players
         public Texture2D? AvatarTexture { get; set; }
 
         /// <summary>
-        /// 角色游戏对象 - 跨场景持久化
+        /// 角色游戏对象
         /// </summary>
         public GameObject? CharacterObject { get; protected set; }
 

@@ -28,8 +28,6 @@ namespace DuckyNet.Client.Core
         {
             Debug.Log("[RoomManager] 构造函数开始");
             _eventSubscriber.EnsureInitializedAndSubscribe();
-            _eventSubscriber.Subscribe<PlayerJoinedRoomEvent>(OnPlayerJoinedRoom);
-            _eventSubscriber.Subscribe<PlayerLeftRoomEvent>(OnPlayerLeftRoom);
             _eventSubscriber.Subscribe<RoomJoinedEvent>(OnRoomJoined);
             _eventSubscriber.Subscribe<RoomLeftEvent>(OnRoomLeft);
             Debug.Log("[RoomManager] 构造函数完成 (事件已订阅)");
@@ -39,42 +37,6 @@ namespace DuckyNet.Client.Core
 
 
 
-        private void OnPlayerJoinedRoom(PlayerJoinedRoomEvent evt)
-        {
-            Debug.Log($"[RoomManager] ✅ 玩家加入房间: {evt.Player.SteamName} → 自动更新列表");
-            var idx = RoomPlayers.FindIndex(p => p.SteamId == evt.Player.SteamId);
-            if (idx >= 0)
-            {
-                RoomPlayers[idx] = evt.Player;
-                Debug.Log($"[RoomManager] 更新现有玩家信息: {evt.Player.SteamName}");
-            }
-            else
-            {
-                RoomPlayers.Add(evt.Player);
-                Debug.Log($"[RoomManager] 添加新玩家: {evt.Player.SteamName}, 当前总数: {RoomPlayers.Count}");
-            }
-            
-            // 🔥 预加载玩家头像
-            if (GameContext.IsInitialized)
-            {
-                GameContext.Instance.AvatarManager.PreloadAvatar(evt.Player.SteamId);
-            }
-        }
-
-        private void OnPlayerLeftRoom(PlayerLeftRoomEvent evt)
-        {
-            Debug.Log($"[RoomManager] ❌ 玩家离开房间: {evt.Player.SteamName} → 自动更新列表");
-            var idx = RoomPlayers.FindIndex(p => p.SteamId == evt.Player.SteamId);
-            if (idx >= 0)
-            {
-                RoomPlayers.RemoveAt(idx);
-                Debug.Log($"[RoomManager] 移除玩家: {evt.Player.SteamName}, 当前总数: {RoomPlayers.Count}");
-            }
-            else
-            {
-                Debug.LogWarning($"[RoomManager] ⚠️ 尝试移除不存在的玩家: {evt.Player.SteamName}");
-            }
-        }
 
         public IReadOnlyList<PlayerInfo> GetRoomPlayers() => RoomPlayers;
 
@@ -110,6 +72,7 @@ namespace DuckyNet.Client.Core
 
         public async Task<bool> LeaveRoomAsync()
         {
+
             try
             {
                 var success = await _roomServiceClient.LeaveRoomAsync();
@@ -134,25 +97,72 @@ namespace DuckyNet.Client.Core
 
         private async void OnRoomJoined(RoomJoinedEvent evt)
         {
-            Debug.Log($"[RoomManager] 自己进入房间: {evt.Room.RoomId}");
-            CurrentRoom = evt.Room;
-            try
+
+            if (evt.Player.SteamId == GameContext.Instance.PlayerManager.LocalPlayer.Info.SteamId)
             {
-                var players = await _roomServiceClient.GetRoomPlayersAsync(evt.Room.RoomId);
-                RoomPlayers = new List<PlayerInfo>(players);
-                Debug.Log($"[RoomManager] 房间玩家: {string.Join(", ", RoomPlayers.Select(p => p.SteamName))}");
+                Debug.Log($"[RoomManager] 自己进入房间: {evt.Room.RoomId}");
+                CurrentRoom = evt.Room;
+                try
+                {
+                    var players = await _roomServiceClient.GetRoomPlayersAsync(evt.Room.RoomId);
+                    RoomPlayers = new List<PlayerInfo>(players);
+                    Debug.Log($"[RoomManager] 房间玩家: {string.Join(", ", RoomPlayers.Select(p => p.SteamName))}");
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"[RoomManager] 获取房间玩家失败: {ex.Message}");
+                }
             }
-            catch (Exception ex)
+            else
             {
-                Debug.LogError($"[RoomManager] 获取房间玩家失败: {ex.Message}");
+
+                Debug.Log($"[RoomManager] ✅ 玩家加入房间: {evt.Player.SteamName} → 自动更新列表");
+                var idx = RoomPlayers.FindIndex(p => p.SteamId == evt.Player.SteamId);
+                if (idx >= 0)
+                {
+                    RoomPlayers[idx] = evt.Player;
+                    Debug.Log($"[RoomManager] 更新现有玩家信息: {evt.Player.SteamName}");
+                }
+                else
+                {
+                    RoomPlayers.Add(evt.Player);
+                    Debug.Log($"[RoomManager] 添加新玩家: {evt.Player.SteamName}, 当前总数: {RoomPlayers.Count}");
+                }
+
+                // 🔥 预加载玩家头像
+                if (GameContext.IsInitialized)
+                {
+                    GameContext.Instance.AvatarManager.PreloadAvatar(evt.Player.SteamId);
+                }
             }
+
+
+
         }
 
         private void OnRoomLeft(RoomLeftEvent evt)
         {
-            Debug.Log($"[RoomManager] 自己离开房间: {evt.Room.RoomId}");
-            CurrentRoom = null;
-            RoomPlayers.Clear();
+            if (evt.Player.SteamId == GameContext.Instance.PlayerManager.LocalPlayer.Info.SteamId)
+            {
+
+                Debug.Log($"[RoomManager] 自己离开房间: {evt.Room.RoomId}");
+                CurrentRoom = null;
+                RoomPlayers.Clear();
+            }
+            else
+            {
+                Debug.Log($"[RoomManager] ❌ 玩家离开房间: {evt.Player.SteamName} → 自动更新列表");
+                var idx = RoomPlayers.FindIndex(p => p.SteamId == evt.Player.SteamId);
+                if (idx >= 0)
+                {
+                    RoomPlayers.RemoveAt(idx);
+                    Debug.Log($"[RoomManager] 移除玩家: {evt.Player.SteamName}, 当前总数: {RoomPlayers.Count}");
+                }
+                else
+                {
+                    Debug.LogWarning($"[RoomManager] ⚠️ 尝试移除不存在的玩家: {evt.Player.SteamName}");
+                }
+            }
         }
 
         public void Dispose()

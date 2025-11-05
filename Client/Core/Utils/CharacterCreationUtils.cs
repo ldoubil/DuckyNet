@@ -306,47 +306,77 @@ namespace DuckyNet.Client.Core.Utils
         {
             yield return null; // 等待一帧，让 HealthBar 创建完成
             
-            // 查找对应的 HealthBar
             var healthBarManagerType = AccessTools.TypeByName("Duckov.UI.HealthBarManager");
-            if (healthBarManagerType != null)
+            if (healthBarManagerType == null)
             {
-                var instanceProp = AccessTools.Property(healthBarManagerType, "Instance");
-                object? healthBarManager = instanceProp?.GetValue(null);
+                UnityEngine.Debug.LogWarning("[CharacterCreationUtils] 未找到 HealthBarManager 类型");
+                yield break;
+            }
+            
+            var instanceProp = AccessTools.Property(healthBarManagerType, "Instance");
+            object? healthBarManager = instanceProp?.GetValue(null);
+            
+            if (healthBarManager == null)
+            {
+                UnityEngine.Debug.LogWarning("[CharacterCreationUtils] HealthBarManager.Instance 为空");
+                yield break;
+            }
+            
+            var getActiveHealthBarMethod = AccessTools.Method(healthBarManagerType, "GetActiveHealthBar");
+            
+            // 🔥 持续设置 5 秒，每 0.2 秒设置一次
+            // 这样可以覆盖任何因事件触发的 RefreshCharacterIcon()
+            float duration = 5f;
+            float interval = 0.2f;
+            float elapsed = 0f;
+            
+            while (elapsed < duration)
+            {
+                object? healthBar = getActiveHealthBarMethod?.Invoke(healthBarManager, new object[] { health });
                 
-                if (healthBarManager != null)
+                if (healthBar != null)
                 {
-                    var getActiveHealthBarMethod = AccessTools.Method(healthBarManagerType, "GetActiveHealthBar");
-                    object? healthBar = getActiveHealthBarMethod?.Invoke(healthBarManager, new object[] { health });
+                    // 直接设置 nameText
+                    var nameTextField = AccessTools.Field(healthBar.GetType(), "nameText");
+                    object? nameText = nameTextField?.GetValue(healthBar);
                     
-                    if (healthBar != null)
+                    if (nameText != null)
                     {
-                        // 直接设置 nameText
-                        var nameTextField = AccessTools.Field(healthBar.GetType(), "nameText");
-                        object? nameText = nameTextField?.GetValue(healthBar);
-                        
-                        if (nameText != null)
+                        var textProp = AccessTools.Property(nameText.GetType(), "text");
+                        if (textProp != null && textProp.CanWrite)
                         {
-                            var textProp = AccessTools.Property(nameText.GetType(), "text");
-                            if (textProp != null && textProp.CanWrite)
-                            {
-                                textProp.SetValue(nameText, displayName); // 🔥 使用传入的 displayName
-                                UnityEngine.Debug.Log($"[CharacterCreationUtils] 直接设置 HealthBar.nameText = {displayName}");
-                            }
+                            string currentText = textProp.GetValue(nameText)?.ToString() ?? "";
                             
-                            var gameObjectProp = AccessTools.Property(nameText.GetType(), "gameObject");
-                            object? gameObject = gameObjectProp?.GetValue(nameText);
-                            if (gameObject != null)
+                            // 只有当文本被改变时才重新设置
+                            if (currentText != displayName)
                             {
-                                var setActiveMethod = AccessTools.Method(gameObject.GetType(), "SetActive");
-                                setActiveMethod?.Invoke(gameObject, new object[] { true });
+                                textProp.SetValue(nameText, displayName);
+                                UnityEngine.Debug.Log($"[CharacterCreationUtils] 重新设置 HealthBar.nameText = {displayName} (被覆盖了，已修正)");
                             }
                         }
                         
-                        // 设置自定义图标
+                        var gameObjectProp = AccessTools.Property(nameText.GetType(), "gameObject");
+                        object? gameObject = gameObjectProp?.GetValue(nameText);
+                        if (gameObject != null)
+                        {
+                            var setActiveMethod = AccessTools.Method(gameObject.GetType(), "SetActive");
+                            setActiveMethod?.Invoke(gameObject, new object[] { true });
+                        }
+                    }
+                    
+                    // 首次设置图标（之后不重复设置）
+                    if (elapsed < interval)
+                    {
                         SetHealthBarIcon(healthBar, customIcon);
+                        UnityEngine.Debug.Log($"[CharacterCreationUtils] 初始设置 HealthBar 名字 = {displayName}");
                     }
                 }
+                
+                yield return new UnityEngine.WaitForSeconds(interval);
+                elapsed += interval;
             }
+            
+            UnityEngine.Debug.Log($"[CharacterCreationUtils] HealthBar 名字持续设置完成 ({duration}秒)");
         }
 
         private static void SetHealthBarIcon(object healthBar, UnityEngine.Sprite? customIcon)

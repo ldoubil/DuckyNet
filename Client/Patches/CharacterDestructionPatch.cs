@@ -79,12 +79,9 @@ namespace DuckyNet.Client.Patches
                     CharacterCreationPatch.RemoveCharacterId(characterMainControl);
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 // 静默处理异常，避免干扰正常的销毁流程
-                #if DEBUG || UNITY_EDITOR
-                Debug.LogWarning($"[CharacterDestructionPatch] 处理单位销毁失败: {ex.Message}");
-                #endif
             }
         }
     }

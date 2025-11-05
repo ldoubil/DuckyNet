@@ -17,6 +17,7 @@ namespace DuckyNet.Shared.Services.Generated
                 case "UnequipWeaponAsync": return _impl.UnequipWeaponAsync(ctx, (WeaponSlotUnequipRequest)args[0]);
                 case "SwitchWeaponSlotAsync": return _impl.SwitchWeaponSlotAsync(ctx, (WeaponSwitchRequest)args[0]);
                 case "NotifyWeaponFire": _impl.NotifyWeaponFire(ctx, (WeaponFireData)args[0]); return null;
+                case "NotifyWeaponFireBatch": _impl.NotifyWeaponFireBatch(ctx, (WeaponFireBatchData)args[0]); return null;
                 default: throw new Exception("Unknown method");
             }
         }

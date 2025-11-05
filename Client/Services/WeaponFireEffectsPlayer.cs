@@ -256,8 +256,15 @@ namespace DuckyNet.Client.Services
                     return;
                 }
 
-                // 🔥 FMOD 音效路径格式: event:/SFX/Combat/Gun/Shoot/{key}
-                string soundPath = $"event:/SFX/Combat/Gun/Shoot/{shootKey}";
+                // 🔥 构建 FMOD 音效路径
+                string soundPath;
+                
+              
+                    // shootKey 只是键名，需要拼接完整路径
+                    soundPath = $"SFX/Combat/Gun/Shoot/{shootKey}";
+                    Debug.Log($"[WeaponFireEffectsPlayer] 拼接完整路径: {soundPath}");
+                
+                // 添加消音后缀
                 if (isSilenced)
                 {
                     soundPath += "_mute";

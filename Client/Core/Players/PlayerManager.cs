@@ -51,22 +51,22 @@ namespace DuckyNet.Client.Core.Players
 
         /// <summary>
         /// 玩家加入房间 - 创建 RemotePlayer
+        /// 📌 可能在场景事件中已经创建（容错处理），需要检查重复
         /// </summary>
         private void OnPlayerJoinedRoom(PlayerJoinedRoomEvent @event)
         {
             Log($"[PlayerManager] ========== 收到 PlayerJoinedRoomEvent ==========");
             Log($"[PlayerManager] 玩家: {@event.Player.SteamName} ({@event.Player.SteamId})");
             Log($"[PlayerManager] 房间: {@event.Room.RoomName} ({@event.Room.RoomId})");
-            Log($"[PlayerManager] 本地玩家: {LocalPlayer.Info.SteamName} ({LocalPlayer.Info.SteamId})");
             
             // 排除本地玩家
             if (@event.Player.SteamId == LocalPlayer.Info.SteamId)
             {
-                Log($"[PlayerManager] ⚠️ 跳过：这是本地玩家");
+                Log($"[PlayerManager] ⚠️ 跳过本地玩家");
                 return;
             }
             
-            // 🔥 创建 RemotePlayer（不创建角色）
+            // 🔥 创建 RemotePlayer（如果不存在）
             if (!_remotePlayers.ContainsKey(@event.Player.SteamId))
             {
                 var remotePlayer = new RemotePlayer(@event.Player);
@@ -75,8 +75,10 @@ namespace DuckyNet.Client.Core.Players
             }
             else
             {
-                Log($"[PlayerManager] ⚠️ RemotePlayer 已存在: {@event.Player.SteamName}");
+                // 可能在场景事件中已经创建（容错处理）
+                Log($"[PlayerManager] RemotePlayer 已存在（可能是场景事件先到达）: {@event.Player.SteamName}");
             }
+            
             Log($"[PlayerManager] ========== 处理完成 ==========");
         }
 
@@ -103,42 +105,32 @@ namespace DuckyNet.Client.Core.Players
         }
 
         /// <summary>
-        /// 玩家进入场景 - 创建角色（RemotePlayer 必须已存在）
+        /// 玩家进入场景 - 确保 RemotePlayer 存在（容错处理）
+        /// 📌 场景进入事件可能比房间加入事件先到达，需要容错处理
+        /// 📌 RemotePlayer 会自己订阅 PlayerEnteredSceneEvent 并创建角色
         /// </summary>
         private void OnPlayerEnteredScene(PlayerEnteredSceneEvent @event)
         {
-            Log($"[PlayerManager] ========== 收到 PlayerEnteredSceneEvent ==========");
-            Log($"[PlayerManager] 玩家: {@event.PlayerInfo.SteamName} ({@event.PlayerInfo.SteamId})");
-            Log($"[PlayerManager] 事件场景: {@event.ScenelData.SceneName} / {@event.ScenelData.SubSceneName}");
-            Log($"[PlayerManager] 本地玩家: {LocalPlayer.Info.SteamName} ({LocalPlayer.Info.SteamId})");
-            Log($"[PlayerManager] 本地场景: {LocalPlayer.Info.CurrentScenelData.SceneName} / {LocalPlayer.Info.CurrentScenelData.SubSceneName}");
-            
             // 排除本地玩家
             if (@event.PlayerInfo.SteamId == LocalPlayer.Info.SteamId)
             {
-                Log($"[PlayerManager] ⚠️ 跳过：这是本地玩家");
+                Log($"[PlayerManager] ⚠️ 跳过本地玩家的场景事件");
                 return;
             }
-            
-            // 🔥 检查是否在同一场景
-            if (!IsInSameScene(@event.ScenelData))
+
+            // 🔥 容错处理：如果 RemotePlayer 不存在，先创建它
+            if (!_remotePlayers.ContainsKey(@event.PlayerInfo.SteamId))
             {
-                Log($"[PlayerManager] ⚠️ 跳过：玩家 {@event.PlayerInfo.SteamName} 在不同场景");
-                return;
+                Log($"[PlayerManager] ⚠️ RemotePlayer 不存在，先创建（可能是场景事件先于房间事件到达）: {@event.PlayerInfo.SteamName}");
+                
+                var remotePlayer = new RemotePlayer(@event.PlayerInfo);
+                _remotePlayers[@event.PlayerInfo.SteamId] = remotePlayer;
+                
+                Log($"[PlayerManager] ✅ 容错创建 RemotePlayer: {@event.PlayerInfo.SteamName}");
             }
             
-            // 🔥 RemotePlayer 必须已经存在（应该在加入房间时创建）
-            if (!_remotePlayers.TryGetValue(@event.PlayerInfo.SteamId, out var remotePlayer))
-            {
-                Log($"[PlayerManager] ⚠️⚠️⚠️ 错误：RemotePlayer 不存在，无法创建角色！玩家: {@event.PlayerInfo.SteamName}");
-                return;
-            }
-            
-            Log($"[PlayerManager] ✅ 玩家进入当前场景，RemotePlayer 已存在，等待位置同步创建角色");
-            // 🔥 注意：角色会在 RemotePlayer 收到位置同步时自动创建
-            // 🎯 角色创建后会发布 RemoteCharacterCreatedEvent，由 OnRemoteCharacterCreated 处理动画同步注册
-            
-            Log($"[PlayerManager] ========== 处理完成 ==========");
+            // RemotePlayer 会自己处理场景进入事件（订阅了 PlayerEnteredSceneEvent）
+            // 这里不需要额外操作
         }
 
         /// <summary>

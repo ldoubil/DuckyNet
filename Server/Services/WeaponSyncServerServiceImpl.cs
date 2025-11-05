@@ -252,7 +252,7 @@ namespace DuckyNet.Server.Services
         }
 
         /// <summary>
-        /// 广播武器通知
+        /// 广播武器通知（只发送给同房间且同场景的玩家）
         /// </summary>
         private void BroadcastWeaponNotification(PlayerInfo player, WeaponSlotUpdateNotification notification)
         {
@@ -268,8 +268,13 @@ namespace DuckyNet.Server.Services
 
             foreach (var roomPlayer in roomPlayers)
             {
+                // 跳过自己
                 if (roomPlayer.SteamId == player.SteamId)
-                    continue; // 跳过自己
+                    continue;
+
+                // 🔥 只广播给同一场景的玩家
+                if (!IsSameScene(player, roomPlayer))
+                    continue;
 
                 var clientId = _playerManager.GetClientIdBySteamId(roomPlayer.SteamId);
                 if (!string.IsNullOrEmpty(clientId))
@@ -283,12 +288,49 @@ namespace DuckyNet.Server.Services
                 _server.BroadcastToClients<IWeaponSyncClientService>(targetClientIds)
                     .OnWeaponSlotUpdated(notification);
 
-                Log($"武器更新已广播给 {targetClientIds.Count} 个玩家 (房间: {room.RoomId})", ConsoleColor.Cyan);
+                Log($"武器更新已广播给 {targetClientIds.Count} 个玩家 (房间: {room.RoomId}, 场景: {player.CurrentScenelData.SceneName})", ConsoleColor.Cyan);
             }
         }
 
         /// <summary>
-        /// 通知武器开火（播放特效）
+        /// 批量通知武器开火（播放特效）- 霰弹枪/连发武器优化
+        /// 🚀 性能优化：霰弹枪 8 发弹丸只需 1 次 RPC 调用
+        /// </summary>
+        public void NotifyWeaponFireBatch(IClientContext client, WeaponFireBatchData batchData)
+        {
+            if (client == null || batchData == null || batchData.BulletCount == 0)
+            {
+                Log("NotifyWeaponFireBatch 失败：无效参数", ConsoleColor.Red);
+                return;
+            }
+
+            var playerId = client.ClientId;
+            var player = _playerManager.GetPlayer(playerId);
+
+            if (player == null)
+            {
+                Log($"NotifyWeaponFireBatch 失败：找不到玩家 {playerId}", ConsoleColor.Red);
+                return;
+            }
+
+            try
+            {
+                // 设置 PlayerId
+                batchData.PlayerId = player.SteamId;
+
+                Log($"玩家 {player.SteamName} 批量开火: {batchData.BulletCount} 发子弹", ConsoleColor.Yellow);
+
+                // 🔥 批量广播给房间内的其他玩家
+                BroadcastWeaponFireBatchToRoom(player, batchData);
+            }
+            catch (Exception ex)
+            {
+                Log($"NotifyWeaponFireBatch 异常: {ex.Message}", ConsoleColor.Red);
+            }
+        }
+
+        /// <summary>
+        /// 通知武器开火（播放特效）- 单发
         /// </summary>
         public void NotifyWeaponFire(IClientContext client, WeaponFireData fireData)
         {
@@ -310,10 +352,6 @@ namespace DuckyNet.Server.Services
             try
             {
                 // 🔍 调试日志：服务器接收到的数据
-                Log($"📥 服务器接收到开火数据: {player.SteamName}", ConsoleColor.Yellow);
-                Log($"    • 位置: ({fireData.MuzzlePositionX:F3}, {fireData.MuzzlePositionY:F3}, {fireData.MuzzlePositionZ:F3})", ConsoleColor.Gray);
-                Log($"    • 方向: ({fireData.MuzzleDirectionX:F3}, {fireData.MuzzleDirectionY:F3}, {fireData.MuzzleDirectionZ:F3})", ConsoleColor.Gray);
-                Log($"    • 消音: {fireData.IsSilenced}", ConsoleColor.Gray);
 
                 // 设置 PlayerId
                 fireData.PlayerId = player.SteamId;
@@ -328,7 +366,7 @@ namespace DuckyNet.Server.Services
         }
 
         /// <summary>
-        /// 广播武器开火通知
+        /// 广播武器开火通知（只发送给同房间且同场景的玩家）
         /// </summary>
         private void BroadcastWeaponFireNotification(PlayerInfo player, WeaponFireData fireData)
         {
@@ -343,8 +381,13 @@ namespace DuckyNet.Server.Services
 
             foreach (var roomPlayer in roomPlayers)
             {
+                // 跳过自己
                 if (roomPlayer.SteamId == player.SteamId)
-                    continue; // 跳过自己
+                    continue;
+
+                // 🔥 只广播给同一场景的玩家
+                if (!IsSameScene(player, roomPlayer))
+                    continue;
 
                 var clientId = _playerManager.GetClientIdBySteamId(roomPlayer.SteamId);
                 if (!string.IsNullOrEmpty(clientId))
@@ -364,7 +407,7 @@ namespace DuckyNet.Server.Services
         }
 
         /// <summary>
-        /// 广播武器切换通知
+        /// 广播武器切换通知（只发送给同房间且同场景的玩家）
         /// </summary>
         private void BroadcastWeaponSwitchNotification(PlayerInfo player, WeaponSwitchNotification notification)
         {
@@ -380,8 +423,13 @@ namespace DuckyNet.Server.Services
 
             foreach (var roomPlayer in roomPlayers)
             {
+                // 跳过自己
                 if (roomPlayer.SteamId == player.SteamId)
-                    continue; // 跳过自己
+                    continue;
+
+                // 🔥 只广播给同一场景的玩家
+                if (!IsSameScene(player, roomPlayer))
+                    continue;
 
                 var clientId = _playerManager.GetClientIdBySteamId(roomPlayer.SteamId);
                 if (!string.IsNullOrEmpty(clientId))
@@ -395,12 +443,12 @@ namespace DuckyNet.Server.Services
                 _server.BroadcastToClients<IWeaponSyncClientService>(targetClientIds)
                     .OnWeaponSwitched(notification);
 
-                Log($"武器切换已广播给 {targetClientIds.Count} 个玩家: {notification.CurrentWeaponSlot}", ConsoleColor.Cyan);
+                Log($"武器切换已广播给 {targetClientIds.Count} 个玩家: {notification.CurrentWeaponSlot} (场景: {player.CurrentScenelData.SceneName})", ConsoleColor.Cyan);
             }
         }
 
         /// <summary>
-        /// 广播武器射击特效
+        /// 广播武器射击特效（只发送给同房间且同场景的玩家）
         /// </summary>
         private void BroadcastWeaponFireToRoom(PlayerInfo player, WeaponFireData fireData)
         {
@@ -415,8 +463,13 @@ namespace DuckyNet.Server.Services
 
             foreach (var roomPlayer in roomPlayers)
             {
+                // 跳过自己
                 if (roomPlayer.SteamId == player.SteamId)
-                    continue; // 跳过自己
+                    continue;
+
+                // 🔥 只广播给同一场景的玩家
+                if (!IsSameScene(player, roomPlayer))
+                    continue;
 
                 var clientId = _playerManager.GetClientIdBySteamId(roomPlayer.SteamId);
                 if (!string.IsNullOrEmpty(clientId))
@@ -473,6 +526,65 @@ namespace DuckyNet.Server.Services
             {
                 Log($"SendAllWeaponDataToPlayer 失败: {ex.Message}", ConsoleColor.Red);
             }
+        }
+
+        /// <summary>
+        /// 批量广播武器射击特效（只发送给同房间且同场景的玩家）
+        /// 🚀 性能优化：霰弹枪 8 发弹丸一次性广播
+        /// </summary>
+        private void BroadcastWeaponFireBatchToRoom(PlayerInfo player, WeaponFireBatchData batchData)
+        {
+            var room = _roomManager.GetPlayerRoom(player);
+            if (room == null)
+            {
+                return; // 不在房间中，无需广播
+            }
+
+            var roomPlayers = _roomManager.GetRoomPlayers(room.RoomId);
+            var targetClientIds = new List<string>();
+
+            foreach (var roomPlayer in roomPlayers)
+            {
+                // 跳过自己
+                if (roomPlayer.SteamId == player.SteamId)
+                    continue;
+
+                // 🔥 只广播给同一场景的玩家
+                if (!IsSameScene(player, roomPlayer))
+                    continue;
+
+                var clientId = _playerManager.GetClientIdBySteamId(roomPlayer.SteamId);
+                if (!string.IsNullOrEmpty(clientId))
+                {
+                    targetClientIds.Add(clientId);
+                }
+            }
+
+            if (targetClientIds.Count > 0)
+            {
+                // 🔥 转换为 WeaponFireData 数组并逐个发送
+                var fireDataArray = batchData.ToFireDataArray();
+                
+                foreach (var fireData in fireDataArray)
+                {
+                    _server.BroadcastToClients<IWeaponSyncClientService>(targetClientIds)
+                        .OnWeaponFired(fireData);
+                }
+
+                Log($"批量开火特效已广播: {batchData.BulletCount} 发子弹 → {targetClientIds.Count} 个玩家", ConsoleColor.Yellow);
+            }
+        }
+
+        /// <summary>
+        /// 检查两个玩家是否在同一场景
+        /// </summary>
+        private bool IsSameScene(PlayerInfo player1, PlayerInfo player2)
+        {
+            if (player1.CurrentScenelData == null || player2.CurrentScenelData == null)
+                return false;
+
+            return player1.CurrentScenelData.SceneName == player2.CurrentScenelData.SceneName &&
+                   player1.CurrentScenelData.SubSceneName == player2.CurrentScenelData.SubSceneName;
         }
 
         private void Log(string message, ConsoleColor color = ConsoleColor.White)

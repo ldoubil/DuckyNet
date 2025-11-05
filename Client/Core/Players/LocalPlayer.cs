@@ -25,6 +25,7 @@ namespace DuckyNet.Client.Core.Players
         private CharacterMainControl? _characterMainControl;
         private ClientServerContext? _serverContext;
         private PlayerUnitySyncServiceClientProxy? _playerService;
+        private SceneServiceClientProxy? _sceneServiceClient;
 
         // 位置同步相关
         private Vector3 _lastSyncedPosition;
@@ -50,8 +51,42 @@ namespace DuckyNet.Client.Core.Players
             _eventSubscriber.Subscribe<SceneUnloadingDetailEvent>(OnSceneUnloading);
             _eventSubscriber.Subscribe<RoomJoinedEvent>(OnRoomJoined);
             _eventSubscriber.Subscribe<RoomLeftEvent>(OnRoomLeft);
+            // 加入场景
+            _eventSubscriber.Subscribe<PlayerEnteredSceneEvent>(OnPlayerEnteredScene);
+            _eventSubscriber.Subscribe<PlayerLeftSceneEvent>(OnPlayerLeftScene);
             _eventSubscriber.Subscribe<LocalPlayerShootEvent>(OnLocalPlayerShoot);
+            _eventSubscriber.Subscribe<BeforeDamageAppliedEvent>(OnBeforeDamageApplied);
             Initialize();
+        }
+
+        private void OnBeforeDamageApplied(BeforeDamageAppliedEvent @event)
+        {
+            // 判断受伤的是否是当前 LocalPlayer 实例的角色
+   
+        }
+
+        private void OnPlayerLeftScene(PlayerLeftSceneEvent @event)
+        {
+
+        }
+
+        private void OnPlayerEnteredScene(PlayerEnteredSceneEvent @event)
+        {
+            if (@event.PlayerInfo.SteamId != Info.SteamId)
+            {
+                return;
+            }
+            if (CharacterObject != null && !string.IsNullOrEmpty(Info.CurrentScenelData.SceneName))
+            {
+                SendImmediatePositionSync();
+
+                // 如果角色已创建，立即上传外观数据
+                UploadAppearanceData();
+
+                // 🔥 立即上传装备数据和武器数据
+                UploadEquipmentData();
+                UploadWeaponData();
+            }
         }
 
         /// <summary>
@@ -68,18 +103,6 @@ namespace DuckyNet.Client.Core.Players
                     gunName = gunComponent.gameObject.name;
                 }
 
-                // 输出开枪坐标信息到控制台（6位小数精度）
-                UnityEngine.Debug.Log("═══════════════════════════════════════");
-                UnityEngine.Debug.Log($"🔫 [本地玩家开枪]");
-                UnityEngine.Debug.Log($"    • 枪口位置: ({evt.MuzzlePosition.x:F6}, {evt.MuzzlePosition.y:F6}, {evt.MuzzlePosition.z:F6})");
-                UnityEngine.Debug.Log($"    • 射击方向: ({evt.ShootDirection.x:F6}, {evt.ShootDirection.y:F6}, {evt.ShootDirection.z:F6})");
-                UnityEngine.Debug.Log($"    • 枪口名称: {evt.Muzzle?.name ?? "Unknown"}");
-                UnityEngine.Debug.Log($"    • 枪械对象: {gunName}");
-                UnityEngine.Debug.Log("═══════════════════════════════════════");
-
-                // TODO: 在这里添加网络同步逻辑
-                // 例如：将开枪事件发送到服务器
-                // _playerService.SendShootEvent(evt.MuzzlePosition, evt.ShootDirection);
             }
             catch (Exception ex)
             {
@@ -89,21 +112,28 @@ namespace DuckyNet.Client.Core.Players
 
         private void OnRoomJoined(RoomJoinedEvent @event)
         {
+            if (@event.Player.SteamId != Info.SteamId)
+            {
+                return;
+            }
             UnityEngine.Debug.Log($"[LocalPlayer] 加入房间: {@event.Room.RoomId}，启动位置同步");
 
-            // 🔥 关键修复：如果已经在场景中，立即发送一次位置同步
             // 这样其他玩家加入房间时,服务器缓存中就有我的位置了
             if (CharacterObject != null && !string.IsNullOrEmpty(Info.CurrentScenelData.SceneName))
             {
-                UnityEngine.Debug.Log($"[LocalPlayer] 🔥 已在场景中，立即发送位置同步");
                 SendImmediatePositionSync();
 
                 // 如果角色已创建，立即上传外观数据
                 UploadAppearanceData();
-                
+
                 // 🔥 立即上传装备数据和武器数据
                 UploadEquipmentData();
                 UploadWeaponData();
+            }
+            // 发送加入场景
+            if (Info.CurrentScenelData.SceneName != "" && Info.CurrentScenelData.SubSceneName != "")
+            {
+                _sceneServiceClient?.EnterSceneAsync(Info.CurrentScenelData);
             }
 
             StartMainThreadSync();
@@ -111,12 +141,17 @@ namespace DuckyNet.Client.Core.Players
 
         private void OnRoomLeft(RoomLeftEvent @event)
         {
+            if (@event.Player.SteamId != Info.SteamId)
+            {
+                return;
+            }
             UnityEngine.Debug.Log($"[LocalPlayer] 离开房间: {@event.Room.RoomId}，停止位置同步");
             StopMainThreadSync();
         }
 
         private void OnSceneUnloading(SceneUnloadingDetailEvent @event)
         {
+            _sceneServiceClient?.LeaveSceneAsync(Info.CurrentScenelData);
             Info.CurrentScenelData = new ScenelData("", "");
 
             // 🔥 修复：更新 RoomManager.RoomPlayers 中自己的场景信息
@@ -153,18 +188,17 @@ namespace DuckyNet.Client.Core.Players
                 if (myself != null)
                 {
                     myself.CurrentScenelData = @event.ScenelData;
-                    UnityEngine.Debug.Log($"[LocalPlayer] ✅ 已更新房间列表中自己的场景信息: {@event.ScenelData.SceneName}/{@event.ScenelData.SubSceneName}");
                 }
             }
-
-            // 🔥 场景加载完成，角色已创建，上传外观数据、装备数据和武器数据
+            _sceneServiceClient?.EnterSceneAsync(Info.CurrentScenelData);
             if (CharacterObject != null)
             {
-                UnityEngine.Debug.Log($"[LocalPlayer] 场景加载完成，角色已创建，准备上传外观数据、装备数据和武器数据");
                 UploadAppearanceData();
                 UploadEquipmentData();
                 UploadWeaponData();
             }
+
+
 
             // 注意：不在这里启动同步，由加入房间事件触发
         }
@@ -181,6 +215,7 @@ namespace DuckyNet.Client.Core.Players
                 {
                     _serverContext = new ClientServerContext(GameContext.Instance.RpcClient);
                     _playerService = new PlayerUnitySyncServiceClientProxy(_serverContext);
+                    _sceneServiceClient = new SceneServiceClientProxy(_serverContext);
                     UnityEngine.Debug.Log($"[LocalPlayer] RPC 客户端已初始化");
                 }
                 else
@@ -481,14 +516,6 @@ namespace DuckyNet.Client.Core.Players
                 _lastSyncedRotation = currentRotation;
                 _lastSyncedVelocity = currentVelocity;
 
-                // 可选：输出调试日志
-                // string roomId = GameContext.Instance?.RoomManager?.CurrentRoom?.RoomId ?? "Unknown";
-                // float yRotation = currentRotation.eulerAngles.y;
-                // UnityEngine.Debug.Log($"[LocalPlayer] 发送同步数据: " +
-                //     $"Pos({currentPosition.x:F2},{currentPosition.y:F2},{currentPosition.z:F2}) " +
-                //     $"Rot(Y:{yRotation:F1}°) " +
-                //     $"Vel({currentVelocity.x:F2},{currentVelocity.y:F2},{currentVelocity.z:F2}) " +
-                //     $"房间:{roomId} 场景:{Info.CurrentScenelData.SceneName}/{Info.CurrentScenelData.SubSceneName}");
             }
             catch (Exception ex)
             {
@@ -650,7 +677,7 @@ namespace DuckyNet.Client.Core.Players
                 }
 
                 var characterItem = characterMainControl.CharacterItem;
-                
+
                 // 获取所有装备槽位
                 var equipmentSlots = new[]
                 {
@@ -725,7 +752,7 @@ namespace DuckyNet.Client.Core.Players
                 }
 
                 var characterItem = characterMainControl.CharacterItem;
-                
+
                 // 获取所有武器槽位
                 var weaponSlots = new[]
                 {
@@ -797,7 +824,7 @@ namespace DuckyNet.Client.Core.Players
 
                 // 确定当前武器在哪个槽位
                 Shared.Data.WeaponSlotType? slotType = null;
-                
+
                 if (characterMainControl.PrimWeaponSlot()?.Content == currentWeapon)
                     slotType = Shared.Data.WeaponSlotType.PrimaryWeapon;
                 else if (characterMainControl.SecWeaponSlot()?.Content == currentWeapon)

@@ -119,12 +119,9 @@ namespace DuckyNet.Client.Patches
                 Debug.Log($"[CharacterDeathPatch] 💀 单位死亡: ID={characterId}, Name={gameObject?.name ?? "Unknown"}");
                 #endif
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 // 静默处理异常，避免干扰游戏流程
-                #if DEBUG || UNITY_EDITOR
-                Debug.LogWarning($"[CharacterDeathPatch] 处理死亡事件失败: {ex.Message}");
-                #endif
             }
         }
     }

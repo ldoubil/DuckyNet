@@ -31,10 +31,17 @@ namespace DuckyNet.Shared.Services
         Task<bool> SwitchWeaponSlotAsync(IClientContext client, WeaponSwitchRequest request);
 
         /// <summary>
-        /// 通知武器开火（播放特效）
+        /// 通知武器开火（播放特效）- 单发
         /// </summary>
         [ClientToServer]
         void NotifyWeaponFire(IClientContext client, WeaponFireData fireData);
+
+        /// <summary>
+        /// 批量通知武器开火（播放特效）- 多发（霰弹枪/连发武器优化）
+        /// 🚀 性能优化：霰弹枪 8 发弹丸只需 1 次 RPC 调用
+        /// </summary>
+        [ClientToServer]
+        void NotifyWeaponFireBatch(IClientContext client, WeaponFireBatchData batchData);
     }
 
     /// <summary>

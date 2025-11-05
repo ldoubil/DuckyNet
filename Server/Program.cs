@@ -79,7 +79,7 @@ namespace DuckyNet.Server
                 _server.ClientDisconnected += OnClientDisconnected;
 
                 // 启动服务器
-                int port = 2025;
+                int port = 9050;
                 _server.Start(port);
                 Console.WriteLine($"[Server] Started on port {port}");
                 Console.WriteLine("[Server] Login timeout: 3 seconds");

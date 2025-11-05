@@ -45,7 +45,6 @@ namespace DuckyNet.Client
 
                 // 初始化调试控制台（最先初始化，方便查看后续日志）
                 ConsoleModule.Initialize();
-                ConsoleModule.WriteSeparator("DuckyNet 模组加载中");
 
                 // 输出模组加载信息
                 LogModInfo();
@@ -56,7 +55,6 @@ namespace DuckyNet.Client
                 // 初始化游戏上下文
                 InitializeGameContext();
 
-                ConsoleModule.WriteSeparator("DuckyNet 模组加载完成");
                 Debug.Log("[DuckyNet] Mod Loaded!");
             }
             catch (Exception ex)
@@ -146,6 +144,8 @@ namespace DuckyNet.Client
             Core.Utils.WeaponEffectsPlayer.Initialize();
             Services.WeaponFireEffectsPlayer.Initialize();
             Debug.Log("[ModBehaviour] 武器特效系统已预初始化");
+
+    
 
             // 创建网络生命周期管理器
             var lifecycleManager = new Core.NetworkLifecycleManager(context);
@@ -312,6 +312,8 @@ namespace DuckyNet.Client
                 _localPlayerShootBridge?.Dispose();
                 _localPlayerShootBridge = null;
 
+                // 清理伤害修改监听器
+
                 // 注意：RPC 客户端会在 Disconnect 时自动清理事件订阅
 
                 // 清理游戏上下文（会自动清理所有服务）
@@ -320,7 +322,6 @@ namespace DuckyNet.Client
                 Debug.Log("[ModBehaviour] Mod 已卸载");
 
                 // 最后清理控制台（确保所有日志都能输出）
-                ConsoleModule.WriteSeparator("DuckyNet 模组已卸载");
                 ConsoleModule.Cleanup();
             }
             catch (Exception ex)

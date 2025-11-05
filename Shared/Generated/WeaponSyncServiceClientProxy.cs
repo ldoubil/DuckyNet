@@ -17,5 +17,6 @@ namespace DuckyNet.Shared.Services.Generated
         public Task<bool> UnequipWeaponAsync(WeaponSlotUnequipRequest request) => _ctx.InvokeAsync<DuckyNet.Shared.Services.IWeaponSyncService, bool>("UnequipWeaponAsync", request);
         public Task<bool> SwitchWeaponSlotAsync(WeaponSwitchRequest request) => _ctx.InvokeAsync<DuckyNet.Shared.Services.IWeaponSyncService, bool>("SwitchWeaponSlotAsync", request);
         public void NotifyWeaponFire(WeaponFireData fireData) => _ctx.Invoke<DuckyNet.Shared.Services.IWeaponSyncService>("NotifyWeaponFire", fireData);
+        public void NotifyWeaponFireBatch(WeaponFireBatchData batchData) => _ctx.Invoke<DuckyNet.Shared.Services.IWeaponSyncService>("NotifyWeaponFireBatch", batchData);
     }
 }

@@ -31,9 +31,21 @@ namespace DuckyNet.Client.Core.EventBus.Events
             Room = room;
         }
     }
+    /// <summary>
+    /// 被踢出房间事件
+    /// </summary>
+    public class KickedFromRoomEvent
+    {
+        public string Reason { get; }
+        
+        public KickedFromRoomEvent(string reason)
+        {
+            Reason = reason;
+        }
+    }
 
     /// <summary>
-    /// 其他玩家加入房间事件
+    /// 玩家加入房间事件（其他玩家加入房间）
     /// </summary>
     public class PlayerJoinedRoomEvent
     {
@@ -48,7 +60,7 @@ namespace DuckyNet.Client.Core.EventBus.Events
     }
 
     /// <summary>
-    /// 其他玩家离开房间事件
+    /// 玩家离开房间事件（其他玩家离开房间）
     /// </summary>
     public class PlayerLeftRoomEvent
     {
@@ -59,19 +71,6 @@ namespace DuckyNet.Client.Core.EventBus.Events
         {
             Player = player;
             Room = room;
-        }
-    }
-
-    /// <summary>
-    /// 被踢出房间事件
-    /// </summary>
-    public class KickedFromRoomEvent
-    {
-        public string Reason { get; }
-        
-        public KickedFromRoomEvent(string reason)
-        {
-            Reason = reason;
         }
     }
 }

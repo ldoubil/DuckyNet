@@ -31,7 +31,7 @@ namespace DuckyNet.Client.UI
 
         // 连接页面
         private string _serverAddress = "127.0.0.1";
-        private string _serverPort = "2025";
+        private string _serverPort = "9050";
         private string _connectionStatus = "";
         private bool _isConnecting = false;
 

@@ -7,6 +7,14 @@ namespace DuckyNet.Client.Core.Utils
 {
     /// <summary>
     /// 独立的控制台模块，负责创建调试控制台窗口、日志重定向和彩色输出
+    /// 
+    /// 🔥 条件编译说明：
+    /// - DEBUG 模式：创建控制台窗口，输出所有日志
+    /// - RELEASE 模式：不创建控制台窗口，所有控制台方法为空操作
+    /// 
+    /// 编译配置：
+    /// - Debug 编译：包含所有控制台功能
+    /// - Release 编译：移除所有控制台代码，减少性能开销
     /// </summary>
     public static class ConsoleModule
     {
@@ -45,6 +53,7 @@ namespace DuckyNet.Client.Core.Utils
 
         /// <summary>
         /// 初始化控制台模块
+        /// 🔥 只在 DEBUG 模式下创建控制台窗口
         /// </summary>
         public static void Initialize()
         {
@@ -54,18 +63,23 @@ namespace DuckyNet.Client.Core.Utils
                 return;
             }
 
+#if DEBUG
             try
             {
                 CreateConsoleWindow();
                 SetupUnityLogRedirection();
                 _isInitialized = true;
                 
-                Write("[DuckyNet] ConsoleModule 初始化成功 ✓");
+                Write("[DuckyNet] ConsoleModule 初始化成功 ✓ (DEBUG 模式)");
             }
             catch (Exception ex)
             {
                 UnityEngine.Debug.LogError($"[DuckyNet] ConsoleModule 初始化失败: {ex.Message}");
             }
+#else
+            UnityEngine.Debug.Log("[DuckyNet] ConsoleModule 跳过初始化 (Release 模式)");
+            _isInitialized = false;
+#endif
         }
 
         /// <summary>
@@ -73,6 +87,7 @@ namespace DuckyNet.Client.Core.Utils
         /// </summary>
         public static void Cleanup()
         {
+#if DEBUG
             if (!_isInitialized) return;
 
             try
@@ -102,13 +117,16 @@ namespace DuckyNet.Client.Core.Utils
             {
                 UnityEngine.Debug.LogError($"[DuckyNet] ConsoleModule 清理失败: {ex.Message}");
             }
+#endif
         }
 
         /// <summary>
         /// 向控制台写入消息（支持自动颜色）
+        /// 🔥 只在 DEBUG 模式下输出到控制台
         /// </summary>
         public static void Write(string message, ConsoleColor? color = null)
         {
+#if DEBUG
             if (!_isInitialized || _consoleWriter == null) return;
 
             try
@@ -128,13 +146,16 @@ namespace DuckyNet.Client.Core.Utils
             {
                 UnityEngine.Debug.LogError($"[DuckyNet] 控制台写入失败: {ex.Message}");
             }
+#endif
         }
 
         /// <summary>
         /// 输出分隔线
+        /// 🔥 只在 DEBUG 模式下输出
         /// </summary>
         public static void WriteSeparator(string? title = null)
         {
+#if DEBUG
             if (!_isInitialized || _consoleWriter == null) return;
 
             try
@@ -164,18 +185,22 @@ namespace DuckyNet.Client.Core.Utils
             {
                 UnityEngine.Debug.LogError($"[DuckyNet] 控制台分隔线输出失败: {ex.Message}");
             }
+#endif
         }
 
         /// <summary>
         /// 输出欢迎信息
+        /// 🔥 只在 DEBUG 模式下输出
         /// </summary>
         public static void WriteWelcome()
         {
+#if DEBUG
             WriteSeparator("DuckyNet 调试控制台");
             Write($"时间: {DateTime.Now:yyyy-MM-dd HH:mm:ss}", ConsoleColor.Cyan);
             Write($"版本: v2.2", ConsoleColor.Cyan);
             Write($"中文测试: 你好世界！🦆", ConsoleColor.Green);
             WriteSeparator();
+#endif
         }
 
         #region 私有方法

@@ -44,6 +44,7 @@ namespace DuckyNet.Shared.RPC.Generated
                 typeof(DuckyNet.Shared.Data.ItemPickupRequest),
                 typeof(DuckyNet.Shared.Data.ScenelData),
                 typeof(DuckyNet.Shared.Data.UnitySyncData),
+                typeof(DuckyNet.Shared.Data.WeaponFireBatchData),
                 typeof(DuckyNet.Shared.Data.WeaponFireData),
                 typeof(DuckyNet.Shared.Data.WeaponSlotUnequipRequest),
                 typeof(DuckyNet.Shared.Data.WeaponSlotUpdateNotification),
