@@ -54,14 +54,20 @@ namespace DuckyNet.Client.UI
         /// 待创建房间描述
         /// </summary>
         private string _newRoomDescription = "";
-        /// <summary>
-        /// 待创建房间最大人数（2-16）
-        /// </summary>
-        private int _newRoomMaxPlayers = 8;
+    /// <summary>
+    /// 待创建房间最大人数（2-16）
+    /// </summary>
+    private int _newRoomMaxPlayers = 8;
 
-        /// <summary>
-        /// 构造函数
-        /// </summary>
+    // 加入房间密码输入（每个房间独立的密码输入框）
+    /// <summary>
+    /// 房间密码输入字典（RoomId -> Password）
+    /// </summary>
+    private Dictionary<string, string> _roomPasswords = new Dictionary<string, string>();
+
+    /// <summary>
+    /// 构造函数
+    /// </summary>
         /// <param name="client">用于与服务器交互的 RPC 客户端</param>
         /// <param name="mainWindow">主菜单窗口，用于页面切换</param>
         public LobbyPage(RpcClient client, MainMenuWindow mainWindow)
@@ -121,29 +127,71 @@ namespace DuckyNet.Client.UI
         {
             // 房间列表
             GUILayout.Label($"房间列表 ({_roomList.Count})", GUI.skin.box);
-            _scrollPos = GUILayout.BeginScrollView(_scrollPos, GUILayout.Height(150));
+            _scrollPos = GUILayout.BeginScrollView(_scrollPos, GUILayout.Height(200));
 
             foreach (var room in _roomList)
             {
-                GUILayout.BeginHorizontal(GUI.skin.box);
-
+                GUILayout.BeginVertical(GUI.skin.box);
+                
+                // 第一行：房间名称 + 是否加密
+                GUILayout.BeginHorizontal();
                 string lockIcon = room.RequirePassword ? "🔒" : "🔓";
-                GUILayout.Label($"{lockIcon} {room.RoomName}");
+                GUILayout.Label($"{lockIcon} {room.RoomName}", GUILayout.Width(200));
+                GUILayout.Label($"[{room.CurrentPlayers}/{room.MaxPlayers}]", GUILayout.Width(50));
                 GUILayout.FlexibleSpace();
-                GUILayout.Label($"{room.CurrentPlayers}/{room.MaxPlayers}");
+                GUILayout.EndHorizontal();
 
-                if (GUILayout.Button("加入", GUILayout.Width(60)))
+                // 第二行：简介
+                if (!string.IsNullOrEmpty(room.Description))
                 {
-                    JoinRoomAsync(room.RoomId, room.RequirePassword);
+                    GUILayout.Label($"简介: {room.Description}");
+                }
+                else
+                {
+                    GUILayout.Label("简介: (无)", GUI.skin.label);
+                }
+
+                // 第三行：密码输入框（如果需要）+ 加入按钮
+                GUILayout.BeginHorizontal();
+                
+                if (room.RequirePassword)
+                {
+                    GUILayout.Label("密码:", GUILayout.Width(40));
+                    
+                    // 确保字典中有这个房间的条目
+                    if (!_roomPasswords.ContainsKey(room.RoomId))
+                    {
+                        _roomPasswords[room.RoomId] = "";
+                    }
+                    
+                    _roomPasswords[room.RoomId] = GUILayout.PasswordField(_roomPasswords[room.RoomId], '*', GUILayout.Width(120));
+                }
+                else
+                {
+                    GUILayout.FlexibleSpace();
+                }
+                
+                GUILayout.FlexibleSpace();
+                
+                if (GUILayout.Button("加入", GUILayout.Width(80)))
+                {
+                    string password = room.RequirePassword && _roomPasswords.ContainsKey(room.RoomId) 
+                        ? _roomPasswords[room.RoomId] 
+                        : "";
+                    JoinRoomAsync(room.RoomId, password);
                 }
 
                 GUILayout.EndHorizontal();
+                
+                GUILayout.EndVertical();
+                GUILayout.Space(5);
             }
 
             GUILayout.EndScrollView();
 
             GUILayout.Space(10);
         }
+
 
         /// <summary>
         /// 绘制创建房间区域
@@ -160,7 +208,8 @@ namespace DuckyNet.Client.UI
 
             GUILayout.BeginHorizontal();
             GUILayout.Label("密码:", GUILayout.Width(80));
-            _newRoomPassword = GUILayout.TextField(_newRoomPassword);
+            _newRoomPassword = GUILayout.PasswordField(_newRoomPassword, '*');
+            GUILayout.Label("(可选)", GUILayout.Width(50));
             GUILayout.EndHorizontal();
 
             GUILayout.BeginHorizontal();
@@ -248,18 +297,10 @@ namespace DuckyNet.Client.UI
             }
         }
 
-        private async void JoinRoomAsync(string roomId, bool requirePassword)
+        private async void JoinRoomAsync(string roomId, string password)
         {
             try
             {
-                string password = "";
-                if (requirePassword)
-                {
-                    // 这里应弹出密码输入对话框，获取玩家输入的密码
-                    // 临时占位实现：使用固定值，后续请替换为实际 UI 交互
-                    password = "1234";
-                }
-
                 var request = new JoinRoomRequest
                 {
                     RoomId = roomId,

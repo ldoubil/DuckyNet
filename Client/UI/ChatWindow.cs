@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using DuckyNet.Client.RPC;
 using DuckyNet.Client.Core;
+using DuckyNet.Client.Patches;
 using DuckyNet.Shared.Services;
 using DuckyNet.Shared.Services.Generated;
 
@@ -149,6 +150,7 @@ namespace DuckyNet.Client.UI
         {
             _isVisible = false;
             _showInput = false;
+            InputBlockingPatch.ShouldBlockGameInput = false;
         }
 
         public void OnGUI()
@@ -156,6 +158,14 @@ namespace DuckyNet.Client.UI
             if (!_isVisible) return;
 
             InitializeStyles();
+            
+            // 更新输入屏蔽状态
+            bool shouldBlock = _showInput;
+            if (InputBlockingPatch.ShouldBlockGameInput != shouldBlock)
+            {
+                Debug.Log($"[ChatWindow] 更新输入屏蔽状态: {InputBlockingPatch.ShouldBlockGameInput} -> {shouldBlock}");
+                InputBlockingPatch.ShouldBlockGameInput = shouldBlock;
+            }
             
             // 计算渐隐效果
             if (_messages.Count > 0 && !_showInput)
@@ -199,6 +209,7 @@ namespace DuckyNet.Client.UI
                         _showInput = false;
                         _inputMessage = string.Empty;
                         GUI.FocusControl(null);
+                        InputBlockingPatch.ShouldBlockGameInput = false;
                     }
                     e.Use();
                     return;
@@ -208,6 +219,7 @@ namespace DuckyNet.Client.UI
                     _showInput = false;
                     _inputMessage = string.Empty;
                     GUI.FocusControl(null);
+                    InputBlockingPatch.ShouldBlockGameInput = false;
                     e.Use();
                     return;
                 }
@@ -218,6 +230,7 @@ namespace DuckyNet.Client.UI
                 {
                     _showInput = true;
                     _fadeAlpha = 1f;
+                    InputBlockingPatch.ShouldBlockGameInput = true; // 立即屏蔽游戏输入
                     e.Use();
                 }
             }
@@ -231,6 +244,7 @@ namespace DuckyNet.Client.UI
                     _showInput = false;
                     _inputMessage = string.Empty;
                     GUI.FocusControl(null);
+                    InputBlockingPatch.ShouldBlockGameInput = false;
                     e.Use();
                 }
             }
@@ -457,6 +471,9 @@ namespace DuckyNet.Client.UI
 
         public void Dispose()
         {
+            // 确保清除输入屏蔽状态
+            InputBlockingPatch.ShouldBlockGameInput = false;
+            
             _messages.Clear();
         }
     }

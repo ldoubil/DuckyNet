@@ -30,6 +30,7 @@ namespace DuckyNet.Client.Core
             _eventSubscriber.EnsureInitializedAndSubscribe();
             _eventSubscriber.Subscribe<RoomJoinedEvent>(OnRoomJoined);
             _eventSubscriber.Subscribe<RoomLeftEvent>(OnRoomLeft);
+            _eventSubscriber.Subscribe<NetworkDisconnectedEvent>(OnNetworkDisconnected);
             Debug.Log("[RoomManager] 构造函数完成 (事件已订阅)");
             var serverContext = new ClientServerContext(GameContext.Instance.RpcClient);
             _roomServiceClient = new RoomServiceClientProxy(serverContext);
@@ -55,14 +56,38 @@ namespace DuckyNet.Client.Core
             if (CurrentRoom == null) return;
             try
             {
+                var oldPlayers = RoomPlayers.ToList(); // 保存旧列表
                 var players = await _roomServiceClient.GetRoomPlayersAsync(CurrentRoom.RoomId);
                 RoomPlayers = new List<PlayerInfo>(players);
+                
                 // 详情打印 RoomPlayers
                 foreach (var player in RoomPlayers)
                 {
                     Debug.Log($"[RoomManager] 玩家: {player.SteamName}, 场景: {player.CurrentScenelData.SceneName}, 子场景: {player.CurrentScenelData.SubSceneName}");
                 }
                 Debug.Log($"[RoomManager] 刷新房间玩家: {RoomPlayers.Count}");
+                
+                // 🔥 关键修复：对比新旧列表，为新增玩家发布 PlayerJoinedRoomEvent
+                if (GameContext.IsInitialized && CurrentRoom != null)
+                {
+                    var localSteamId = GameContext.Instance.PlayerManager.LocalPlayer.Info.SteamId;
+                    
+                    foreach (var newPlayer in RoomPlayers)
+                    {
+                        // 跳过自己
+                        if (newPlayer.SteamId == localSteamId)
+                            continue;
+                        
+                        // 检查是否是新玩家（不在旧列表中）
+                        bool isNewPlayer = !oldPlayers.Any(p => p.SteamId == newPlayer.SteamId);
+                        
+                        if (isNewPlayer)
+                        {
+                            Debug.Log($"[RoomManager] 🔥 检测到新玩家，发布 PlayerJoinedRoomEvent: {newPlayer.SteamName}");
+                            GameContext.Instance.EventBus.Publish(new PlayerJoinedRoomEvent(newPlayer, CurrentRoom));
+                        }
+                    }
+                }
             }
             catch (System.Exception ex)
             {
@@ -107,6 +132,27 @@ namespace DuckyNet.Client.Core
                     var players = await _roomServiceClient.GetRoomPlayersAsync(evt.Room.RoomId);
                     RoomPlayers = new List<PlayerInfo>(players);
                     Debug.Log($"[RoomManager] 房间玩家: {string.Join(", ", RoomPlayers.Select(p => p.SteamName))}");
+                    
+                    // 🔥 关键修复：为房间内其他玩家发布 PlayerJoinedRoomEvent
+                    var localSteamId = GameContext.Instance.PlayerManager.LocalPlayer.Info.SteamId;
+                    Debug.Log($"[RoomManager] 🔥 准备为房间内玩家发布事件，总玩家数: {RoomPlayers.Count}，本地玩家ID: {localSteamId}");
+                    
+                    int publishedCount = 0;
+                    foreach (var otherPlayer in RoomPlayers)
+                    {
+                        // 跳过自己
+                        if (otherPlayer.SteamId == localSteamId)
+                        {
+                            Debug.Log($"[RoomManager] 跳过本地玩家: {otherPlayer.SteamName}");
+                            continue;
+                        }
+                        
+                        Debug.Log($"[RoomManager] 🔥 为已在房间的玩家发布 PlayerJoinedRoomEvent: {otherPlayer.SteamName} (AvatarUrl: {otherPlayer.AvatarUrl ?? "(null)"})");
+                        GameContext.Instance.EventBus.Publish(new PlayerJoinedRoomEvent(otherPlayer, evt.Room));
+                        publishedCount++;
+                    }
+                    
+                    Debug.Log($"[RoomManager] ✅ 共发布了 {publishedCount} 个 PlayerJoinedRoomEvent 事件");
                 }
                 catch (Exception ex)
                 {
@@ -163,6 +209,14 @@ namespace DuckyNet.Client.Core
                     Debug.LogWarning($"[RoomManager] ⚠️ 尝试移除不存在的玩家: {evt.Player.SteamName}");
                 }
             }
+        }
+
+        private void OnNetworkDisconnected(NetworkDisconnectedEvent evt)
+        {
+            Debug.Log($"[RoomManager] 🔥 网络断开连接，清理房间状态: {evt.Reason}");
+            CurrentRoom = null;
+            RoomPlayers.Clear();
+            Debug.Log($"[RoomManager] ✅ 房间状态已清理");
         }
 
         public void Dispose()

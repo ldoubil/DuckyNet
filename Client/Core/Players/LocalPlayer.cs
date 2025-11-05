@@ -438,22 +438,24 @@ namespace DuckyNet.Client.Core.Players
         }
 
         /// <summary>
-        /// 获取 Steam 头像 URL
+        /// 获取 Steam 头像 URL（公开 CDN 直链）
         /// </summary>
         private string GetSteamAvatarUrl(CSteamID steamId)
         {
             try
             {
-                // 获取中等尺寸头像
-                int avatarHandle = SteamFriends.GetMediumFriendAvatar(steamId);
-
-                if (avatarHandle == -1 || avatarHandle == 0)
-                {
-                    UnityEngine.Debug.LogWarning($"[LocalPlayer] 无法获取头像句柄");
-                    return string.Empty;
-                }
                 string steamId64 = steamId.ToString();
-                return $"https://steamcommunity.com/profiles/{steamId64}/";
+                
+                // 🔥 Steam 社区头像 API（公开访问，无需认证）
+                // 这个 URL 会自动重定向到实际的 CDN 地址
+                // 支持的尺寸：
+                // - avatar.jpg (32x32)
+                // - avatarmedium.jpg (64x64)
+                // - avatarfull.jpg (184x184)
+                string avatarUrl = $"https://steamcommunity.com/profiles/{steamId64}/avatar_medium.jpg";
+                
+                UnityEngine.Debug.Log($"[LocalPlayer] Steam 头像 URL: {avatarUrl}");
+                return avatarUrl;
             }
             catch (Exception ex)
             {

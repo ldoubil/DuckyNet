@@ -15,6 +15,7 @@ namespace DuckyNet.Client.Services
             Debug.Log($"[RoomClientService] ========== 收到 RPC: OnPlayerJoinedRoom ==========");
             Debug.Log($"[RoomClientService] 玩家: {player.SteamName} ({player.SteamId})");
             Debug.Log($"[RoomClientService] 房间: {room.RoomName} ({room.RoomId})");
+            Debug.Log($"[RoomClientService] 🖼️ 头像URL: {player.AvatarUrl ?? "(null)"}");
 
             // 发布到 EventBus
             if (GameContext.IsInitialized)

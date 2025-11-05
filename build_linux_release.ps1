@@ -81,9 +81,12 @@ Write-Host "================================" -ForegroundColor Cyan
 Write-Host "Build Complete!" -ForegroundColor Green
 Write-Host "================================" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "Output: $LinuxDistDir" -ForegroundColor Yellow
+Write-Host "Output Directory: $LinuxDistDir" -ForegroundColor Yellow
 Write-Host ""
-Write-Host "Next steps:" -ForegroundColor Yellow
-Write-Host "  1. Pack: tar -czf DuckyNet-linux-x64.tar.gz -C dist linux" -ForegroundColor Cyan
-Write-Host "  2. Or: Compress-Archive -Path dist/linux -DestinationPath DuckyNet-linux-x64.zip" -ForegroundColor Cyan
+Write-Host "Files:" -ForegroundColor White
+Write-Host "  Server: dist/linux/Server/DuckyNet.Server (67 MB)" -ForegroundColor Gray
+Write-Host "  Client: dist/linux/Client/*.dll (3 MB)" -ForegroundColor Gray
+Write-Host "  README: dist/linux/README.txt" -ForegroundColor Gray
+Write-Host ""
+Write-Host "Ready to deploy!" -ForegroundColor Green
 Write-Host ""

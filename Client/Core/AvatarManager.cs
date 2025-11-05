@@ -1,7 +1,10 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Networking;
 using Steamworks;
+using DuckyNet.Shared.Services;
 
 namespace DuckyNet.Client.Core
 {
@@ -12,14 +15,16 @@ namespace DuckyNet.Client.Core
     public class AvatarManager : IDisposable
     {
         private readonly Dictionary<string, Texture2D> _avatarCache;
+        private readonly Dictionary<string, bool> _downloadingAvatars; // 正在下载的头像
 
         public AvatarManager()
         {
             _avatarCache = new Dictionary<string, Texture2D>();
+            _downloadingAvatars = new Dictionary<string, bool>();
         }
 
         /// <summary>
-        /// 获取玩家头像（从缓存或加载）
+        /// 获取玩家头像（从缓存、URL 或 Steam API）
         /// </summary>
         public Texture2D? GetAvatar(string steamId)
         {
@@ -41,7 +46,27 @@ namespace DuckyNet.Client.Core
                 }
             }
 
-            // 尝试加载其他玩家的头像
+            // 🔥 优先从 AvatarUrl 下载（如果可用）
+            if (GameContext.IsInitialized)
+            {
+                PlayerInfo? playerInfo = GetPlayerInfo(steamId);
+                if (playerInfo != null && !string.IsNullOrEmpty(playerInfo.AvatarUrl))
+                {
+                    // 异步下载头像（不阻塞）
+                    if (!_downloadingAvatars.ContainsKey(steamId))
+                    {
+                        _downloadingAvatars[steamId] = true;
+                        // 使用 ModBehaviour 启动协程
+                        if (ModBehaviour.Instance != null)
+                        {
+                            ModBehaviour.Instance.StartCoroutine(DownloadAvatarFromUrl(steamId, playerInfo.AvatarUrl));
+                        }
+                    }
+                    return null; // 首次返回 null，下载完成后会缓存
+                }
+            }
+
+            // 回退：尝试从 Steam API 加载（只能加载好友）
             var avatar = LoadAvatarFromSteam(steamId);
             if (avatar != null)
             {
@@ -49,6 +74,68 @@ namespace DuckyNet.Client.Core
             }
 
             return avatar;
+        }
+
+        /// <summary>
+        /// 获取玩家信息（从房间列表）
+        /// </summary>
+        private PlayerInfo? GetPlayerInfo(string steamId)
+        {
+            if (!GameContext.IsInitialized) 
+                return null;
+
+            var roomManager = GameContext.Instance.RoomManager;
+            if (roomManager == null) 
+                return null;
+
+            var players = roomManager.GetRoomPlayers();
+            if (players == null)
+                return null;
+
+            foreach (var player in players)
+            {
+                if (player != null && player.SteamId == steamId)
+                {
+                    return player;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// 从 URL 下载头像
+        /// </summary>
+        private IEnumerator DownloadAvatarFromUrl(string steamId, string avatarUrl)
+        {
+            UnityEngine.Debug.Log($"[AvatarManager] 开始下载头像: {steamId} from {avatarUrl}");
+
+            using (UnityWebRequest www = UnityWebRequestTexture.GetTexture(avatarUrl))
+            {
+                yield return www.SendWebRequest();
+
+                // 下载完成，移除下载标记
+                _downloadingAvatars.Remove(steamId);
+
+                if (www.result != UnityWebRequest.Result.Success)
+                {
+                    UnityEngine.Debug.LogWarning($"[AvatarManager] 下载头像失败 {steamId}: {www.error}");
+                    
+                    // 回退：尝试使用 Steam API
+                    var fallbackAvatar = LoadAvatarFromSteam(steamId);
+                    if (fallbackAvatar != null)
+                    {
+                        _avatarCache[steamId] = fallbackAvatar;
+                    }
+                }
+                else
+                {
+                    // 下载成功
+                    Texture2D avatarTexture = DownloadHandlerTexture.GetContent(www);
+                    _avatarCache[steamId] = avatarTexture;
+                    UnityEngine.Debug.Log($"[AvatarManager] ✅ 头像下载成功: {steamId}");
+                }
+            }
         }
 
         /// <summary>

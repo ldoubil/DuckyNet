@@ -155,10 +155,13 @@ namespace DuckyNet.Server.Services
                             // 🔥 简化：只通知房间成员关系
                             newPlayerContext.Call<IRoomClientService>()
                                 .OnPlayerJoinedRoom(existingPlayer, result.Room);
-                            Console.WriteLine($"[RoomService] 通知新玩家 {player.SteamName}: 房间内已有玩家 {existingPlayer.SteamName}");
+                            Console.WriteLine($"[RoomService] ✅ 通知新玩家 {player.SteamName}: 房间内已有玩家 {existingPlayer.SteamName}");
+                            Console.WriteLine($"[RoomService] ✅ 玩家 {existingPlayer.SteamName} 的头像URL: {existingPlayer.AvatarUrl ?? "(null)"}");
                             
                             // 🔥 如果现有玩家在场景中，发送场景进入事件
-                            if (!string.IsNullOrEmpty(existingPlayer.CurrentScenelData.SceneName))
+                            Console.WriteLine($"[RoomService] 检查玩家 {existingPlayer.SteamName} 场景数据: SceneName='{existingPlayer.CurrentScenelData?.SceneName}', SubSceneName='{existingPlayer.CurrentScenelData?.SubSceneName}'");
+                            
+                            if (existingPlayer.CurrentScenelData != null && !string.IsNullOrEmpty(existingPlayer.CurrentScenelData.SceneName))
                             {
                                 newPlayerContext.Call<ISceneClientService>()
                                     .OnPlayerEnteredScene(existingPlayer, existingPlayer.CurrentScenelData);
@@ -172,6 +175,14 @@ namespace DuckyNet.Server.Services
                                         .OnPlayerUnitySyncReceived(lastPosition);
                                     Console.WriteLine($"[RoomService] ✅ 发送 {existingPlayer.SteamName} 的位置给 {player.SteamName}");
                                 }
+                                else
+                                {
+                                    Console.WriteLine($"[RoomService] ⚠️ {existingPlayer.SteamName} 的位置缓存为空，等待首次位置同步");
+                                }
+                            }
+                            else
+                            {
+                                Console.WriteLine($"[RoomService] ⚠️ {existingPlayer.SteamName} 不在场景中，跳过场景通知");
                             }
                         }
                         
@@ -222,6 +233,7 @@ namespace DuckyNet.Server.Services
                     playerContext.Call<IRoomClientService>()
                         .OnPlayerJoinedRoom(player, result.Room);
                     Console.WriteLine($"[RoomService] ✅ 已通知玩家 {p.SteamName}: 新玩家 {player.SteamName} 加入房间");
+                    Console.WriteLine($"[RoomService] ✅ 新玩家 {player.SteamName} 的头像URL: {player.AvatarUrl ?? "(null)"}");
                     notifiedCount++;
                     
                     // 🔥 如果新玩家已经在场景中，发送场景进入事件和位置
@@ -270,8 +282,11 @@ namespace DuckyNet.Server.Services
 
             if (room != null)
             {
-                // 🔥 清除玩家的位置缓存
+                // 🔥 注意：这里只清除位置缓存，不清空场景数据
+                // 原因：场景状态和房间状态是独立的，玩家可能还在场景中
+                // 如果清空场景数据，其他已在房间的玩家会丢失该玩家的场景信息
                 _unitySyncService.ClearPlayerPosition(player.SteamId);
+                Console.WriteLine($"[RoomService] 已清除 {player.SteamName} 的位置缓存");
                 
                 // 发布玩家离开房间事件
                 ServerEventPublisher.PublishPlayerLeftRoom(room, player);
@@ -342,12 +357,15 @@ namespace DuckyNet.Server.Services
             }
 
             var players = _playerManager.GetRoomPlayers(roomId);
-            Console.WriteLine($"[RoomService] GetRoomPlayers 被调用: requester={requester.SteamName}, roomId={roomId}, players.Length={players.Length}");
+            Console.WriteLine($"[RoomService] ========== GetRoomPlayers 被调用 ==========");
+            Console.WriteLine($"[RoomService] 请求者: {requester.SteamName}");
+            Console.WriteLine($"[RoomService] 房间ID: {roomId}");
+            Console.WriteLine($"[RoomService] 玩家数量: {players.Length}");
             
             // 🔥 关键修复：主动向请求者发送房间内其他玩家的加入通知
             // 这样客户端的 PlayerManager 会创建 RemotePlayer
             var room = _roomManager.GetPlayerRoom(requester);
-            Console.WriteLine($"[RoomService] GetRoomPlayers: room={(room != null ? room.RoomId : "null")}");
+            Console.WriteLine($"[RoomService] 请求者所在房间: {(room != null ? room.RoomId : "null")}");
             if (room != null)
             {
                 // 🔥 修复：使用 ClientId 而不是 SteamId
@@ -357,15 +375,21 @@ namespace DuckyNet.Server.Services
                     var requesterContext = _server.GetClientContext(requesterClientId);
                     if (requesterContext != null)
                     {
+                        int notifiedPlayers = 0;
                         foreach (var otherPlayer in players)
                         {
                             // 跳过请求者自己
-                            if (otherPlayer.SteamId == requester.SteamId) continue;
+                            if (otherPlayer.SteamId == requester.SteamId)
+                            {
+                                Console.WriteLine($"[RoomService] GetRoomPlayers: 跳过请求者自己: {requester.SteamName}");
+                                continue;
+                            }
 
                             // 🔥 简化：只发送房间成员通知
                             requesterContext.Call<IRoomClientService>()
                                 .OnPlayerJoinedRoom(otherPlayer, room);
-                            Console.WriteLine($"[RoomService] GetRoomPlayers: 通知 {requester.SteamName} 房间内有玩家 {otherPlayer.SteamName}");
+                            Console.WriteLine($"[RoomService] GetRoomPlayers: ✅ 通知 {requester.SteamName} 房间内有玩家 {otherPlayer.SteamName} (AvatarUrl: {otherPlayer.AvatarUrl ?? "(null)"})");
+                            notifiedPlayers++;
 
                             // 🔥 优化：如果对方在场景中，发送位置（不发送场景通知）
                             if (!string.IsNullOrEmpty(otherPlayer.CurrentScenelData.SceneName))
@@ -383,6 +407,8 @@ namespace DuckyNet.Server.Services
                                 }
                             }
                         }
+                        
+                        Console.WriteLine($"[RoomService] GetRoomPlayers: ========== 共通知了 {notifiedPlayers} 个玩家 ==========");
                     }
                     else
                     {
@@ -394,7 +420,12 @@ namespace DuckyNet.Server.Services
                     Console.WriteLine($"[RoomService] ⚠️ GetRoomPlayers: 未找到ClientId SteamId={requester.SteamId}");
                 }
             }
+            else
+            {
+                Console.WriteLine($"[RoomService] ⚠️ GetRoomPlayers: 请求者不在房间中");
+            }
 
+            Console.WriteLine($"[RoomService] ========== GetRoomPlayers 完成 ==========");
             return await Task.FromResult(players);
         }
 

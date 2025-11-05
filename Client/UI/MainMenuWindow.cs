@@ -319,6 +319,10 @@ namespace DuckyNet.Client.UI
                 var localPlayer = GameContext.Instance.PlayerManager.LocalPlayer;
                 var serverContext = new ClientServerContext(_client);
 
+                // 🔥 调试：打印发送的玩家信息
+                UnityEngine.Debug.Log($"[MainMenu] 登录信息 - SteamName: {localPlayer.Info.SteamName}, SteamId: {localPlayer.Info.SteamId}");
+                UnityEngine.Debug.Log($"[MainMenu] 登录信息 - AvatarUrl: {localPlayer.Info.AvatarUrl}");
+
                 var result = await _playerServiceClient.LoginAsync(localPlayer.Info);
 
                 if (result.Success)

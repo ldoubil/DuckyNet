@@ -30,6 +30,7 @@ namespace DuckyNet.Server.Services
         public async Task<LoginResult> LoginAsync(IClientContext client, PlayerInfo playerInfo)
         {
             Console.WriteLine($"[PlayerService] Login request from {playerInfo.SteamName} ({playerInfo.SteamId})");
+            Console.WriteLine($"[PlayerService] AvatarUrl: {playerInfo.AvatarUrl ?? "(null)"}");
 
             var result = _playerManager.OnClientLogin(client.ClientId, playerInfo);
 

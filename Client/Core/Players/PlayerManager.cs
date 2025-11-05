@@ -39,6 +39,7 @@ namespace DuckyNet.Client.Core.Players
             _eventSubscriber.Subscribe<PlayerEnteredSceneEvent>(OnPlayerEnteredScene);
             _eventSubscriber.Subscribe<PlayerLeftSceneEvent>(OnPlayerLeftScene);
             _eventSubscriber.Subscribe<PlayerLeftEvent>(OnPlayerDisconnected);
+            _eventSubscriber.Subscribe<NetworkDisconnectedEvent>(OnNetworkDisconnected);
             
             // 🎯 订阅角色创建事件（用于动画同步注册）
             _eventSubscriber.Subscribe<RemoteCharacterCreatedEvent>(OnRemoteCharacterCreated);
@@ -201,6 +202,26 @@ namespace DuckyNet.Client.Core.Players
                 _remotePlayers.Remove(@event.Player.SteamId);
                 Log($"[PlayerManager] 销毁 RemotePlayer: {@event.Player.SteamName}");
             }
+        }
+
+        /// <summary>
+        /// 网络断开连接 - 清理所有远程玩家
+        /// </summary>
+        private void OnNetworkDisconnected(NetworkDisconnectedEvent @event)
+        {
+            Log($"[PlayerManager] 🔥 网络断开连接，清理所有远程玩家: {@event.Reason}");
+            
+            // 销毁所有 RemotePlayer
+            foreach (var kvp in _remotePlayers)
+            {
+                kvp.Value.Dispose();
+                Log($"[PlayerManager] 销毁 RemotePlayer: {kvp.Value.Info.SteamName}");
+            }
+            
+            _remotePlayers.Clear();
+            _remoteAnimatorSync?.Dispose();
+            
+            Log($"[PlayerManager] ✅ 所有远程玩家已清理");
         }
 
         /// <summary>
