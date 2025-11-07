@@ -318,7 +318,7 @@ namespace DuckyNet.Server.Services
                 // 设置 PlayerId
                 batchData.PlayerId = player.SteamId;
 
-                Log($"玩家 {player.SteamName} 批量开火: {batchData.BulletCount} 发子弹", ConsoleColor.Yellow);
+                // Log($"玩家 {player.SteamName} 批量开火: {batchData.BulletCount} 发子弹", ConsoleColor.Yellow);
 
                 // 🔥 批量广播给房间内的其他玩家
                 BroadcastWeaponFireBatchToRoom(player, batchData);

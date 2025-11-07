@@ -81,7 +81,6 @@ namespace DuckyNet.Server.Services
                     _lastHealthCache[senderPlayer.SteamId] = healthData;
                 }
 
-                Console.WriteLine($"[HealthSyncService] 💚 玩家 {senderPlayer.SteamName} 血量同步: {healthData.CurrentHealth:F0}/{healthData.MaxHealth:F0} (死亡:{healthData.IsDead})");
 
                 // 步骤2: 验证发送者是否在房间中
                 var room = _roomManager.GetPlayerRoom(senderPlayer);
@@ -151,7 +150,7 @@ namespace DuckyNet.Server.Services
                     }
                 }
 
-                Console.WriteLine($"[HealthSyncService] 📤 血量数据已广播给 {broadcastCount} 个玩家");
+                // Console.WriteLine($"[HealthSyncService] 📤 血量数据已广播给 {broadcastCount} 个玩家");
 
             }
             catch (Exception ex)

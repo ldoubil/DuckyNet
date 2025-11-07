@@ -218,7 +218,6 @@ namespace DuckyNet.Client.Core.Players
                 // 发送到服务器
                 _healthSyncService.SendHealthSync(healthData);
 
-                UnityEngine.Debug.Log($"[LocalPlayer] 📤 已发送血量同步: {currentHealth:F0}/{maxHealth:F0} (死亡:{isDead})");
             }
             catch (Exception ex)
             {

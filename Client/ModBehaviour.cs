@@ -3,7 +3,6 @@ using UnityEngine;
 using DuckyNet.Client.Core;
 using DuckyNet.Client.Core.Helpers;
 using DuckyNet.Client.Core.EventBus;
-using DuckyNet.Client.Core.Utils;
 using HarmonyLib;
 
 namespace DuckyNet.Client
@@ -42,9 +41,6 @@ namespace DuckyNet.Client
             {
                 // 设置全局实例
                 Instance = this;
-
-                // 初始化调试控制台（最先初始化，方便查看后续日志）
-                ConsoleModule.Initialize();
 
                 // 输出模组加载信息
                 LogModInfo();
@@ -324,9 +320,6 @@ namespace DuckyNet.Client
                 GameContext.Cleanup();
 
                 Debug.Log("[ModBehaviour] Mod 已卸载");
-
-                // 最后清理控制台（确保所有日志都能输出）
-                ConsoleModule.Cleanup();
             }
             catch (Exception ex)
             {
