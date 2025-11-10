@@ -1,25 +1,24 @@
 ﻿using System;
 using System.IO;
 using System.Threading;
+using Microsoft.Extensions.DependencyInjection;
+using DuckyNet.Server.Core;
 using DuckyNet.Server.RPC;
-using DuckyNet.Server.Services;
 using DuckyNet.Server.Managers;
 using DuckyNet.Server.Plugin;
 using DuckyNet.Server.Events;
-using DuckyNet.Shared.Services;
-using DuckyNet.Shared.RPC;
-using EventBus = DuckyNet.Server.Events.EventBus;
 
 namespace DuckyNet.Server
 {
     /// <summary>
     /// DuckyNet 服务器程序
+    /// [REFACTOR] 阶段1：引入依赖注入容器
     /// </summary>
     class Program
     {
+        private static IServiceProvider _serviceProvider = null!;
         private static RpcServer _server = null!;
         private static PlayerManager _playerManager = null!;
-        private static RoomManager _roomManager = null!;
         private static EventBus _eventBus = null!;
         private static PluginManager _pluginManager = null!;
         private static bool _running = true;
@@ -31,91 +30,77 @@ namespace DuckyNet.Server
 
             try
             {
-                // 创建服务器配置
-                var config = RpcConfig.Development;
-                _server = new RpcServer(config);
-
-                // 创建事件总线
-                _eventBus = new EventBus();
-                ServerEventPublisher.Initialize(_eventBus);
-
-                // 创建管理器
-                _roomManager = new RoomManager();
-                _playerManager = new PlayerManager(_server, _roomManager);
-
-                // 初始化房间广播辅助类（用于 BroadcastToRoom 扩展方法）
-                RPC.RoomBroadcastHelper.Initialize(_roomManager, _playerManager);
-
-                // 创建服务（注意顺序：SceneService 需要在 CharacterService 之前创建）
-                var playerService = new PlayerServiceImpl(_server, _playerManager, _roomManager);
-                var playerUnitySyncService = new PlayerUnitySyncServiceImpl(_server, _playerManager, _roomManager);
-                var healthSyncService = new HealthSyncServiceImpl(_server, _playerManager, _roomManager);
-                var roomService = new RoomServiceImpl(_server, _roomManager, _playerManager, playerUnitySyncService);
-                var sceneService = new SceneServiceImpl(_server, _playerManager, _roomManager);
-                var characterService = new CharacterServiceImpl(_server, _playerManager, _roomManager, sceneService);
-                var appearanceService = new CharacterAppearanceServiceImpl(_server, _playerManager, _roomManager);
-                var animatorSyncService = new AnimatorSyncServiceImpl(_server, _playerManager, _roomManager);
-                var itemSyncService = new ItemSyncServiceImpl(_server, _playerManager, _roomManager);
-                var equipmentService = new EquipmentServerServiceImpl(_server, _playerManager, _roomManager);
-                var weaponSyncService = new WeaponSyncServerServiceImpl(_server, _playerManager, _roomManager);
+                // ========== 阶段1：配置依赖注入容器 ==========
+                Console.WriteLine("[Server] Configuring services...");
+                var services = new ServiceCollection();
                 
-                // 设置装备和武器服务到 RoomService（延迟注入）
-                roomService.SetEquipmentService(equipmentService);
-                roomService.SetWeaponSyncService(weaponSyncService);
+                // 注册核心服务
+                services.AddDuckyNetCore();
+                
+                // 注册业务模块
+                services.AddDuckyNetModules();
+                
+                // 注册插件系统
+                services.AddPluginSystem();
+                
+                // 构建服务提供者
+                _serviceProvider = services.BuildServiceProvider();
+                Console.WriteLine("[Server] ✓ Services configured");
 
-                // 注册服务
-                _server.RegisterServerService<IPlayerService>(playerService);
-                _server.RegisterServerService<IRoomService>(roomService);
-                _server.RegisterServerService<ISceneService>(sceneService);
-                _server.RegisterServerService<ICharacterService>(characterService);
-                _server.RegisterServerService<IPlayerUnitySyncService>(playerUnitySyncService);
-                _server.RegisterServerService<IHealthSyncService>(healthSyncService);
-                _server.RegisterServerService<ICharacterAppearanceService>(appearanceService);
-                _server.RegisterServerService<IAnimatorSyncService>(animatorSyncService);
-                _server.RegisterServerService<IItemSyncService>(itemSyncService);
-                _server.RegisterServerService<IEquipmentService>(equipmentService);
-                _server.RegisterServerService<IWeaponSyncService>(weaponSyncService);
+                // ========== 阶段2：初始化核心组件 ==========
+                Console.WriteLine("[Server] Initializing components...");
+                
+                // 初始化静态依赖（过渡方案）
+                ServerInitializer.InitializeStaticDependencies(_serviceProvider);
+                
+                // 获取核心服务实例
+                _server = _serviceProvider.GetRequiredService<RpcServer>();
+                _playerManager = _serviceProvider.GetRequiredService<PlayerManager>();
+                _eventBus = _serviceProvider.GetRequiredService<EventBus>();
+                _pluginManager = _serviceProvider.GetRequiredService<PluginManager>();
+                
+                // 注册所有 RPC 服务
+                ServiceCollectionExtensions.RegisterRpcServices(_serviceProvider);
+                Console.WriteLine("[Server] ✓ Components initialized");
+
+                // ========== 阶段3：启动服务器 ==========
 
                 // 订阅事件
                 _server.ClientConnected += OnClientConnected;
                 _server.ClientDisconnected += OnClientDisconnected;
 
-                // 启动服务器
+                Console.WriteLine("[Server] Starting server...");
+                
+                // 启动 RPC 服务器
                 int port = 9050;
                 _server.Start(port);
-                Console.WriteLine($"[Server] Started on port {port}");
-                Console.WriteLine("[Server] Login timeout: 3 seconds");
-                Console.WriteLine();
+                Console.WriteLine($"[Server] ✓ RPC Server listening on port {port}");
+                Console.WriteLine($"[Server] ✓ Login timeout: 3 seconds");
 
-                // 创建插件上下文
-                var pluginContext = new PluginContext(
-                    _playerManager,
-                    _roomManager,
-                    _server,
-                    _eventBus,
-                    new PluginLogger("System")
-                );
-
-                // 创建插件管理器并加载插件
-                _pluginManager = new PluginManager(pluginContext);
+                // 加载插件
                 var pluginDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Plugins");
                 _pluginManager.LoadPluginsFromDirectory(pluginDir);
+                Console.WriteLine($"[Server] ✓ Plugins loaded from: {pluginDir}");
                 Console.WriteLine();
 
                 // 发布服务器启动事件
                 _eventBus.Publish(new ServerStartedEvent { Port = port });
 
-                // 启动更新线程
+                // ========== 阶段4：启动后台任务 ==========
                 var updateThread = new Thread(UpdateLoop);
                 updateThread.IsBackground = true;
                 updateThread.Start();
 
-                // 启动登录超时检查线程
                 var timeoutThread = new Thread(TimeoutCheckLoop);
                 timeoutThread.IsBackground = true;
                 timeoutThread.Start();
-
-                Console.WriteLine("Press Ctrl+C to stop server...");
+                Console.WriteLine("[Server] ✓ Background tasks started");
+                Console.WriteLine();
+                Console.WriteLine("==================================");
+                Console.WriteLine("  Server is ready!");
+                Console.WriteLine("  Press Ctrl+C to stop server");
+                Console.WriteLine("==================================");
+                Console.WriteLine();
                 Console.CancelKeyPress += (s, e) =>
                 {
                     e.Cancel = true;

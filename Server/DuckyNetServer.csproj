@@ -11,6 +11,7 @@
   <ItemGroup>
     <PackageReference Include="LiteNetLib" Version="1.2.0" />
     <PackageReference Include="NetSerializer" Version="4.1.1" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
     <ProjectReference Include="..\Shared\DuckyNetShared.csproj" />
   </ItemGroup>
 </Project>

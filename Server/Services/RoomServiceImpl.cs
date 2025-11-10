@@ -19,30 +19,25 @@ namespace DuckyNet.Server.Services
         private readonly RoomManager _roomManager;
         private readonly PlayerManager _playerManager;
         private readonly PlayerUnitySyncServiceImpl _unitySyncService;
-        private EquipmentServerServiceImpl? _equipmentService; // 装备服务（延迟注入）
-        private WeaponSyncServerServiceImpl? _weaponSyncService; // 武器服务（延迟注入）
+        private readonly EquipmentServerServiceImpl _equipmentService;
+        private readonly WeaponSyncServerServiceImpl _weaponSyncService;
 
-        public RoomServiceImpl(RpcServer server, RoomManager roomManager, PlayerManager playerManager, PlayerUnitySyncServiceImpl unitySyncService)
+        /// <summary>
+        /// [REFACTOR] 阶段1：通过构造函数注入所有依赖，消除延迟注入 hack
+        /// </summary>
+        public RoomServiceImpl(
+            RpcServer server, 
+            RoomManager roomManager, 
+            PlayerManager playerManager, 
+            PlayerUnitySyncServiceImpl unitySyncService,
+            EquipmentServerServiceImpl equipmentService,
+            WeaponSyncServerServiceImpl weaponSyncService)
         {
             _server = server;
             _roomManager = roomManager;
             _playerManager = playerManager;
             _unitySyncService = unitySyncService;
-        }
-
-        /// <summary>
-        /// 设置装备服务（延迟注入，因为循环依赖）
-        /// </summary>
-        public void SetEquipmentService(EquipmentServerServiceImpl equipmentService)
-        {
             _equipmentService = equipmentService;
-        }
-
-        /// <summary>
-        /// 设置武器服务（延迟注入，因为循环依赖）
-        /// </summary>
-        public void SetWeaponSyncService(WeaponSyncServerServiceImpl weaponSyncService)
-        {
             _weaponSyncService = weaponSyncService;
         }
 
@@ -187,10 +182,10 @@ namespace DuckyNet.Server.Services
                         }
                         
                         // 🔥 发送装备数据给新玩家
-                        _equipmentService?.SendAllEquipmentDataToPlayer(client.ClientId, request.RoomId);
+                        _equipmentService.SendAllEquipmentDataToPlayer(client.ClientId, request.RoomId);
                         
                         // 🔥 发送武器数据给新玩家
-                        _weaponSyncService?.SendAllWeaponDataToPlayer(client.ClientId, request.RoomId);
+                        _weaponSyncService.SendAllWeaponDataToPlayer(client.ClientId, request.RoomId);
                     }
                 }
                 
