@@ -139,8 +139,8 @@ namespace DuckyNet.Client.Core.DebugModule
                                        characterTransform.forward * 1.5f + 
                                        Vector3.up * 1.5f;
                 
-                // 发射方向（前方稍微向上）
-                Vector3 shootDirection = (characterTransform.forward + Vector3.up * 0.3f).normalized;
+                // 发射方向（单位面向的角度）
+                Vector3 shootDirection = characterTransform.forward;
 
                 // 创建粒子系统
                 CreateMilkParticleSystem(shootPosition, shootDirection);
@@ -195,7 +195,7 @@ namespace DuckyNet.Client.Core.DebugModule
             var shape = ps.shape;
             shape.enabled = true;
             shape.shapeType = ParticleSystemShapeType.Cone;
-            shape.angle = 15f;                      // 更大的发射角度
+            shape.angle = 20f;                      // 更大的发射角度
             shape.radius = 0.1f;
             shape.radiusThickness = 0.5f;           // 从锥形边缘发射
 
@@ -330,8 +330,8 @@ namespace DuckyNet.Client.Core.DebugModule
         private ParticleSystem? _ps;
         private List<ParticleCollisionEvent> _collisionEvents = new List<ParticleCollisionEvent>();
         private int _maxLines = 30;  // 增加最大线条数量
-        private float _minDistance = 0.3f;  // 减小最小距离，允许更多连线
-        private float _createChance = 0.4f;  // 提高创建概率到40%
+        private float _minDistance = 0.5f;  // 减小最小距离，允许更多连线
+        private float _createChance = 0.9f;  // 提高创建概率到40%
         
         private class CollisionPointInfo
         {
