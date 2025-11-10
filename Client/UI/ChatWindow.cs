@@ -163,7 +163,7 @@ namespace DuckyNet.Client.UI
             bool shouldBlock = _showInput;
             if (InputBlockingPatch.ShouldBlockGameInput != shouldBlock)
             {
-                Debug.Log($"[ChatWindow] 更新输入屏蔽状态: {InputBlockingPatch.ShouldBlockGameInput} -> {shouldBlock}");
+                UnityEngine.Debug.Log($"[ChatWindow] 更新输入屏蔽状态: {InputBlockingPatch.ShouldBlockGameInput} -> {shouldBlock}");
                 InputBlockingPatch.ShouldBlockGameInput = shouldBlock;
             }
             
