@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
-using DuckyNet.Server.Managers;
-using DuckyNet.Server.RPC;
+using DuckyNet.Server.Core;
 using DuckyNet.Shared.Data;
 using DuckyNet.Shared.RPC;
 using DuckyNet.Shared.Services;
@@ -14,23 +13,17 @@ namespace DuckyNet.Server.Services
     /// </summary>
     public class CharacterAppearanceServiceImpl : ICharacterAppearanceService
     {
-        private readonly RpcServer _server;
-        private readonly PlayerManager _playerManager;
-        private readonly RoomManager _roomManager;
         private readonly Dictionary<string, CharacterAppearanceData> _appearanceCache;
         private readonly object _lock = new object();
 
-        public CharacterAppearanceServiceImpl(RpcServer server, PlayerManager playerManager, RoomManager roomManager)
+        public CharacterAppearanceServiceImpl()
         {
-            _server = server;
-            _playerManager = playerManager;
-            _roomManager = roomManager;
             _appearanceCache = new Dictionary<string, CharacterAppearanceData>();
         }
 
         public void UploadAppearance(IClientContext client, CharacterAppearanceData appearanceData)
         {
-            var player = _playerManager.GetPlayer(client.ClientId);
+            var player = ServerContext.Players.GetPlayer(client.ClientId);
             if (player == null)
             {
                 Console.WriteLine($"[CharacterAppearanceService] UploadAppearance failed: Player not found for client {client.ClientId}");
@@ -47,30 +40,16 @@ namespace DuckyNet.Server.Services
             }
 
             // 获取玩家所在房间
-            var room = _roomManager.GetPlayerRoom(player);
+            var room = ServerContext.Rooms.GetPlayerRoom(player);
             if (room != null)
             {
-                // 获取房间内所有玩家
-                var roomPlayers = _roomManager.GetRoomPlayers(room.RoomId);
-                Console.WriteLine($"[CharacterAppearanceService] Broadcasting appearance to room {room.RoomName} ({roomPlayers.Length} players)");
+                // 使用 BroadcastManager 广播（包括自己）
+                Console.WriteLine($"[CharacterAppearanceService] Broadcasting appearance to room {room.RoomName}");
                 
-                // 收集所有在线客户端ID
-                var clientIds = new List<string>();
-                foreach (var roomPlayer in roomPlayers)
-                {
-                    var targetClientId = _playerManager.GetClientIdBySteamId(roomPlayer.SteamId);
-                    if (targetClientId != null)
-                    {
-                        clientIds.Add(targetClientId);
-                    }
-                }
-
-                // 广播给房间内所有玩家（包括自己）
-                if (clientIds.Count > 0)
-                {
-                    _server.BroadcastToClients<ICharacterAppearanceClientService>(clientIds)
-                        .OnAppearanceReceived(steamId, appearanceData);
-                }
+                ServerContext.Broadcast.BroadcastToRoomTyped<ICharacterAppearanceClientService>(
+                    player, 
+                    service => service.OnAppearanceReceived(steamId, appearanceData),
+                    excludeSelf: false);
             }
             else
             {
@@ -80,7 +59,7 @@ namespace DuckyNet.Server.Services
 
         public void RequestAppearance(IClientContext client, string targetSteamId)
         {
-            var requester = _playerManager.GetPlayer(client.ClientId);
+            var requester = ServerContext.Players.GetPlayer(client.ClientId);
             if (requester == null)
             {
                 Console.WriteLine($"[CharacterAppearanceService] RequestAppearance failed: Requester not found for client {client.ClientId}");
@@ -102,8 +81,8 @@ namespace DuckyNet.Server.Services
             {
                 Console.WriteLine($"[CharacterAppearanceService] Sending cached appearance for {targetSteamId}");
                 
-                // 使用 BroadcastToClients 发送给单个客户端
-                _server.BroadcastToClients<ICharacterAppearanceClientService>(new[] { client.ClientId })
+                // 直接发送给请求客户端
+                client.Call<ICharacterAppearanceClientService>()
                     .OnAppearanceReceived(targetSteamId, appearanceData);
             }
             else

@@ -1,11 +1,8 @@
 using DuckyNet.Shared.Data;
 using DuckyNet.Shared.RPC;
 using DuckyNet.Shared.Services;
-using DuckyNet.Server.RPC;
-using DuckyNet.Server.Managers;
+using DuckyNet.Server.Core;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 
 namespace DuckyNet.Server.Services
@@ -16,19 +13,6 @@ namespace DuckyNet.Server.Services
     /// </summary>
     public class EquipmentServerServiceImpl : IEquipmentService
     {
-        private readonly RpcServer _server;
-        private readonly PlayerManager _playerManager;
-        private readonly RoomManager _roomManager;
-
-        public EquipmentServerServiceImpl(
-            RpcServer server,
-            PlayerManager playerManager,
-            RoomManager roomManager)
-        {
-            _server = server ?? throw new ArgumentNullException(nameof(server));
-            _playerManager = playerManager ?? throw new ArgumentNullException(nameof(playerManager));
-            _roomManager = roomManager ?? throw new ArgumentNullException(nameof(roomManager));
-        }
 
         /// <summary>
         /// 客户端更新装备槽位
@@ -42,7 +26,7 @@ namespace DuckyNet.Server.Services
             }
 
             var playerId = client.ClientId;
-            var player = _playerManager.GetPlayer(playerId);
+            var player = ServerContext.Players.GetPlayer(playerId);
             
             if (player == null)
             {
@@ -76,7 +60,7 @@ namespace DuckyNet.Server.Services
         private void BroadcastEquipmentUpdate(PlayerInfo player, EquipmentSlotUpdateRequest request)
         {
             // 获取玩家所在的房间
-            var room = _roomManager.GetPlayerRoom(player);
+            var room = ServerContext.Rooms.GetPlayerRoom(player);
             if (room == null)
             {
                 Log($"玩家 {player.SteamName} 不在房间中，无需广播装备更新", ConsoleColor.Yellow);
@@ -91,33 +75,11 @@ namespace DuckyNet.Server.Services
                 ItemTypeId = request.ItemTypeId
             };
 
-            // 获取房间内所有玩家
-            var roomPlayers = _roomManager.GetRoomPlayers(room.RoomId);
-            
-            // 收集需要通知的客户端ID（排除自己）
-            var targetClientIds = new List<string>();
-            foreach (var roomPlayer in roomPlayers)
-            {
-                if (roomPlayer.SteamId == player.SteamId)
-                {
-                    continue; // 跳过自己
-                }
-
-                var clientId = _playerManager.GetClientIdBySteamId(roomPlayer.SteamId);
-                if (!string.IsNullOrEmpty(clientId))
-                {
-                    targetClientIds.Add(clientId);
-                }
-            }
-
-            // 广播给房间内的其他玩家
-            if (targetClientIds.Count > 0)
-            {
-                _server.BroadcastToClients<IEquipmentClientService>(targetClientIds)
-                    .OnEquipmentSlotUpdated(notification);
+            // 使用 BroadcastManager 简化广播逻辑
+            ServerContext.Broadcast.BroadcastToRoomTyped<IEquipmentClientService>(player, 
+                service => service.OnEquipmentSlotUpdated(notification));
                 
-                Log($"装备更新已广播给 {targetClientIds.Count} 个玩家 (房间: {room.RoomId})", ConsoleColor.Cyan);
-            }
+            Log($"装备更新已广播 (房间: {room.RoomId})", ConsoleColor.Cyan);
         }
 
         /// <summary>
@@ -128,7 +90,7 @@ namespace DuckyNet.Server.Services
         {
             try
             {
-                var roomPlayers = _roomManager.GetRoomPlayers(roomId);
+                var roomPlayers = ServerContext.Rooms.GetRoomPlayers(roomId);
                 if (roomPlayers == null || roomPlayers.Length == 0)
                 {
                     Log($"房间 {roomId} 没有其他玩家，跳过发送装备数据", ConsoleColor.Yellow);
@@ -148,7 +110,7 @@ namespace DuckyNet.Server.Services
                 }
 
                 // 发送给新加入的玩家
-                var clientContext = _server.GetClientContext(clientId);
+                var clientContext = ServerContext.Server.GetClientContext(clientId);
                 if (clientContext != null)
                 {
                     clientContext.Call<IEquipmentClientService>()

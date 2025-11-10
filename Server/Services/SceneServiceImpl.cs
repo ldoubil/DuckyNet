@@ -4,8 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using DuckyNet.Shared.Services;
 using DuckyNet.Shared.RPC;
-using DuckyNet.Server.Managers;
-using DuckyNet.Server.RPC;
+using DuckyNet.Server.Core;
 using DuckyNet.Shared.Data;
 
 namespace DuckyNet.Server.Services
@@ -16,16 +15,6 @@ namespace DuckyNet.Server.Services
     /// </summary>
     public class SceneServiceImpl : ISceneService
     {
-        private readonly PlayerManager _playerManager;
-        private readonly RoomManager _roomManager;
-        private readonly RpcServer _server;
-
-        public SceneServiceImpl(RpcServer server, PlayerManager playerManager, RoomManager roomManager)
-        {
-            _server = server;
-            _playerManager = playerManager;
-            _roomManager = roomManager;
-        }
 
         /// <summary>
         /// 玩家进入场景
@@ -36,7 +25,7 @@ namespace DuckyNet.Server.Services
         public Task<bool> EnterSceneAsync(IClientContext client, ScenelData scenelData)
         {
             var nonNullData = scenelData ?? new ScenelData("", "");
-            var player = _playerManager.GetPlayer(client.ClientId);
+            var player = ServerContext.Players.GetPlayer(client.ClientId);
             
             if (player == null)
             {
@@ -44,13 +33,14 @@ namespace DuckyNet.Server.Services
                 return Task.FromResult(false);
             }
 
-            Console.WriteLine($"[SceneService] {player.SteamName} 进入场景: {nonNullData.SceneName}/{nonNullData.SubSceneName}");
+            // 1️⃣ 使用 SceneManager 更新场景数据
+            if (!ServerContext.Scenes.EnterScene(client.ClientId, nonNullData))
+            {
+                return Task.FromResult(false);
+            }
             
-            // 1️⃣ 更新玩家的场景数据（影响位置同步筛选）
-            _playerManager.UpdatePlayerSceneDataByClientId(client.ClientId, nonNullData);
-            
-            // 2️⃣ 广播给房间内所有玩家：该玩家进入了场景（包括自己）
-            BroadcastToRoom(player, (target, targetContext) =>
+            // 2️⃣ 使用 BroadcastManager 广播给房间内所有玩家
+            ServerContext.Broadcast.BroadcastToRoom(player, (target, targetContext) =>
             {
                 targetContext.Call<ISceneClientService>().OnPlayerEnteredScene(player, nonNullData);
                 Console.WriteLine($"[SceneService] ✅ 通知 {target.SteamName}: {player.SteamName} 进入场景");
@@ -69,7 +59,7 @@ namespace DuckyNet.Server.Services
         private void SyncExistingPlayersToNewPlayer(IClientContext newPlayerClient, PlayerInfo newPlayer, ScenelData scenelData)
         {
             // 获取房间
-            var room = _roomManager.GetPlayerRoom(newPlayer);
+            var room = ServerContext.Rooms.GetPlayerRoom(newPlayer);
             if (room == null)
             {
                 Console.WriteLine($"[SceneService] ⚠️ 玩家不在房间中，无法同步其他玩家: {newPlayer.SteamName}");
@@ -77,7 +67,7 @@ namespace DuckyNet.Server.Services
             }
 
             // 获取房间内所有玩家
-            var roomPlayers = _playerManager.GetRoomPlayers(room.RoomId);
+            var roomPlayers = ServerContext.Players.GetRoomPlayers(room.RoomId);
             
             // 筛选出在同一场景且不是自己的玩家
             var existingPlayers = roomPlayers
@@ -119,16 +109,9 @@ namespace DuckyNet.Server.Services
 
         public Task<PlayerInfo[]> GetScenePlayersAsync(IClientContext client, ScenelData scenelData)
         {
-            var playerInfo = _playerManager.GetPlayer(client.ClientId);
-            if (playerInfo != null)
-            {
-                var roomId = _roomManager.GetPlayerRoom(playerInfo)?.RoomId ?? "";
-                var players = _playerManager.GetRoomPlayers(roomId);
-                // 匹配 scenelData.SceneName 和 scenelData.SubSceneName 
-                var matchedPlayers = players.Where(p => p.CurrentScenelData.SceneName == scenelData.SceneName && p.CurrentScenelData.SubSceneName == scenelData.SubSceneName).ToArray();
-                return Task.FromResult(matchedPlayers);
-            }
-            return Task.FromResult(Array.Empty<PlayerInfo>());
+            // 使用 SceneManager 获取场景玩家
+            var players = ServerContext.Scenes.GetScenePlayers(client.ClientId, scenelData);
+            return Task.FromResult(players);
         }
 
         /// <summary>
@@ -137,7 +120,7 @@ namespace DuckyNet.Server.Services
         /// </summary>
         public Task<bool> LeaveSceneAsync(IClientContext client, ScenelData scenelData)
         {
-            var player = _playerManager.GetPlayer(client.ClientId);
+            var player = ServerContext.Players.GetPlayer(client.ClientId);
             
             if (player == null)
             {
@@ -145,54 +128,20 @@ namespace DuckyNet.Server.Services
                 return Task.FromResult(false);
             }
 
-            Console.WriteLine($"[SceneService] {player.SteamName} 离开场景: {scenelData.SceneName}/{scenelData.SubSceneName}");
+            // 1️⃣ 使用 SceneManager 清除场景数据
+            if (!ServerContext.Scenes.LeaveScene(client.ClientId, scenelData))
+            {
+                return Task.FromResult(false);
+            }
             
-            // 1️⃣ 清除玩家的场景数据（重要！影响位置同步过滤）
-            _playerManager.UpdatePlayerSceneDataByClientId(client.ClientId, new ScenelData("", ""));
-            
-            // 2️⃣ 广播给房间内所有玩家（用于销毁角色）
-            BroadcastToRoom(player, (target, targetContext) =>
+            // 2️⃣ 使用 BroadcastManager 广播给房间内所有玩家
+            ServerContext.Broadcast.BroadcastToRoom(player, (target, targetContext) =>
             {
                 targetContext.Call<ISceneClientService>().OnPlayerLeftScene(player, scenelData);
                 Console.WriteLine($"[SceneService] ✅ 通知 {target.SteamName}: {player.SteamName} 离开场景 {scenelData.SceneName}");
             });
             
             return Task.FromResult(true);
-        }
-
-        /// <summary>
-        /// 向房间内所有玩家广播消息
-        /// </summary>
-        /// <param name="player">触发事件的玩家</param>
-        /// <param name="action">广播动作（目标玩家，目标客户端上下文）</param>
-        private void BroadcastToRoom(PlayerInfo player, Action<PlayerInfo, IClientContext> action)
-        {
-            // 获取玩家所在房间
-            var room = _roomManager.GetPlayerRoom(player);
-            if (room == null)
-            {
-                Console.WriteLine($"[SceneService] ⚠️ 玩家 {player.SteamName} 不在任何房间中");
-                return;
-            }
-
-            // 遍历房间内所有玩家
-            var roomPlayers = _playerManager.GetRoomPlayers(room.RoomId);
-            foreach (var target in roomPlayers)
-            {
-                // 获取目标玩家的客户端ID
-                var targetClientId = _playerManager.GetClientIdBySteamId(target.SteamId);
-                if (string.IsNullOrEmpty(targetClientId))
-                {
-                    continue;
-                }
-
-                // 获取客户端上下文并执行广播动作
-                var targetContext = _server.GetClientContext(targetClientId);
-                if (targetContext != null)
-                {
-                    action(target, targetContext);
-                }
-            }
         }
     }
 }

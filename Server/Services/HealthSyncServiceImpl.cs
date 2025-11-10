@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
-using DuckyNet.Server.RPC;
-using DuckyNet.Server.Managers;
+using DuckyNet.Server.Core;
 using DuckyNet.Shared.RPC;
 using DuckyNet.Shared.Services;
 using DuckyNet.Shared.Data;
@@ -14,22 +13,12 @@ namespace DuckyNet.Server.Services
     /// </summary>
     public class HealthSyncServiceImpl : IHealthSyncService
     {
-        private readonly RpcServer _server;
-        private readonly PlayerManager _playerManager;
-        private readonly RoomManager _roomManager;
         private readonly object _lock = new object();
         
         /// <summary>
         /// 玩家最后血量缓存 - Key: SteamId, Value: 最后的血量数据
         /// </summary>
         private readonly Dictionary<string, HealthSyncData> _lastHealthCache = new Dictionary<string, HealthSyncData>();
-
-        public HealthSyncServiceImpl(RpcServer server, PlayerManager playerManager, RoomManager roomManager)
-        {
-            _server = server;
-            _playerManager = playerManager;
-            _roomManager = roomManager;
-        }
         
         /// <summary>
         /// 获取玩家的最后血量（用于新玩家加入房间时同步）
@@ -64,8 +53,8 @@ namespace DuckyNet.Server.Services
         {
             try
             {
-                // 步骤1: 获取发送者的玩家信息
-                var senderPlayer = _playerManager.GetPlayer(client.ClientId);
+                // 获取发送者的玩家信息
+                var senderPlayer = ServerContext.Players.GetPlayer(client.ClientId);
                 if (senderPlayer == null)
                 {
                     Console.WriteLine($"[HealthSyncService] ⚠️ 无法找到客户端 {client.ClientId} 对应的玩家");
@@ -81,77 +70,26 @@ namespace DuckyNet.Server.Services
                     _lastHealthCache[senderPlayer.SteamId] = healthData;
                 }
 
-
-                // 步骤2: 验证发送者是否在房间中
-                var room = _roomManager.GetPlayerRoom(senderPlayer);
+                // 验证发送者是否在房间中
+                var room = ServerContext.Rooms.GetPlayerRoom(senderPlayer);
                 if (room == null)
                 {
                     Console.WriteLine($"[HealthSyncService] 玩家 {senderPlayer.SteamName} 不在任何房间中，跳过同步");
                     return;
                 }
 
-                // 步骤3: 获取房间内的所有玩家
-                var roomPlayers = _roomManager.GetRoomPlayers(room.RoomId);
-                int broadcastCount = 0;
-
-                // 步骤4: 广播给符合条件的玩家
-                foreach (var targetPlayer in roomPlayers)
+                // 使用 BroadcastManager 广播给同场景的玩家
+                ServerContext.Broadcast.BroadcastToScene(senderPlayer, (targetPlayer, targetContext) =>
                 {
-                    // 条件1: 跳过发送者自己
-                    if (targetPlayer.SteamId == senderPlayer.SteamId)
+                    try
                     {
-                        continue;
+                        targetContext.Call<IHealthSyncClientService>().OnHealthSyncReceived(healthData);
                     }
-
-                    // 条件2: 检查是否在同一个房间（冗余检查，但保证安全）
-                    var targetRoom = _roomManager.GetPlayerRoom(targetPlayer);
-                    if (targetRoom == null || targetRoom.RoomId != room.RoomId)
+                    catch (Exception ex)
                     {
-                        continue;
+                        Console.WriteLine($"[HealthSyncService] ❌ 向 {targetPlayer.SteamName} 转发血量数据失败: {ex.Message}");
                     }
-
-                    // 条件3: 检查是否在同一个场景（SceneName）
-                    if (targetPlayer.CurrentScenelData.SceneName != senderPlayer.CurrentScenelData.SceneName)
-                    {
-                        continue;
-                    }
-
-                    // 条件4: 检查是否在同一个子场景（SubSceneName）
-                    if (targetPlayer.CurrentScenelData.SubSceneName != senderPlayer.CurrentScenelData.SubSceneName)
-                    {
-                        continue;
-                    }
-                    
-                    // 获取目标玩家的连接上下文
-                    var targetClientId = _playerManager.GetClientIdBySteamId(targetPlayer.SteamId);
-                    if (string.IsNullOrEmpty(targetClientId))
-                    {
-                        Console.WriteLine($"[HealthSyncService] ⚠️ 目标玩家 {targetPlayer.SteamName} 无 ClientId");
-                        continue;
-                    }
-
-                    var targetClientContext = _server.GetClientContext(targetClientId);
-                    if (targetClientContext != null)
-                    {
-                        try
-                        {
-                            // 通过 RPC 调用客户端接收血量同步数据
-                            targetClientContext.Call<IHealthSyncClientService>().OnHealthSyncReceived(healthData);
-                            broadcastCount++;
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"[HealthSyncService] ❌ 向 {targetPlayer.SteamName} 转发血量数据失败: {ex.Message}");
-                        }
-                    }
-                    else
-                    {
-                        Console.WriteLine($"[HealthSyncService] ⚠️ 目标玩家 {targetPlayer.SteamName} 无上下文");
-                    }
-                }
-
-                // Console.WriteLine($"[HealthSyncService] 📤 血量数据已广播给 {broadcastCount} 个玩家");
-
+                });
             }
             catch (Exception ex)
             {
@@ -159,7 +97,5 @@ namespace DuckyNet.Server.Services
                 Console.WriteLine($"[HealthSyncService] 堆栈跟踪: {ex.StackTrace}");
             }
         }
-
     }
 }
-

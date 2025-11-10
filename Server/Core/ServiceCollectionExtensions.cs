@@ -40,9 +40,11 @@ namespace DuckyNet.Server.Core
         /// </summary>
         public static IServiceCollection AddDuckyNetModules(this IServiceCollection services)
         {
-            // 管理器
-            services.AddSingleton<RoomManager>();
+            // 核心管理器（按依赖顺序）
             services.AddSingleton<PlayerManager>();
+            services.AddSingleton<RoomManager>();
+            services.AddSingleton<SceneManager>();
+            services.AddSingleton<BroadcastManager>();
 
             // 服务实现（按依赖顺序注册）
             // 注意：SceneService 需要在 CharacterService 之前注册
@@ -104,13 +106,22 @@ namespace DuckyNet.Server.Core
         }
 
         /// <summary>
-        /// 注册所有 RPC 服务到 RpcServer
+        /// 初始化服务器上下文并注册所有 RPC 服务
         /// </summary>
-        public static void RegisterRpcServices(IServiceProvider serviceProvider)
+        public static void InitializeServer(IServiceProvider serviceProvider)
         {
-            var server = serviceProvider.GetRequiredService<RpcServer>();
+            // 1. 初始化全局上下文
+            ServerContext.Initialize(
+                serviceProvider.GetRequiredService<RpcServer>(),
+                serviceProvider.GetRequiredService<PlayerManager>(),
+                serviceProvider.GetRequiredService<RoomManager>(),
+                serviceProvider.GetRequiredService<SceneManager>(),
+                serviceProvider.GetRequiredService<BroadcastManager>(),
+                serviceProvider.GetRequiredService<EventBus>()
+            );
 
-            // 注册所有服务到 RPC 服务器
+            // 2. 注册所有服务到 RPC 服务器
+            var server = ServerContext.Server;
             server.RegisterServerService<IPlayerService>(
                 serviceProvider.GetRequiredService<IPlayerService>());
             server.RegisterServerService<IRoomService>(
@@ -133,6 +144,15 @@ namespace DuckyNet.Server.Core
                 serviceProvider.GetRequiredService<IEquipmentService>());
             server.RegisterServerService<IWeaponSyncService>(
                 serviceProvider.GetRequiredService<IWeaponSyncService>());
+        }
+        
+        /// <summary>
+        /// [已过时] 使用 InitializeServer 代替
+        /// </summary>
+        [Obsolete("使用 InitializeServer 代替")]
+        public static void RegisterRpcServices(IServiceProvider serviceProvider)
+        {
+            InitializeServer(serviceProvider);
         }
     }
 }

@@ -59,8 +59,8 @@ namespace DuckyNet.Server
                 _eventBus = _serviceProvider.GetRequiredService<EventBus>();
                 _pluginManager = _serviceProvider.GetRequiredService<PluginManager>();
                 
-                // 注册所有 RPC 服务
-                ServiceCollectionExtensions.RegisterRpcServices(_serviceProvider);
+                // 初始化服务器上下文并注册所有 RPC 服务
+                ServiceCollectionExtensions.InitializeServer(_serviceProvider);
                 Console.WriteLine("[Server] ✓ Components initialized");
 
                 // ========== 阶段3：启动服务器 ==========

@@ -1,11 +1,8 @@
 using DuckyNet.Shared.Data;
 using DuckyNet.Shared.RPC;
 using DuckyNet.Shared.Services;
-using DuckyNet.Server.RPC;
-using DuckyNet.Server.Managers;
+using DuckyNet.Server.Core;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 
 namespace DuckyNet.Server.Services
@@ -16,19 +13,6 @@ namespace DuckyNet.Server.Services
     /// </summary>
     public class WeaponSyncServerServiceImpl : IWeaponSyncService
     {
-        private readonly RpcServer _server;
-        private readonly PlayerManager _playerManager;
-        private readonly RoomManager _roomManager;
-
-        public WeaponSyncServerServiceImpl(
-            RpcServer server,
-            PlayerManager playerManager,
-            RoomManager roomManager)
-        {
-            _server = server ?? throw new ArgumentNullException(nameof(server));
-            _playerManager = playerManager ?? throw new ArgumentNullException(nameof(playerManager));
-            _roomManager = roomManager ?? throw new ArgumentNullException(nameof(roomManager));
-        }
 
         /// <summary>
         /// 装备武器到槽位
@@ -42,7 +26,7 @@ namespace DuckyNet.Server.Services
             }
 
             var playerId = client.ClientId;
-            var player = _playerManager.GetPlayer(playerId);
+            var player = ServerContext.Players.GetPlayer(playerId);
 
             if (player == null)
             {
@@ -97,7 +81,7 @@ namespace DuckyNet.Server.Services
             }
 
             var playerId = client.ClientId;
-            var player = _playerManager.GetPlayer(playerId);
+            var player = ServerContext.Players.GetPlayer(playerId);
 
             if (player == null)
             {
@@ -152,7 +136,7 @@ namespace DuckyNet.Server.Services
             }
 
             var playerId = client.ClientId;
-            var player = _playerManager.GetPlayer(playerId);
+            var player = ServerContext.Players.GetPlayer(playerId);
 
             if (player == null)
             {
@@ -194,7 +178,7 @@ namespace DuckyNet.Server.Services
             }
 
             var playerId = client.ClientId;
-            var player = _playerManager.GetPlayer(playerId);
+            var player = ServerContext.Players.GetPlayer(playerId);
 
             if (player == null)
             {
@@ -256,40 +240,18 @@ namespace DuckyNet.Server.Services
         /// </summary>
         private void BroadcastWeaponNotification(PlayerInfo player, WeaponSlotUpdateNotification notification)
         {
-            var room = _roomManager.GetPlayerRoom(player);
+            // 使用 BroadcastManager 简化广播逻辑
+            var room = ServerContext.Rooms.GetPlayerRoom(player);
             if (room == null)
             {
                 Log($"玩家 {player.SteamName} 不在房间中，无需广播武器更新", ConsoleColor.Yellow);
                 return;
             }
 
-            var roomPlayers = _roomManager.GetRoomPlayers(room.RoomId);
-            var targetClientIds = new List<string>();
+            ServerContext.Broadcast.BroadcastToSceneTyped<IWeaponSyncClientService>(player, 
+                service => service.OnWeaponSlotUpdated(notification));
 
-            foreach (var roomPlayer in roomPlayers)
-            {
-                // 跳过自己
-                if (roomPlayer.SteamId == player.SteamId)
-                    continue;
-
-                // 🔥 只广播给同一场景的玩家
-                if (!IsSameScene(player, roomPlayer))
-                    continue;
-
-                var clientId = _playerManager.GetClientIdBySteamId(roomPlayer.SteamId);
-                if (!string.IsNullOrEmpty(clientId))
-                {
-                    targetClientIds.Add(clientId);
-                }
-            }
-
-            if (targetClientIds.Count > 0)
-            {
-                _server.BroadcastToClients<IWeaponSyncClientService>(targetClientIds)
-                    .OnWeaponSlotUpdated(notification);
-
-                Log($"武器更新已广播给 {targetClientIds.Count} 个玩家 (房间: {room.RoomId}, 场景: {player.CurrentScenelData.SceneName})", ConsoleColor.Cyan);
-            }
+            Log($"武器更新已广播 (房间: {room.RoomId}, 场景: {player.CurrentScenelData.SceneName})", ConsoleColor.Cyan);
         }
 
         /// <summary>
@@ -305,7 +267,7 @@ namespace DuckyNet.Server.Services
             }
 
             var playerId = client.ClientId;
-            var player = _playerManager.GetPlayer(playerId);
+            var player = ServerContext.Players.GetPlayer(playerId);
 
             if (player == null)
             {
@@ -341,7 +303,7 @@ namespace DuckyNet.Server.Services
             }
 
             var playerId = client.ClientId;
-            var player = _playerManager.GetPlayer(playerId);
+            var player = ServerContext.Players.GetPlayer(playerId);
 
             if (player == null)
             {
@@ -370,40 +332,9 @@ namespace DuckyNet.Server.Services
         /// </summary>
         private void BroadcastWeaponFireNotification(PlayerInfo player, WeaponFireData fireData)
         {
-            var room = _roomManager.GetPlayerRoom(player);
-            if (room == null)
-            {
-                return; // 不在房间中，不广播
-            }
-
-            var roomPlayers = _roomManager.GetRoomPlayers(room.RoomId);
-            var targetClientIds = new List<string>();
-
-            foreach (var roomPlayer in roomPlayers)
-            {
-                // 跳过自己
-                if (roomPlayer.SteamId == player.SteamId)
-                    continue;
-
-                // 🔥 只广播给同一场景的玩家
-                if (!IsSameScene(player, roomPlayer))
-                    continue;
-
-                var clientId = _playerManager.GetClientIdBySteamId(roomPlayer.SteamId);
-                if (!string.IsNullOrEmpty(clientId))
-                {
-                    targetClientIds.Add(clientId);
-                }
-            }
-
-            if (targetClientIds.Count > 0)
-            {
-                _server.BroadcastToClients<IWeaponSyncClientService>(targetClientIds)
-                    .OnWeaponFired(fireData);
-
-                // 开火频率高，不打印日志避免刷屏
-                // Log($"开火特效已广播给 {targetClientIds.Count} 个玩家", ConsoleColor.DarkGray);
-            }
+            // 使用 BroadcastManager 简化广播逻辑
+            ServerContext.Broadcast.BroadcastToSceneTyped<IWeaponSyncClientService>(player, 
+                service => service.OnWeaponFired(fireData));
         }
 
         /// <summary>
@@ -411,40 +342,17 @@ namespace DuckyNet.Server.Services
         /// </summary>
         private void BroadcastWeaponSwitchNotification(PlayerInfo player, WeaponSwitchNotification notification)
         {
-            var room = _roomManager.GetPlayerRoom(player);
+            var room = ServerContext.Rooms.GetPlayerRoom(player);
             if (room == null)
             {
                 Log($"玩家 {player.SteamName} 不在房间中，无需广播武器切换", ConsoleColor.Yellow);
                 return;
             }
 
-            var roomPlayers = _roomManager.GetRoomPlayers(room.RoomId);
-            var targetClientIds = new List<string>();
+            ServerContext.Broadcast.BroadcastToSceneTyped<IWeaponSyncClientService>(player, 
+                service => service.OnWeaponSwitched(notification));
 
-            foreach (var roomPlayer in roomPlayers)
-            {
-                // 跳过自己
-                if (roomPlayer.SteamId == player.SteamId)
-                    continue;
-
-                // 🔥 只广播给同一场景的玩家
-                if (!IsSameScene(player, roomPlayer))
-                    continue;
-
-                var clientId = _playerManager.GetClientIdBySteamId(roomPlayer.SteamId);
-                if (!string.IsNullOrEmpty(clientId))
-                {
-                    targetClientIds.Add(clientId);
-                }
-            }
-
-            if (targetClientIds.Count > 0)
-            {
-                _server.BroadcastToClients<IWeaponSyncClientService>(targetClientIds)
-                    .OnWeaponSwitched(notification);
-
-                Log($"武器切换已广播给 {targetClientIds.Count} 个玩家: {notification.CurrentWeaponSlot} (场景: {player.CurrentScenelData.SceneName})", ConsoleColor.Cyan);
-            }
+            Log($"武器切换已广播: {notification.CurrentWeaponSlot} (场景: {player.CurrentScenelData.SceneName})", ConsoleColor.Cyan);
         }
 
         /// <summary>
@@ -452,41 +360,8 @@ namespace DuckyNet.Server.Services
         /// </summary>
         private void BroadcastWeaponFireToRoom(PlayerInfo player, WeaponFireData fireData)
         {
-            var room = _roomManager.GetPlayerRoom(player);
-            if (room == null)
-            {
-                return; // 不在房间中，无需广播
-            }
-
-            var roomPlayers = _roomManager.GetRoomPlayers(room.RoomId);
-            var targetClientIds = new List<string>();
-
-            foreach (var roomPlayer in roomPlayers)
-            {
-                // 跳过自己
-                if (roomPlayer.SteamId == player.SteamId)
-                    continue;
-
-                // 🔥 只广播给同一场景的玩家
-                if (!IsSameScene(player, roomPlayer))
-                    continue;
-
-                var clientId = _playerManager.GetClientIdBySteamId(roomPlayer.SteamId);
-                if (!string.IsNullOrEmpty(clientId))
-                {
-                    targetClientIds.Add(clientId);
-                }
-            }
-
-            if (targetClientIds.Count > 0)
-            {
-                _server.BroadcastToClients<IWeaponSyncClientService>(targetClientIds)
-                    .OnWeaponFired(fireData);
-
-                #if DEBUG
-                // Log($"开枪特效已广播给 {targetClientIds.Count} 个玩家", ConsoleColor.DarkYellow);
-                #endif
-            }
+            ServerContext.Broadcast.BroadcastToSceneTyped<IWeaponSyncClientService>(player, 
+                service => service.OnWeaponFired(fireData));
         }
 
         /// <summary>
@@ -496,7 +371,7 @@ namespace DuckyNet.Server.Services
         {
             try
             {
-                var roomPlayers = _roomManager.GetRoomPlayers(roomId);
+                var roomPlayers = ServerContext.Rooms.GetRoomPlayers(roomId);
                 if (roomPlayers == null || roomPlayers.Length == 0)
                 {
                     Log($"房间 {roomId} 没有其他玩家，跳过发送武器数据", ConsoleColor.Yellow);
@@ -513,7 +388,7 @@ namespace DuckyNet.Server.Services
                     }
                 }
 
-                var clientContext = _server.GetClientContext(clientId);
+                var clientContext = ServerContext.Server.GetClientContext(clientId);
                 if (clientContext != null)
                 {
                     clientContext.Call<IWeaponSyncClientService>()
@@ -534,57 +409,14 @@ namespace DuckyNet.Server.Services
         /// </summary>
         private void BroadcastWeaponFireBatchToRoom(PlayerInfo player, WeaponFireBatchData batchData)
         {
-            var room = _roomManager.GetPlayerRoom(player);
-            if (room == null)
+            // 转换为 WeaponFireData 数组并逐个发送
+            var fireDataArray = batchData.ToFireDataArray();
+            
+            foreach (var fireData in fireDataArray)
             {
-                return; // 不在房间中，无需广播
+                ServerContext.Broadcast.BroadcastToSceneTyped<IWeaponSyncClientService>(player, 
+                    service => service.OnWeaponFired(fireData));
             }
-
-            var roomPlayers = _roomManager.GetRoomPlayers(room.RoomId);
-            var targetClientIds = new List<string>();
-
-            foreach (var roomPlayer in roomPlayers)
-            {
-                // 跳过自己
-                if (roomPlayer.SteamId == player.SteamId)
-                    continue;
-
-                // 🔥 只广播给同一场景的玩家
-                if (!IsSameScene(player, roomPlayer))
-                    continue;
-
-                var clientId = _playerManager.GetClientIdBySteamId(roomPlayer.SteamId);
-                if (!string.IsNullOrEmpty(clientId))
-                {
-                    targetClientIds.Add(clientId);
-                }
-            }
-
-            if (targetClientIds.Count > 0)
-            {
-                // 🔥 转换为 WeaponFireData 数组并逐个发送
-                var fireDataArray = batchData.ToFireDataArray();
-                
-                foreach (var fireData in fireDataArray)
-                {
-                    _server.BroadcastToClients<IWeaponSyncClientService>(targetClientIds)
-                        .OnWeaponFired(fireData);
-                }
-
-                // Log($"批量开火特效已广播: {batchData.BulletCount} 发子弹 → {targetClientIds.Count} 个玩家", ConsoleColor.Yellow);
-            }
-        }
-
-        /// <summary>
-        /// 检查两个玩家是否在同一场景
-        /// </summary>
-        private bool IsSameScene(PlayerInfo player1, PlayerInfo player2)
-        {
-            if (player1.CurrentScenelData == null || player2.CurrentScenelData == null)
-                return false;
-
-            return player1.CurrentScenelData.SceneName == player2.CurrentScenelData.SceneName &&
-                   player1.CurrentScenelData.SubSceneName == player2.CurrentScenelData.SubSceneName;
         }
 
         private void Log(string message, ConsoleColor color = ConsoleColor.White)
