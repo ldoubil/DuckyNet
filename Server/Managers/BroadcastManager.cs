@@ -224,6 +224,24 @@ namespace DuckyNet.Server.Managers
         }
 
         /// <summary>
+        /// 单个客户端调用（强类型）
+        /// </summary>
+        public void CallClientTyped<TService>(PlayerInfo player, Action<TService> action)
+            where TService : class
+        {
+            var clientId = _playerManager.GetClientIdBySteamId(player.SteamId);
+            if (string.IsNullOrEmpty(clientId))
+            {
+                Console.WriteLine($"[BroadcastManager] ⚠️ 未找到玩家的 ClientId: {player.SteamName}");
+                return;
+            }
+
+            var clientIds = new List<string> { clientId };
+            var proxy = _server.BroadcastToClients<TService>(clientIds);
+            action(proxy);
+        }
+
+        /// <summary>
         /// 从玩家列表获取 ClientId 列表
         /// </summary>
         private List<string> GetClientIdsFromPlayers(PlayerInfo[] players, string? excludeSteamId = null)
@@ -245,6 +263,14 @@ namespace DuckyNet.Server.Managers
             }
 
             return clientIds;
+        }
+
+        private float Distance(Vector3Data a, Vector3Data b)
+        {
+            float dx = a.X - b.X;
+            float dy = a.Y - b.Y;
+            float dz = a.Z - b.Z;
+            return (float)Math.Sqrt(dx * dx + dy * dy + dz * dz);
         }
     }
 }

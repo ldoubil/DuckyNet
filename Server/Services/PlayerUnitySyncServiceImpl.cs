@@ -79,6 +79,15 @@ namespace DuckyNet.Server.Services
                     Console.WriteLine($"[PlayerUnitySyncService] ⚠️ 无法找到客户端 {client.ClientId} 对应的玩家");
                     return;
                 }
+
+                // 🔥 缓存玩家位置到 SceneManager（用于热区和范围计算）
+                var (x, y, z) = syncData.GetPosition();
+                ServerContext.Scenes.UpdatePlayerPosition(
+                    senderPlayer.SteamId,
+                    x,
+                    y,
+                    z
+                );
                 
                 // 确保 SteamId 与发送者匹配（安全验证）
                 syncData.SteamId = senderPlayer.SteamId;

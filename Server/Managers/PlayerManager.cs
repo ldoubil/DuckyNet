@@ -133,6 +133,9 @@ namespace DuckyNet.Server.Managers
                     _clientIdBySteamId.Remove(player.SteamId);
                     Console.WriteLine($"[PlayerManager] Player disconnected: {player.SteamName}");
 
+                    // 🔥 清理位置缓存（新增）
+                    _sceneManager?.RemovePlayerPosition(player.SteamId);
+
                     // 从房间移除
                     _roomManager?.LeaveRoom(player);
                 }
@@ -142,6 +145,16 @@ namespace DuckyNet.Server.Managers
                     _pendingConnections.Remove(ClientId);
                 }
             }
+        }
+
+        /// <summary>
+        /// 获取 SceneManager（用于位置缓存清理）
+        /// </summary>
+        private SceneManager? _sceneManager;
+        
+        public void SetSceneManager(SceneManager sceneManager)
+        {
+            _sceneManager = sceneManager;
         }
 
         /// <summary>
@@ -310,6 +323,28 @@ namespace DuckyNet.Server.Managers
             }
         }
 
+
+        /// <summary>
+        /// 获取同场景的其他玩家（用于热区计算）
+        /// </summary>
+        public List<PlayerInfo> GetScenePlayers(PlayerInfo player, bool excludeSelf = true)
+        {
+            lock (_lock)
+            {
+                var scenePlayers = _playersBySteamId.Values
+                    .Where(p => p.CurrentScenelData != null &&
+                               p.CurrentScenelData.SceneName == player.CurrentScenelData?.SceneName &&
+                               p.CurrentScenelData.SubSceneName == player.CurrentScenelData?.SubSceneName)
+                    .ToList();
+
+                if (excludeSelf)
+                {
+                    scenePlayers = scenePlayers.Where(p => p.SteamId != player.SteamId).ToList();
+                }
+
+                return scenePlayers;
+            }
+        }
 
         /// <summary>
         /// 获取统计信息

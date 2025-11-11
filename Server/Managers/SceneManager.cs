@@ -9,12 +9,16 @@ namespace DuckyNet.Server.Managers
     /// <summary>
     /// 场景管理器
     /// 负责管理玩家的场景状态和场景匹配逻辑
+    /// 新增：缓存玩家位置用于热区和范围计算
     /// </summary>
     public class SceneManager
     {
         private readonly PlayerManager _playerManager;
         private readonly RoomManager _roomManager;
         private readonly object _lock = new object();
+
+        // 玩家位置缓存 (SteamId -> Vector3Data)
+        private readonly Dictionary<string, Vector3Data> _playerPositions = new Dictionary<string, Vector3Data>();
 
         public SceneManager(PlayerManager playerManager, RoomManager roomManager)
         {
@@ -152,6 +156,78 @@ namespace DuckyNet.Server.Managers
             }
             
             return sceneMatch && player.CurrentScenelData.SubSceneName == subSceneName;
+        }
+
+        /// <summary>
+        /// 更新玩家位置（从位置同步中调用）
+        /// </summary>
+        public void UpdatePlayerPosition(string steamId, float x, float y, float z)
+        {
+            lock (_lock)
+            {
+                _playerPositions[steamId] = new Vector3Data(x, y, z);
+            }
+        }
+
+        /// <summary>
+        /// 获取玩家位置
+        /// </summary>
+        public Vector3Data? GetPlayerPosition(string steamId)
+        {
+            lock (_lock)
+            {
+                return _playerPositions.TryGetValue(steamId, out var pos) ? pos : null;
+            }
+        }
+
+        /// <summary>
+        /// 获取场景内所有玩家的位置
+        /// </summary>
+        public Dictionary<string, Vector3Data> GetScenePlayerPositions(string sceneName, string subSceneName)
+        {
+            lock (_lock)
+            {
+                var result = new Dictionary<string, Vector3Data>();
+                
+                var scenePlayers = _playerManager.GetAllOnlinePlayers()
+                    .Where(p => IsPlayerInScene(p, sceneName, subSceneName));
+
+                foreach (var player in scenePlayers)
+                {
+                    if (_playerPositions.TryGetValue(player.SteamId, out var pos))
+                    {
+                        result[player.SteamId] = pos;
+                    }
+                }
+
+                return result;
+            }
+        }
+
+        /// <summary>
+        /// 移除玩家位置（断开连接时）
+        /// </summary>
+        public void RemovePlayerPosition(string steamId)
+        {
+            lock (_lock)
+            {
+                _playerPositions.Remove(steamId);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 简单的 3D 位置数据结构
+    /// </summary>
+    public struct Vector3Data
+    {
+        public float X, Y, Z;
+        
+        public Vector3Data(float x, float y, float z)
+        {
+            X = x;
+            Y = y;
+            Z = z;
         }
     }
 }

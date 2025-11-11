@@ -32,7 +32,7 @@ namespace DuckyNet.Client.Core
         /// <summary>
         /// 玩家服务
         /// </summary>
-        public PlayerManager PlayerManager { get;  set; }
+        public PlayerManager PlayerManager { get; private set; }
 
         /// <summary>
         /// RPC 客户端服务
@@ -86,6 +86,11 @@ namespace DuckyNet.Client.Core
         public Services.ItemNetworkCoordinator? ItemNetworkCoordinator { get; set; }
 
         /// <summary>
+        /// NPC 管理器
+        /// </summary>
+        public NpcManager NpcManager { get; private set; }
+
+        /// <summary>
         /// 全局事件总线
         /// </summary>
         public EventBusCore EventBus { get; private set; }
@@ -106,6 +111,7 @@ namespace DuckyNet.Client.Core
             SceneClientManager = null!;
             RoomManager = null!;
             AnimatorSyncManager = null!;
+            NpcManager = null!;
             EventBus = EventBusCore.Instance;
         }
 
@@ -219,6 +225,15 @@ namespace DuckyNet.Client.Core
         }
 
         /// <summary>
+        /// 注册 NPC 管理器
+        /// </summary>
+        public void RegisterNpcManager(NpcManager npcManager)
+        {
+            NpcManager = npcManager ?? throw new ArgumentNullException(nameof(npcManager));
+            UnityEngine.Debug.Log("[GameContext] NPC 管理器已注册");
+        }
+
+        /// <summary>
         /// 清理游戏上下文
         /// </summary>
         public static void Cleanup()
@@ -227,6 +242,7 @@ namespace DuckyNet.Client.Core
 
             try
             {
+                _instance.NpcManager?.Dispose();
                 _instance.CharacterCustomizationManager?.Dispose();
                 _instance.InputManager?.Dispose();
                 _instance.UIManager?.Dispose();
@@ -234,7 +250,6 @@ namespace DuckyNet.Client.Core
                 _instance.AnimatorSyncManager?.Dispose();
                 _instance.RpcClient?.Disconnect();
                 _instance.PlayerManager?.Dispose();
-                _instance.EventBus?.Dispose();
                 _instance.SceneClientManager?.Dispose();
                 _instance.RoomManager?.Dispose();
                 _instance.EventBus?.Dispose();
@@ -258,6 +273,7 @@ namespace DuckyNet.Client.Core
             InputManager?.Update();
             UIManager?.Update();
             PlayerManager?.Update();
+            NpcManager?.Update(); // 同步 NPC 位置
             AnimatorSyncManager?.Update();
             AnimatorSyncClientService?.Update(); // 平滑插值远程玩家动画
         }

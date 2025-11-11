@@ -19,11 +19,11 @@ namespace DuckyNet.Client.Core.EventBus.Events
         public GameObject? GameObject { get; }
         
         /// <summary>
-        /// 自动生成的唯一 ID（用于网络同步）
+        /// 全局唯一 ID（格式：{ClientId}-{Sequence}-{InstanceId}）
         /// </summary>
-        public int CharacterId { get; }
+        public string CharacterId { get; }
 
-        public CharacterSpawnedEvent(object characterMainControl, GameObject? gameObject, int characterId)
+        public CharacterSpawnedEvent(object characterMainControl, GameObject? gameObject, string characterId)
         {
             CharacterMainControl = characterMainControl;
             GameObject = gameObject;
@@ -50,9 +50,9 @@ namespace DuckyNet.Client.Core.EventBus.Events
         /// <summary>
         /// 角色 ID
         /// </summary>
-        public int CharacterId { get; }
+        public string CharacterId { get; }
 
-        public CharacterDestroyedEvent(object characterMainControl, GameObject? gameObject, int characterId)
+        public CharacterDestroyedEvent(object characterMainControl, GameObject? gameObject, string characterId)
         {
             CharacterMainControl = characterMainControl;
             GameObject = gameObject;
@@ -89,9 +89,9 @@ namespace DuckyNet.Client.Core.EventBus.Events
         /// <summary>
         /// 角色 ID（与创建/销毁事件相同的ID）
         /// </summary>
-        public int CharacterId { get; }
+        public string CharacterId { get; }
 
-        public CharacterDeathEvent(object health, object damageInfo, object? characterMainControl, GameObject? gameObject, int characterId)
+        public CharacterDeathEvent(object health, object damageInfo, object? characterMainControl, GameObject? gameObject, string characterId)
         {
             Health = health;
             DamageInfo = damageInfo;

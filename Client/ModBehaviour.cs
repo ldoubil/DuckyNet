@@ -25,10 +25,7 @@ namespace DuckyNet.Client
         /// </summary>
         private static Harmony? _harmony;
         
-        /// <summary>
-        /// 单位生命周期管理器
-        /// </summary>
-        private Core.CharacterLifecycleManager? _characterLifecycleManager;
+
         
         /// <summary>
         /// 本地玩家开枪事件桥接器
@@ -65,101 +62,123 @@ namespace DuckyNet.Client
         /// </summary>
         private void InitializeGameContext()
         {
-            // 创建游戏上下文
             GameContext.Initialize();
             var context = GameContext.Instance;
 
-            // 初始化并注册各个服务
+            RegisterCoreServices(context);
+            RegisterClientServices(context);
+            InitializeManagers(context);
+            RegisterInputKeys();
+            InitializeBridges();
+            InitializeNetworkLifecycle(context);
+
+            Debug.Log("[ModBehaviour] 游戏上下文初始化完成");
+        }
+
+        /// <summary>
+        /// 注册核心服务
+        /// </summary>
+        private void RegisterCoreServices(GameContext context)
+        {
             context.RegisterPlayerManager(new Core.Players.PlayerManager());
             context.RegisterRpcClient(new RPC.RpcClient());
             context.RegisterInputManager(new Core.InputManager());
             context.RegisterAvatarManager(new Core.AvatarManager());
-            // 确保 UnitManager 订阅事件
             context.RegisterCharacterCustomizationManager(new Core.CharacterCustomizationManager());
             context.RegisterSceneClientManager(new Core.SceneClientManager());
             context.RegisterRoomManager(new Core.RoomManager());
             context.RegisterAnimatorSyncManager(new Core.AnimatorSyncManager());
             context.RegisterUIManager(new Core.UIManager(context.RpcClient));
-
-            // 注册客户端服务
-            context.RpcClient.RegisterClientService<Shared.Services.IPlayerClientService>(new Services.PlayerClientServiceImpl());
-            context.RpcClient.RegisterClientService<Shared.Services.IRoomClientService>(new Services.RoomClientServiceImpl());
-            context.RpcClient.RegisterClientService<Shared.Services.ISceneClientService>(new Services.SceneClientServiceImpl());
-            context.RpcClient.RegisterClientService<Shared.Services.ICharacterClientService>(new Services.CharacterClientServiceImpl());
-            context.RpcClient.RegisterClientService<Shared.Services.ICharacterAppearanceClientService>(new Services.CharacterAppearanceClientServiceImpl());
+            context.RegisterNpcManager(new Core.NpcManager());
             
-            // 注册动画同步客户端服务并保存实例
+            Debug.Log("[ModBehaviour] 核心服务已注册");
+        }
+
+        /// <summary>
+        /// 注册客户端 RPC 服务
+        /// </summary>
+        private void RegisterClientServices(GameContext context)
+        {
+            var rpcClient = context.RpcClient;
+
+            // 注册基础客户端服务
+            rpcClient.RegisterClientService<Shared.Services.IPlayerClientService>(new Services.PlayerClientServiceImpl());
+            rpcClient.RegisterClientService<Shared.Services.IRoomClientService>(new Services.RoomClientServiceImpl());
+            rpcClient.RegisterClientService<Shared.Services.ISceneClientService>(new Services.SceneClientServiceImpl());
+            rpcClient.RegisterClientService<Shared.Services.ICharacterClientService>(new Services.CharacterClientServiceImpl());
+            rpcClient.RegisterClientService<Shared.Services.ICharacterAppearanceClientService>(new Services.CharacterAppearanceClientServiceImpl());
+            
+            // 注册动画同步服务并保存实例
             var animatorSyncClientService = new Services.AnimatorSyncClientServiceImpl();
-            context.RpcClient.RegisterClientService<Shared.Services.IAnimatorSyncClientService>(animatorSyncClientService);
+            rpcClient.RegisterClientService<Shared.Services.IAnimatorSyncClientService>(animatorSyncClientService);
             context.AnimatorSyncClientService = animatorSyncClientService;
 
-            // 注册物品同步服务
-            var itemSyncClientService = new Services.ItemSyncClientServiceImpl();
-            context.RpcClient.RegisterClientService<Shared.Services.IItemSyncClientService>(itemSyncClientService);
+            // 注册同步服务
+            rpcClient.RegisterClientService<Shared.Services.IItemSyncClientService>(new Services.ItemSyncClientServiceImpl());
+            rpcClient.RegisterClientService<Shared.Services.IEquipmentClientService>(new Services.EquipmentClientServiceImpl());
+            rpcClient.RegisterClientService<Shared.Services.IWeaponSyncClientService>(new Services.WeaponSyncClientServiceImpl());
+            rpcClient.RegisterClientService<Shared.Services.IHealthSyncClientService>(new Services.HealthSyncClientServiceImpl());
+            rpcClient.RegisterClientService<Shared.Services.INpcSyncClientService>(new Services.NpcSyncClientServiceImpl());
 
-            // 注册装备同步服务
-            var equipmentClientService = new Services.EquipmentClientServiceImpl();
-            context.RpcClient.RegisterClientService<Shared.Services.IEquipmentClientService>(equipmentClientService);
-
-            // 注册武器同步服务
-            var weaponSyncClientService = new Services.WeaponSyncClientServiceImpl();
-            context.RpcClient.RegisterClientService<Shared.Services.IWeaponSyncClientService>(weaponSyncClientService);
-
-            // 注册血量同步服务
-            var healthSyncClientService = new Services.HealthSyncClientServiceImpl();
-            context.RpcClient.RegisterClientService<Shared.Services.IHealthSyncClientService>(healthSyncClientService);
-
-            // 创建并注册物品网络协调器（需要在 RpcClient 之后）
-            // 使用生成的 ClientProxy 来调用服务器
-            var clientContext = new RPC.ClientServerContext(context.RpcClient);
+            // 创建并注册物品网络协调器
+            var clientContext = new RPC.ClientServerContext(rpcClient);
             var itemSyncServiceProxy = new Shared.Services.Generated.ItemSyncServiceClientProxy(clientContext);
             var itemNetworkCoordinator = new Services.ItemNetworkCoordinator(itemSyncServiceProxy);
             context.RegisterItemNetworkCoordinator(itemNetworkCoordinator);
 
-            // 初始化动画同步管理器（需要在 PlayerManager 之后）
-            context.AnimatorSyncManager.Initialize();
+            Debug.Log("[ModBehaviour] 客户端服务已注册");
+        }
 
-            // 初始化 UI 系统
+        /// <summary>
+        /// 初始化各个管理器
+        /// </summary>
+        private void InitializeManagers(GameContext context)
+        {
+            context.AnimatorSyncManager.Initialize();
             context.UIManager.Initialize();
 
-            // 注册输入按键
-            RegisterInputKeys();
+            Debug.Log("[ModBehaviour] 管理器已初始化");
+        }
 
-            // 创建并初始化场景事件桥接器（仅转发进入/离开地图事件）
+        /// <summary>
+        /// 初始化各种桥接器
+        /// </summary>
+        private void InitializeBridges()
+        {
+            // 场景事件桥接器
             var sceneBridge = new Patches.SceneEventBridge();
             sceneBridge.Initialize();
-            // 初始化场景信息提供者（用于查询当前场景）
             Core.Helpers.SceneInfoProvider.Initialize(sceneBridge);
 
-            // 创建并初始化单位生命周期管理器（监控怪物/NPC 创建、销毁、死亡）
-            _characterLifecycleManager = new Core.CharacterLifecycleManager();
-            Debug.Log("[ModBehaviour] 单位生命周期管理器已初始化");
 
-            // 创建并初始化本地玩家开枪事件桥接器
+            // 本地玩家开枪事件桥接器
             _localPlayerShootBridge = new Patches.LocalPlayerShootBridge();
             _localPlayerShootBridge.Initialize();
-            Debug.Log("[ModBehaviour] 本地玩家开枪事件监听已启动");
 
-            // 🔥 提前初始化武器特效系统（避免第一次开火时的反射查找开销）
+            // 武器特效系统预初始化
             Core.Utils.WeaponEffectsPlayer.Initialize();
             Services.WeaponFireEffectsPlayer.Initialize();
-            Debug.Log("[ModBehaviour] 武器特效系统已预初始化");
+            
+            // 影子 NPC 工厂预初始化
+            Core.ShadowNpcFactory.Initialize();
 
-    
+            Debug.Log("[ModBehaviour] 桥接器已初始化");
+        }
 
-            // 创建网络生命周期管理器
+        /// <summary>
+        /// 初始化网络生命周期
+        /// </summary>
+        private void InitializeNetworkLifecycle(GameContext context)
+        {
             var lifecycleManager = new Core.NetworkLifecycleManager(context);
 
-            // 订阅连接/断开连接事件
             context.RpcClient.Connected += () => lifecycleManager.HandleConnected();
             context.RpcClient.Disconnected += lifecycleManager.HandleDisconnected;
 
             // 启动角色外观自动上传
             CharacterAppearanceHelper.StartAutoUpload();
 
-            Debug.Log("[ModBehaviour] 游戏上下文初始化完成");
-
-
+            Debug.Log("[ModBehaviour] 网络生命周期已初始化");
         }
 
         /// <summary>
@@ -304,9 +323,7 @@ namespace DuckyNet.Client
                     Debug.Log("[ModBehaviour] Harmony Patch 已移除");
                 }
 
-                // 清理单位生命周期管理器
-                _characterLifecycleManager?.Dispose();
-                _characterLifecycleManager = null;
+    
 
                 // 清理本地玩家开枪事件桥接器
                 _localPlayerShootBridge?.Dispose();

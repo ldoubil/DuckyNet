@@ -20,6 +20,24 @@ namespace DuckyNet.Client.Core.Players
         /// 获取所有远程玩家（只读）
         /// </summary>
         public IEnumerable<RemotePlayer> RemotePlayers => _remotePlayers.Values;
+
+        /// <summary>
+        /// 获取所有远程玩家的位置（用于热区计算）
+        /// </summary>
+        public List<Vector3> GetRemotePlayerPositions()
+        {
+            var positions = new List<Vector3>();
+            
+            foreach (var player in _remotePlayers.Values)
+            {
+                if (player.CharacterObject != null)
+                {
+                    positions.Add(player.CharacterObject.transform.position);
+                }
+            }
+            
+            return positions;
+        }
         
         public LocalPlayer LocalPlayer { get; private set; }
         private readonly EventSubscriberHelper _eventSubscriber = new EventSubscriberHelper();

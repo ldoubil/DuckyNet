@@ -44,7 +44,27 @@ namespace DuckyNet.Server.Core
             services.AddSingleton<PlayerManager>();
             services.AddSingleton<RoomManager>();
             services.AddSingleton<SceneManager>();
+            
+            // 事件系统
+            services.AddSingleton<Server.Events.EventBus>();
+            services.AddSingleton<Server.Events.IEventBus>(sp => sp.GetRequiredService<Server.Events.EventBus>());
+            
+            // 玩家清理事件处理器
+            services.AddSingleton<Server.Events.Handlers.PlayerCleanupHandler>();
+            
             services.AddSingleton<BroadcastManager>();
+            
+            // 🔥 NPC 管理（改用 PlayerNpcManager）
+            services.AddSingleton<PlayerNpcManager>();
+            
+            // NPC 可见性追踪器（单例，需要在 NpcSyncServiceImpl 之前）
+            services.AddSingleton<NpcVisibilityTracker>(sp =>
+            {
+                return new NpcVisibilityTracker
+                {
+                    SyncRange = 100f
+                };
+            });
 
             // 服务实现（按依赖顺序注册）
             // 注意：SceneService 需要在 CharacterService 之前注册
@@ -78,9 +98,14 @@ namespace DuckyNet.Server.Core
             services.AddSingleton<WeaponSyncServerServiceImpl>();
             services.AddSingleton<IWeaponSyncService>(sp => sp.GetRequiredService<WeaponSyncServerServiceImpl>());
 
+            // NPC 同步服务
+            services.AddSingleton<NpcSyncServiceImpl>();
+            services.AddSingleton<INpcSyncService>(sp => sp.GetRequiredService<NpcSyncServiceImpl>());
+
             // RoomService 最后注册（依赖装备和武器服务）
             services.AddSingleton<RoomServiceImpl>();
             services.AddSingleton<IRoomService>(sp => sp.GetRequiredService<RoomServiceImpl>());
+
 
             return services;
         }
@@ -111,12 +136,17 @@ namespace DuckyNet.Server.Core
         public static void InitializeServer(IServiceProvider serviceProvider)
         {
             // 1. 初始化全局上下文
+            var broadcastManager = serviceProvider.GetRequiredService<BroadcastManager>();
+            
+            // 初始化事件处理器
+            var playerCleanupHandler = serviceProvider.GetRequiredService<Server.Events.Handlers.PlayerCleanupHandler>();
+            
             ServerContext.Initialize(
                 serviceProvider.GetRequiredService<RpcServer>(),
                 serviceProvider.GetRequiredService<PlayerManager>(),
                 serviceProvider.GetRequiredService<RoomManager>(),
                 serviceProvider.GetRequiredService<SceneManager>(),
-                serviceProvider.GetRequiredService<BroadcastManager>(),
+                broadcastManager,
                 serviceProvider.GetRequiredService<EventBus>()
             );
 
@@ -144,6 +174,8 @@ namespace DuckyNet.Server.Core
                 serviceProvider.GetRequiredService<IEquipmentService>());
             server.RegisterServerService<IWeaponSyncService>(
                 serviceProvider.GetRequiredService<IWeaponSyncService>());
+            server.RegisterServerService<INpcSyncService>(
+                serviceProvider.GetRequiredService<INpcSyncService>());
         }
         
         /// <summary>
