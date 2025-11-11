@@ -136,7 +136,7 @@ namespace DuckyNet.Client.Patches
                     #if DEBUG || UNITY_EDITOR
                     if (isLocalPlayer)
                     {
-                        Debug.Log($"[HealthEventBridge] 💚 血量变化: {currentHealth:F0}/{maxHealth:F0}");
+                        // Debug.Log($"[HealthEventBridge] 💚 血量变化: {currentHealth:F0}/{maxHealth:F0}");
                     }
                     #endif
                 }

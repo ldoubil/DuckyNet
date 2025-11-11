@@ -33,6 +33,21 @@ namespace DuckyNet.Server.Services
                 return Task.FromResult(false);
             }
 
+            // ✅ 防御性检查：验证玩家是否在房间中
+            var room = ServerContext.Rooms.GetPlayerRoom(player);
+            if (room == null)
+            {
+                Console.WriteLine($"[SceneService] ❌ 玩家 {player.SteamName} 不在任何房间中，无法进入场景");
+                return Task.FromResult(false);
+            }
+
+            // ✅ 防御性检查：验证场景数据有效性
+            if (string.IsNullOrEmpty(nonNullData.SceneName))
+            {
+                Console.WriteLine($"[SceneService] ❌ 场景名为空，玩家 {player.SteamName} 进入场景失败");
+                return Task.FromResult(false);
+            }
+
             // 1️⃣ 使用 SceneManager 更新场景数据
             if (!ServerContext.Scenes.EnterScene(client.ClientId, nonNullData))
             {
@@ -42,8 +57,14 @@ namespace DuckyNet.Server.Services
             // 2️⃣ 使用 BroadcastManager 广播给房间内所有玩家
             ServerContext.Broadcast.BroadcastToRoom(player, (target, targetContext) =>
             {
-                targetContext.Call<ISceneClientService>().OnPlayerEnteredScene(player, nonNullData);
-                Console.WriteLine($"[SceneService] ✅ 通知 {target.SteamName}: {player.SteamName} 进入场景");
+                try
+                {
+                    targetContext.Call<ISceneClientService>().OnPlayerEnteredScene(player, nonNullData);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[SceneService] ❌ 广播失败 {player.SteamName} → {target.SteamName}: {ex.Message}");
+                }
             });
             
             // 3️⃣ 给新进入的玩家同步房间内其他玩家的状态
@@ -82,29 +103,21 @@ namespace DuckyNet.Server.Services
                 return;
             }
 
-            Console.WriteLine($"[SceneService] 📤 开始同步场景内现有玩家给 {newPlayer.SteamName}: {existingPlayers.Count} 个玩家");
+            Console.WriteLine($"[SceneService] 同步 {existingPlayers.Count} 个现有玩家给 {newPlayer.SteamName}");
 
             // 给新玩家发送每个现有玩家的进入场景事件
-            // 客户端会根据这些事件创建 RemotePlayer 和角色
             foreach (var existingPlayer in existingPlayers)
             {
                 try
                 {
                     newPlayerClient.Call<ISceneClientService>()
                         .OnPlayerEnteredScene(existingPlayer, existingPlayer.CurrentScenelData);
-                    
-                    Console.WriteLine($"[SceneService] ✅ 已同步玩家 {existingPlayer.SteamName} 的状态给 {newPlayer.SteamName}");
-                    Console.WriteLine($"[SceneService]   - 外观数据: {(existingPlayer.AppearanceData != null ? "已包含" : "空")}");
-                    Console.WriteLine($"[SceneService]   - 装备数据: {existingPlayer.EquipmentData.GetEquippedCount()} 件");
-                    Console.WriteLine($"[SceneService]   - 武器数据: {(existingPlayer.WeaponData != null ? existingPlayer.WeaponData.GetEquippedCount() + " 件" : "空")}");
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[SceneService] ❌ 同步玩家失败: {existingPlayer.SteamName}, 错误: {ex.Message}");
+                    Console.WriteLine($"[SceneService] ❌ 同步失败 {existingPlayer.SteamName} → {newPlayer.SteamName}: {ex.Message}");
                 }
             }
-
-            Console.WriteLine($"[SceneService] ✅ 场景内玩家同步完成: {newPlayer.SteamName}");
         }
 
         public Task<PlayerInfo[]> GetScenePlayersAsync(IClientContext client, ScenelData scenelData)

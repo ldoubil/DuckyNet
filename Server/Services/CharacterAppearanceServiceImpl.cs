@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using DuckyNet.Server.Core;
+using DuckyNet.Server.Events;
 using DuckyNet.Shared.Data;
 using DuckyNet.Shared.RPC;
 using DuckyNet.Shared.Services;
@@ -16,9 +17,23 @@ namespace DuckyNet.Server.Services
         private readonly Dictionary<string, CharacterAppearanceData> _appearanceCache;
         private readonly object _lock = new object();
 
-        public CharacterAppearanceServiceImpl()
+        public CharacterAppearanceServiceImpl(EventBus eventBus)
         {
             _appearanceCache = new Dictionary<string, CharacterAppearanceData>();
+            
+            // 订阅玩家断开事件，自动清理缓存
+            eventBus.Subscribe<PlayerDisconnectedEvent>(OnPlayerDisconnected);
+        }
+
+        /// <summary>
+        /// 处理玩家断开事件：自动清理外观缓存
+        /// </summary>
+        private void OnPlayerDisconnected(PlayerDisconnectedEvent evt)
+        {
+            if (evt.Player != null)
+            {
+                ClearAppearance(evt.Player.SteamId);
+            }
         }
 
         public void UploadAppearance(IClientContext client, CharacterAppearanceData appearanceData)

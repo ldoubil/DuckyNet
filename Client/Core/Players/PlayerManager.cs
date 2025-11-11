@@ -112,6 +112,10 @@ namespace DuckyNet.Client.Core.Players
         /// </summary>
         private void OnPlayerEnteredScene(PlayerEnteredSceneEvent @event)
         {
+            Log($"[PlayerManager] ========== PlayerEnteredSceneEvent 接收 ==========");
+            Log($"[PlayerManager] 玩家: {@event.PlayerInfo.SteamName} ({@event.PlayerInfo.SteamId})");
+            Log($"[PlayerManager] 场景: {@event.ScenelData.SceneName}/{@event.ScenelData.SubSceneName}");
+            
             // 排除本地玩家
             if (@event.PlayerInfo.SteamId == LocalPlayer.Info.SteamId)
             {
@@ -129,9 +133,14 @@ namespace DuckyNet.Client.Core.Players
                 
                 Log($"[PlayerManager] ✅ 容错创建 RemotePlayer: {@event.PlayerInfo.SteamName}");
             }
+            else
+            {
+                Log($"[PlayerManager] RemotePlayer 已存在: {@event.PlayerInfo.SteamName}");
+            }
             
             // RemotePlayer 会自己处理场景进入事件（订阅了 PlayerEnteredSceneEvent）
             // 这里不需要额外操作
+            Log($"[PlayerManager] ========== PlayerEnteredSceneEvent 处理完成 ==========");
         }
 
         /// <summary>

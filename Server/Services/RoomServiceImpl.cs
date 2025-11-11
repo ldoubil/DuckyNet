@@ -123,8 +123,15 @@ namespace DuckyNet.Server.Services
                         // 如果现有玩家在场景中，发送场景进入事件
                         if (existingPlayer.CurrentScenelData != null && !string.IsNullOrEmpty(existingPlayer.CurrentScenelData.SceneName))
                         {
-                            client.Call<ISceneClientService>()
-                                .OnPlayerEnteredScene(existingPlayer, existingPlayer.CurrentScenelData);
+                            try
+                            {
+                                client.Call<ISceneClientService>()
+                                    .OnPlayerEnteredScene(existingPlayer, existingPlayer.CurrentScenelData);
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"[RoomService] ❌ 发送场景事件失败 {existingPlayer.SteamName} → {player.SteamName}: {ex.Message}");
+                            }
                             
                             // 发送位置数据
                             var lastPosition = _unitySyncService.GetLastPosition(existingPlayer.SteamId);
@@ -133,6 +140,10 @@ namespace DuckyNet.Server.Services
                                 client.Call<IPlayerClientService>()
                                     .OnPlayerUnitySyncReceived(lastPosition);
                             }
+                        }
+                        else
+                        {
+                            Console.WriteLine($"[RoomService] ⚠️ 玩家 {existingPlayer.SteamName} 不在场景中，跳过场景进入事件");
                         }
                     }
                     
@@ -252,9 +263,20 @@ namespace DuckyNet.Server.Services
                     client.Call<IRoomClientService>()
                         .OnPlayerJoinedRoom(otherPlayer, room);
 
-                    // 如果对方在场景中，发送位置
+                    // 🔥 如果对方在场景中，发送完整的场景进入事件（修复场景内连接看不到玩家的问题）
                     if (!string.IsNullOrEmpty(otherPlayer.CurrentScenelData.SceneName))
                     {
+                        try
+                        {
+                            client.Call<ISceneClientService>()
+                                .OnPlayerEnteredScene(otherPlayer, otherPlayer.CurrentScenelData);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[RoomService] ❌ 补偿同步失败 {otherPlayer.SteamName} → {requester.SteamName}: {ex.Message}");
+                        }
+                        
+                        // 发送位置数据
                         var lastPosition = _unitySyncService.GetLastPosition(otherPlayer.SteamId);
                         if (lastPosition != null)
                         {
@@ -263,6 +285,10 @@ namespace DuckyNet.Server.Services
                         }
                     }
                 }
+                
+                // 🔥 补偿发送装备和武器数据（修复场景内连接看不到装备的问题）
+                _equipmentService.SendAllEquipmentDataToPlayer(client.ClientId, roomId);
+                _weaponSyncService.SendAllWeaponDataToPlayer(client.ClientId, roomId);
             }
 
             return await Task.FromResult(players);

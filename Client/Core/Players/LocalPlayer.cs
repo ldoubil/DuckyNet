@@ -91,7 +91,7 @@ namespace DuckyNet.Client.Core.Players
                 // 如果血量或最大血量变化超过阈值，才同步
                 if (healthDelta >= _healthThreshold || maxHealthDelta >= _healthThreshold)
                 {
-                    UnityEngine.Debug.Log($"[LocalPlayer] 💚 血量变化: {_lastSyncedHealth:F0}/{_lastSyncedMaxHealth:F0} → {@event.CurrentHealth:F0}/{@event.MaxHealth:F0}");
+                    // UnityEngine.Debug.Log($"[LocalPlayer] 💚 血量变化: {_lastSyncedHealth:F0}/{_lastSyncedMaxHealth:F0} → {@event.CurrentHealth:F0}/{@event.MaxHealth:F0}");
                     
                     // 同步血量到服务器
                     SyncHealthToServer(@event.CurrentHealth, @event.MaxHealth, false);

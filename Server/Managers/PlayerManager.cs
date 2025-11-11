@@ -33,6 +33,8 @@ namespace DuckyNet.Server.Managers
         private readonly Dictionary<string, PlayerInfo> _playersByClientId = new Dictionary<string, PlayerInfo>();
         // SteamId 到玩家映射：SteamId -> PlayerInfo
         private readonly Dictionary<string, PlayerInfo> _playersBySteamId = new Dictionary<string, PlayerInfo>();
+        // SteamId 到 ClientId 的反向映射：SteamId -> ClientId（用于快速查询）
+        private readonly Dictionary<string, string> _clientIdBySteamId = new Dictionary<string, string>();
 
         // 待登录连接表：ClientId -> PendingConnection
         private readonly Dictionary<string, PendingConnection> _pendingConnections = new Dictionary<string, PendingConnection>();
@@ -99,9 +101,10 @@ namespace DuckyNet.Server.Managers
                 // 从待登录列表移除（按 ClientId）
                 _pendingConnections.Remove(ClientId);
 
-                // 建立映射
+                // 建立三个映射（保持数据一致性）
                 _playersByClientId[ClientId] = playerInfo;
                 _playersBySteamId[playerInfo.SteamId] = playerInfo;
+                _clientIdBySteamId[playerInfo.SteamId] = ClientId;
 
                 Console.WriteLine($"[PlayerManager] Player logged in: {playerInfo.SteamName} ({playerInfo.SteamId})");
 
@@ -124,9 +127,10 @@ namespace DuckyNet.Server.Managers
                 // 先根据 ClientId 查找玩家
                 if (_playersByClientId.TryGetValue(ClientId, out var player))
                 {
-                    // 从映射移除
+                    // 从三个映射中移除（保持数据一致性）
                     _playersByClientId.Remove(ClientId);
                     _playersBySteamId.Remove(player.SteamId);
+                    _clientIdBySteamId.Remove(player.SteamId);
                     Console.WriteLine($"[PlayerManager] Player disconnected: {player.SteamName}");
 
                     // 从房间移除
@@ -201,14 +205,8 @@ namespace DuckyNet.Server.Managers
         {
             lock (_lock)
             {
-                foreach (var kvp in _playersByClientId)
-                {
-                    if (kvp.Value.SteamId == steamId)
-                    {
-                        return kvp.Key;
-                    }
-                }
-                return null;
+                // 使用字典索引实现 O(1) 查询（统一的高效方式）
+                return _clientIdBySteamId.TryGetValue(steamId, out var clientId) ? clientId : null;
             }
         }
 

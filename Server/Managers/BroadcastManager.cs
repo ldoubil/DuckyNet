@@ -200,20 +200,25 @@ namespace DuckyNet.Server.Managers
                 var clientId = _playerManager.GetClientIdBySteamId(targetPlayer.SteamId);
                 if (string.IsNullOrEmpty(clientId))
                 {
+                    Console.WriteLine($"[BroadcastManager] ⚠️ 无法获取 ClientId: {targetPlayer.SteamName}({targetPlayer.SteamId})");
                     continue;
                 }
 
                 var context = _server.GetClientContext(clientId);
-                if (context != null)
+                if (context == null)
                 {
-                    try
-                    {
-                        action(targetPlayer, context);
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"[BroadcastManager] ❌ 广播失败 {targetPlayer.SteamName}: {ex.Message}");
-                    }
+                    Console.WriteLine($"[BroadcastManager] ⚠️ 客户端上下文为 null: {targetPlayer.SteamName}({clientId})");
+                    continue;
+                }
+
+                try
+                {
+                    action(targetPlayer, context);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[BroadcastManager] ❌ 广播失败 {targetPlayer.SteamName}: {ex.Message}");
+                    Console.WriteLine($"[BroadcastManager] 堆栈跟踪: {ex.StackTrace}");
                 }
             }
         }

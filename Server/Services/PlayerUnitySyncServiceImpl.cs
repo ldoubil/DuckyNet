@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using DuckyNet.Server.Core;
+using DuckyNet.Server.Events;
 using DuckyNet.Shared.RPC;
 using DuckyNet.Shared.Services;
 using DuckyNet.Shared.Data;
@@ -20,6 +21,23 @@ namespace DuckyNet.Server.Services
         /// 用于新玩家加入房间时获取现有玩家的位置
         /// </summary>
         private readonly Dictionary<string, UnitySyncData> _lastPositionCache = new Dictionary<string, UnitySyncData>();
+
+        public PlayerUnitySyncServiceImpl(EventBus eventBus)
+        {
+            // 订阅玩家断开事件，自动清理缓存
+            eventBus.Subscribe<PlayerDisconnectedEvent>(OnPlayerDisconnected);
+        }
+
+        /// <summary>
+        /// 处理玩家断开事件：自动清理位置缓存
+        /// </summary>
+        private void OnPlayerDisconnected(PlayerDisconnectedEvent evt)
+        {
+            if (evt.Player != null)
+            {
+                ClearPlayerPosition(evt.Player.SteamId);
+            }
+        }
         
         /// <summary>
         /// 获取玩家的最后位置（用于新玩家加入房间时同步）

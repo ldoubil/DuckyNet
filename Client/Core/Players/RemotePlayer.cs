@@ -416,12 +416,22 @@ namespace DuckyNet.Client.Core.Players
         /// </summary>
         private void OnPlayerEnteredScene(PlayerEnteredSceneEvent @event)
         {
+            Log($"[RemotePlayer] ========== PlayerEnteredSceneEvent 接收 ==========");
+            Log($"[RemotePlayer] 事件玩家: {@event.PlayerInfo.SteamName} ({@event.PlayerInfo.SteamId})");
+            Log($"[RemotePlayer] 当前对象: {Info.SteamName} ({Info.SteamId})");
+            Log($"[RemotePlayer] 是否匹配: {@event.PlayerInfo.SteamId == Info.SteamId}");
+            
             // 只处理自己的场景事件
-            if (@event.PlayerInfo.SteamId != Info.SteamId) return;
+            if (@event.PlayerInfo.SteamId != Info.SteamId)
+            {
+                Log($"[RemotePlayer] ⚠️ SteamId 不匹配，跳过");
+                return;
+            }
 
             // 先销毁旧角色
             if (CharacterObject != null)
             {
+                Log($"[RemotePlayer] 销毁旧角色对象");
                 UnityEngine.Object.Destroy(CharacterObject);
                 CharacterObject = null;
                 _characterTransform = null;
@@ -431,10 +441,13 @@ namespace DuckyNet.Client.Core.Players
             CurrentSceneName = @event.ScenelData.SceneName;
             Info.CurrentScenelData = @event.ScenelData;
 
-            Log($"[RemotePlayer] 玩家 {Info.SteamName} 进入场景: {CurrentSceneName}");
+            Log($"[RemotePlayer] 🎯 玩家 {Info.SteamName} 进入场景: {CurrentSceneName}");
+            Log($"[RemotePlayer] 🎯 正在创建角色对象...");
 
             // 创建新角色
             CreateCharacter(DEFAULT_SPAWN_POSITION, Info.SteamName);
+            
+            Log($"[RemotePlayer] ========== 角色创建完成 ==========");
         }
 
         /// <summary>

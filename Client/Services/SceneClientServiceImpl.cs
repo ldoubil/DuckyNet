@@ -42,14 +42,28 @@ namespace DuckyNet.Client.Services
         {
             try
             {
-                Debug.Log($"[SceneClientService] 玩家进入场景: {playerInfo.SteamName} -> {scenelData.SceneName} ");
+                Debug.Log($"[SceneClientService] ========== OnPlayerEnteredScene 被调用 ==========");
+                Debug.Log($"[SceneClientService] 玩家: {playerInfo.SteamName} ({playerInfo.SteamId})");
+                Debug.Log($"[SceneClientService] 场景: {scenelData.SceneName}/{scenelData.SubSceneName}");
+                Debug.Log($"[SceneClientService] GameContext 已初始化: {GameContext.IsInitialized}");
+                
                 if (GameContext.IsInitialized)
                 {
+                    Debug.Log($"[SceneClientService] 正在发布 PlayerEnteredSceneEvent 到 EventBus...");
                     _eventSubscriber.EventBus.Publish(new PlayerEnteredSceneEvent(playerInfo, scenelData));
+                    Debug.Log($"[SceneClientService] ✅ 事件已发布");
                 }
-            }catch(Exception ex)
+                else
+                {
+                    Debug.LogError($"[SceneClientService] ❌ GameContext 未初始化，无法发布事件！");
+                }
+                
+                Debug.Log($"[SceneClientService] ========== OnPlayerEnteredScene 处理完成 ==========");
+            }
+            catch(Exception ex)
             {
                 Debug.LogError($"[SceneClientService] 处理玩家进入场景失败: {ex.Message}");
+                Debug.LogError($"[SceneClientService] 堆栈跟踪: {ex.StackTrace}");
             }
         }
         

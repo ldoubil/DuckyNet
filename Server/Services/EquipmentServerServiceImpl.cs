@@ -115,8 +115,6 @@ namespace DuckyNet.Server.Services
                 {
                     clientContext.Call<IEquipmentClientService>()
                         .OnAllPlayersEquipmentReceived(allEquipmentData);
-                    
-                    Log($"已向玩家发送房间装备数据: {allEquipmentData.PlayersEquipment.Count} 个玩家", ConsoleColor.Green);
                 }
             }
             catch (Exception ex)

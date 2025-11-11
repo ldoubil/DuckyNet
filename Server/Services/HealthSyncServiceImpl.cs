@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using DuckyNet.Server.Core;
+using DuckyNet.Server.Events;
 using DuckyNet.Shared.RPC;
 using DuckyNet.Shared.Services;
 using DuckyNet.Shared.Data;
@@ -19,6 +20,23 @@ namespace DuckyNet.Server.Services
         /// 玩家最后血量缓存 - Key: SteamId, Value: 最后的血量数据
         /// </summary>
         private readonly Dictionary<string, HealthSyncData> _lastHealthCache = new Dictionary<string, HealthSyncData>();
+
+        public HealthSyncServiceImpl(EventBus eventBus)
+        {
+            // 订阅玩家断开事件，自动清理缓存
+            eventBus.Subscribe<PlayerDisconnectedEvent>(OnPlayerDisconnected);
+        }
+
+        /// <summary>
+        /// 处理玩家断开事件：自动清理血量缓存
+        /// </summary>
+        private void OnPlayerDisconnected(PlayerDisconnectedEvent evt)
+        {
+            if (evt.Player != null)
+            {
+                ClearPlayerHealth(evt.Player.SteamId);
+            }
+        }
         
         /// <summary>
         /// 获取玩家的最后血量（用于新玩家加入房间时同步）

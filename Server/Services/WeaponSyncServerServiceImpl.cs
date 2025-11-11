@@ -149,11 +149,6 @@ namespace DuckyNet.Server.Services
                 // 设置玩家ID
                 fireData.PlayerId = player.SteamId;
 
-                #if DEBUG
-                Log($"玩家 {player.SteamName} 开枪: 位置=({fireData.MuzzlePositionX:F2}, {fireData.MuzzlePositionY:F2}, {fireData.MuzzlePositionZ:F2}), 消音={fireData.IsSilenced}", 
-                    ConsoleColor.DarkYellow);
-                #endif
-
                 // 广播给房间内的其他玩家
                 BroadcastWeaponFireToRoom(player, fireData);
 
@@ -280,8 +275,6 @@ namespace DuckyNet.Server.Services
                 // 设置 PlayerId
                 batchData.PlayerId = player.SteamId;
 
-                // Log($"玩家 {player.SteamName} 批量开火: {batchData.BulletCount} 发子弹", ConsoleColor.Yellow);
-
                 // 🔥 批量广播给房间内的其他玩家
                 BroadcastWeaponFireBatchToRoom(player, batchData);
             }
@@ -313,8 +306,6 @@ namespace DuckyNet.Server.Services
 
             try
             {
-                // 🔍 调试日志：服务器接收到的数据
-
                 // 设置 PlayerId
                 fireData.PlayerId = player.SteamId;
 
@@ -393,8 +384,6 @@ namespace DuckyNet.Server.Services
                 {
                     clientContext.Call<IWeaponSyncClientService>()
                         .OnAllPlayersWeaponReceived(allWeaponData);
-
-                    // Log($"已向玩家发送房间武器数据: {allWeaponData.PlayersWeapons.Count} 个玩家", ConsoleColor.Green);
                 }
             }
             catch (Exception ex)
