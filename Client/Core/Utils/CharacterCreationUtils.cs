@@ -1,4 +1,5 @@
 using System;
+using System.Reflection;
 using UnityEngine;
 using HarmonyLib;
 
@@ -6,59 +7,96 @@ namespace DuckyNet.Client.Core.Utils
 {
     public static class CharacterCreationUtils
     {
+        /// <summary>
+        /// 缓存反射类型和成员，避免重复查找
+        /// </summary>
+        private static class CachedReflection
+        {
+            // 类型缓存
+            public static readonly Type? LevelManagerType = AccessTools.TypeByName("LevelManager");
+            public static readonly Type? CharacterCreatorType = AccessTools.TypeByName("CharacterCreator");
+            public static readonly Type? CharacterRandomPresetType = AccessTools.TypeByName("CharacterRandomPreset");
+            public static readonly Type? ItemAssetsCollectionType = AccessTools.TypeByName("ItemStatsSystem.ItemAssetsCollection");
+            public static readonly Type? GameplayDataSettingsType = AccessTools.TypeByName("Duckov.Utilities.GameplayDataSettings");
+            public static readonly Type? TeamsType = AccessTools.TypeByName("Teams");
+            public static readonly Type? CharacterIconTypesType = AccessTools.TypeByName("CharacterIconTypes");
+            public static readonly Type? MovementType = AccessTools.TypeByName("Movement");
+            public static readonly Type? SetActiveByPlayerDistanceType = AccessTools.TypeByName("Duckov.Utilities.SetActiveByPlayerDistance");
+            public static readonly Type? HealthBarManagerType = AccessTools.TypeByName("Duckov.UI.HealthBarManager");
+
+            // 属性缓存
+            public static readonly PropertyInfo? LevelManagerInstance = AccessTools.Property(LevelManagerType, "Instance");
+            public static readonly PropertyInfo? MainCharacter = AccessTools.Property(LevelManagerType, "MainCharacter");
+            public static readonly PropertyInfo? CharacterCreatorProp = AccessTools.Property(LevelManagerType, "CharacterCreator");
+            public static readonly PropertyInfo? ItemAssets = AccessTools.Property(GameplayDataSettingsType, "ItemAssets");
+            public static readonly PropertyInfo? HealthBarManagerInstance = AccessTools.Property(HealthBarManagerType, "Instance");
+
+            // 字段缓存
+            public static readonly FieldInfo? CharacterModelField = AccessTools.Field(LevelManagerType, "characterModel");
+
+            // 方法缓存
+            public static readonly MethodInfo? InstantiateAsyncMethod = AccessTools.Method(ItemAssetsCollectionType, "InstantiateAsync", new[] { typeof(int) });
+            public static readonly MethodInfo? CreateCharacterMethod = AccessTools.Method(CharacterCreatorType, "CreateCharacter");
+            public static readonly MethodInfo? UnregisterMethod = SetActiveByPlayerDistanceType != null 
+                ? AccessTools.Method(SetActiveByPlayerDistanceType, "Unregister", new[] { typeof(GameObject), typeof(int) }) 
+                : null;
+            public static readonly MethodInfo? GetActiveHealthBarMethod = AccessTools.Method(HealthBarManagerType, "GetActiveHealthBar");
+        }
+
         public static object? CreateCharacterItem()
         {
-            var itemAssetsCollectionType = AccessTools.TypeByName("ItemStatsSystem.ItemAssetsCollection");
-            var gameplayDataSettingsType = AccessTools.TypeByName("Duckov.Utilities.GameplayDataSettings");
+            if (CachedReflection.ItemAssets == null || CachedReflection.InstantiateAsyncMethod == null)
+            {
+                UnityEngine.Debug.LogWarning("[CharacterCreationUtils] 缺少必要的反射成员");
+                return null;
+            }
 
-            var itemAssetsProp = AccessTools.Property(gameplayDataSettingsType, "ItemAssets");
-            object? itemAssets = itemAssetsProp?.GetValue(null);
+            object? itemAssets = CachedReflection.ItemAssets.GetValue(null);
             var defaultItemTypeProp = AccessTools.Property(itemAssets?.GetType(), "DefaultCharacterItemTypeID");
             int itemTypeID = (int)(defaultItemTypeProp?.GetValue(itemAssets) ?? 0);
 
-            var instantiateMethod = AccessTools.Method(itemAssetsCollectionType, "InstantiateAsync", new[] { typeof(int) });
-            object? instantiateTask = instantiateMethod?.Invoke(null, new object[] { itemTypeID });
+            object? instantiateTask = CachedReflection.InstantiateAsyncMethod.Invoke(null, new object[] { itemTypeID });
 
             return instantiateTask != null ? UniTaskHelper.WaitForUniTaskSync(instantiateTask) : null;
         }
 
         public static object? GetCharacterModelPrefab()
         {
-            var levelManagerType = AccessTools.TypeByName("LevelManager");
-            var instanceProp = AccessTools.Property(levelManagerType, "Instance");
-            var levelManager = instanceProp?.GetValue(null);
+            if (CachedReflection.LevelManagerInstance == null || CachedReflection.CharacterModelField == null)
+            {
+                UnityEngine.Debug.LogWarning("[CharacterCreationUtils] 缺少必要的反射成员");
+                return null;
+            }
 
-            // 🔥 关键修复：检查 levelManager 是否为 null
+            var levelManager = CachedReflection.LevelManagerInstance.GetValue(null);
             if (levelManager == null)
             {
                 UnityEngine.Debug.LogWarning("[CharacterCreationUtils] LevelManager.Instance 为 null，无法获取角色模型预制体");
                 return null;
             }
 
-            var characterModelField = AccessTools.Field(levelManagerType, "characterModel");
-            return characterModelField?.GetValue(levelManager);
+            return CachedReflection.CharacterModelField.GetValue(levelManager);
         }
 
         public static object? CreateCharacterInstance(object characterItem, object modelPrefab, Vector3 position, Quaternion rotation)
         {
-            var levelManagerType = AccessTools.TypeByName("LevelManager");
-            var characterCreatorType = AccessTools.TypeByName("CharacterCreator");
+            if (CachedReflection.LevelManagerInstance == null || 
+                CachedReflection.CharacterCreatorProp == null || 
+                CachedReflection.CreateCharacterMethod == null)
+            {
+                UnityEngine.Debug.LogWarning("[CharacterCreationUtils] 缺少必要的反射成员");
+                return null;
+            }
 
-            var instanceProp = AccessTools.Property(levelManagerType, "Instance");
-            var levelManager = instanceProp?.GetValue(null);
-
-            // 🔥 关键修复：检查 levelManager 是否为 null
+            var levelManager = CachedReflection.LevelManagerInstance.GetValue(null);
             if (levelManager == null)
             {
                 UnityEngine.Debug.LogWarning("[CharacterCreationUtils] LevelManager.Instance 为 null，无法创建角色实例");
                 return null;
             }
 
-            var creatorProp = AccessTools.Property(levelManagerType, "CharacterCreator");
-            var characterCreator = creatorProp?.GetValue(levelManager);
-
-            var createMethod = AccessTools.Method(characterCreatorType, "CreateCharacter");
-            object? createTask = createMethod?.Invoke(characterCreator, new object[] { 
+            var characterCreator = CachedReflection.CharacterCreatorProp.GetValue(levelManager);
+            object? createTask = CachedReflection.CreateCharacterMethod.Invoke(characterCreator, new object[] { 
                 characterItem, modelPrefab, position, rotation 
             });
 
@@ -73,15 +111,16 @@ namespace DuckyNet.Client.Core.Utils
             characterComponent.gameObject.name = name;
             characterComponent.transform.position = position;
 
-            var teamsType = AccessTools.TypeByName("Teams");
-            string[] teamEnumNames = { "player", "scav", "middle" };
-            if (team >= 0 && team < teamEnumNames.Length)
+            // 设置队伍
+            if (CachedReflection.TeamsType != null && team >= 0 && team <= 2)
             {
-                object teamValue = Enum.Parse(teamsType, teamEnumNames[team]);
+                string[] teamEnumNames = { "player", "scav", "middle" };
+                object teamValue = Enum.Parse(CachedReflection.TeamsType, teamEnumNames[team]);
                 var setTeamMethod = AccessTools.Method(character.GetType(), "SetTeam");
                 setTeamMethod?.Invoke(character, new object[] { teamValue });
             }
 
+            // 初始化血量
             var healthProp = AccessTools.Property(character.GetType(), "Health");
             object? health = healthProp?.GetValue(character);
             if (health != null)
@@ -97,69 +136,29 @@ namespace DuckyNet.Client.Core.Utils
             var characterPresetProp = AccessTools.Property(charType, "characterPreset");
             object? currentPreset = characterPresetProp?.GetValue(character);
 
-            if (currentPreset == null)
+            // 如果预设不存在，创建新的
+            if (currentPreset == null && CachedReflection.CharacterRandomPresetType != null)
             {
-                var presetType = AccessTools.TypeByName("CharacterRandomPreset");
-                if (presetType != null)
-                {
-                    currentPreset = UnityEngine.ScriptableObject.CreateInstance(presetType);
-                    if (currentPreset != null && characterPresetProp != null && characterPresetProp.CanWrite)
-                    {
-                        characterPresetProp.SetValue(character, currentPreset);
-                        UnityEngine.Debug.Log("[CharacterCreationUtils] 创建新的 CharacterRandomPreset");
-                    }
-                }
+                currentPreset = UnityEngine.ScriptableObject.CreateInstance(CachedReflection.CharacterRandomPresetType);
+                characterPresetProp?.SetValue(character, currentPreset);
             }
 
-            if (currentPreset != null)
+            if (currentPreset == null) return;
+
+            var presetType = currentPreset.GetType();
+            
+            // 一次性设置所有字段（无需重复验证）
+            AccessTools.Field(presetType, "showHealthBar")?.SetValue(currentPreset, true);
+            AccessTools.Field(presetType, "showName")?.SetValue(currentPreset, showName);
+            AccessTools.Field(presetType, "nameKey")?.SetValue(currentPreset, displayName);
+            
+            // 设置图标类型
+            if (CachedReflection.CharacterIconTypesType != null)
             {
-                var presetType = currentPreset.GetType();
-                
-                var showHealthBarField = AccessTools.Field(presetType, "showHealthBar");
-                if (showHealthBarField != null)
-                {
-                    showHealthBarField.SetValue(currentPreset, true);
-                    UnityEngine.Debug.Log("[CharacterCreationUtils] 设置 showHealthBar = true");
-                }
-                
-                // 🔥 修复：showName 是字段，不是属性
-                var showNameField = AccessTools.Field(presetType, "showName");
-                if (showNameField != null)
-                {
-                    showNameField.SetValue(currentPreset, showName);
-                    UnityEngine.Debug.Log($"[CharacterCreationUtils] 设置 showName (Field) = {showName}");
-                }
-
-                var nameKeyField = AccessTools.Field(presetType, "nameKey");
-                if (nameKeyField != null)
-                {
-                    nameKeyField.SetValue(currentPreset, displayName);
-                    UnityEngine.Debug.Log($"[CharacterCreationUtils] 设置 nameKey = {displayName}");
-                }
-
-                var iconTypeField = AccessTools.Field(presetType, "characterIconType");
-                if (iconTypeField != null)
-                {
-                    var iconEnumType = AccessTools.TypeByName("CharacterIconTypes");
-                    if (iconEnumType != null)
-                    {
-                        object iconValue = Enum.Parse(iconEnumType, "pmc");
-                        iconTypeField.SetValue(currentPreset, iconValue);
-                        UnityEngine.Debug.Log("[CharacterCreationUtils] 设置 characterIconType = pmc");
-                    }
-                }
-                
-                // 验证设置
-                var displayNameProp = AccessTools.Property(presetType, "DisplayName");
-                if (displayNameProp != null)
-                {
-                    object? actualDisplayName = displayNameProp.GetValue(currentPreset);
-                    UnityEngine.Debug.Log($"[CharacterCreationUtils] 验证 DisplayName = {actualDisplayName}");
-                }
-                
-                // 🔥 验证 showName 字段
-                var verifyShowName = showNameField?.GetValue(currentPreset);
-                UnityEngine.Debug.Log($"[CharacterCreationUtils] 验证 showName (Field) = {verifyShowName}");
+                AccessTools.Field(presetType, "characterIconType")?.SetValue(
+                    currentPreset, 
+                    Enum.Parse(CachedReflection.CharacterIconTypesType, "pmc")
+                );
             }
         }
 
@@ -190,60 +189,6 @@ namespace DuckyNet.Client.Core.Utils
             }
         }
 
-        /// <summary>
-        /// 禁用角色的移动脚本 - 防止角色掉落和移动
-        /// ⚠️ 已废弃：现在使用 MarkAsRemotePlayer() + Movement 补丁实现
-        /// 参见：Client/Patches/MovementPatch.cs
-        /// </summary>
-        [System.Obsolete("已废弃：现在使用 MarkAsRemotePlayer() + Movement 补丁实现")]
-        public static void DisableMovement(object character)
-        {
-            Component? characterComponent = character as Component;
-            if (characterComponent == null)
-            {
-                UnityEngine.Debug.LogWarning("[CharacterCreationUtils] 无法禁用移动: character 不是 Component");
-                return;
-            }
-
-            // 1. 禁用 Movement 组件
-            var movementType = AccessTools.TypeByName("Movement");
-            if (movementType != null)
-            {
-                var movement = characterComponent.GetComponent(movementType);
-                if (movement != null && movement is Behaviour behaviour)
-                {
-                    behaviour.enabled = false;
-                    UnityEngine.Debug.Log($"[CharacterCreationUtils] 已禁用 Movement 组件");
-                }
-            }
-
-            // 2. 禁用 CharacterMovement (ECM2 组件)
-            var characterMovementType = AccessTools.TypeByName("ECM2.CharacterMovement");
-            if (characterMovementType != null)
-            {
-                var characterMovement = characterComponent.GetComponentInChildren(characterMovementType);
-                if (characterMovement != null && characterMovement is Behaviour ecmBehaviour)
-                {
-                    ecmBehaviour.enabled = false;
-                    UnityEngine.Debug.Log($"[CharacterCreationUtils] 已禁用 ECM2.CharacterMovement 组件");
-                }
-            }
-
-            // 3. 禁用 CharacterMainControl 组件（可能控制角色整体行为）
-            var characterMainControlType = AccessTools.TypeByName("CharacterMainControl");
-            if (characterMainControlType != null)
-            {
-                var mainControl = characterComponent.GetComponent(characterMainControlType);
-                if (mainControl != null && mainControl is Behaviour mainControlBehaviour)
-                {
-                    mainControlBehaviour.enabled = false;
-                    UnityEngine.Debug.Log($"[CharacterCreationUtils] 已禁用 CharacterMainControl 组件");
-                }
-            }
-
-           
-            UnityEngine.Debug.Log($"[CharacterCreationUtils] 已完成禁用角色移动脚本，角色应保持静止");
-        }
 
         /// <summary>
         /// 从距离管理系统中移除角色（防止远程玩家被自动禁用）
@@ -253,143 +198,61 @@ namespace DuckyNet.Client.Core.Utils
             Component? characterComponent = character as Component;
             if (characterComponent == null) return;
 
-            try
+            if (CachedReflection.UnregisterMethod != null)
             {
-                var setActiveByPlayerDistanceType = AccessTools.TypeByName("Duckov.Utilities.SetActiveByPlayerDistance");
-                if (setActiveByPlayerDistanceType != null)
+                try
                 {
-                    var unregisterMethod = AccessTools.Method(setActiveByPlayerDistanceType, "Unregister",
-                        new[] { typeof(GameObject), typeof(int) });
-
-                    if (unregisterMethod != null)
-                    {
-                        int sceneBuildIndex = characterComponent.gameObject.scene.buildIndex;
-                        unregisterMethod.Invoke(null, new object[] { characterComponent.gameObject, sceneBuildIndex });
-                        UnityEngine.Debug.Log($"[CharacterCreationUtils] ✅ 已从距离管理系统移除角色 (场景索引: {sceneBuildIndex})");
-                    }
-                    else
-                    {
-                        UnityEngine.Debug.LogWarning("[CharacterCreationUtils] 未找到 SetActiveByPlayerDistance.Unregister 方法");
-                    }
+                    int sceneBuildIndex = characterComponent.gameObject.scene.buildIndex;
+                    CachedReflection.UnregisterMethod.Invoke(null, new object[] { characterComponent.gameObject, sceneBuildIndex });
                 }
-                else
+                catch (Exception ex)
                 {
-                    UnityEngine.Debug.LogWarning("[CharacterCreationUtils] 未找到 SetActiveByPlayerDistance 类型");
+                    UnityEngine.Debug.LogError($"[CharacterCreationUtils] 从距离系统移除失败: {ex.Message}");
                 }
-            }
-            catch (Exception ex)
-            {
-                UnityEngine.Debug.LogError($"[CharacterCreationUtils] 从距离系统移除失败: {ex.Message}");
             }
         }
 
         public static void RequestHealthBar(object character, string displayName, UnityEngine.Sprite? customIcon = null)
         {
+            // 先配置预设（HealthBar 会从预设中读取名称）
+            ConfigureCharacterPreset(character, displayName, showName: true);
+
             var healthProp = AccessTools.Property(character.GetType(), "Health");
             object? health = healthProp?.GetValue(character);
             
             if (health != null)
             {
                 var showHealthBarProp = AccessTools.Property(health.GetType(), "showHealthBar");
-                if (showHealthBarProp != null && showHealthBarProp.CanWrite)
-                {
-                    showHealthBarProp.SetValue(health, true);
-                }
+                showHealthBarProp?.SetValue(health, true);
 
                 var requestMethod = AccessTools.Method(health.GetType(), "RequestHealthBar", Type.EmptyTypes);
                 requestMethod?.Invoke(health, null);
                 
-                // 延迟设置名称文本，等待 HealthBar 创建完成
-                if (health is UnityEngine.MonoBehaviour mb)
+                // 如果需要自定义图标，延迟设置（等待 HealthBar 创建）
+                if (customIcon != null && health is UnityEngine.MonoBehaviour mb)
                 {
-                    mb.StartCoroutine(SetHealthBarNameDelayed(health, displayName, customIcon));
+                    mb.StartCoroutine(SetHealthBarIconDelayed(health, customIcon));
                 }
             }
         }
 
-        private static System.Collections.IEnumerator SetHealthBarNameDelayed(object health, string displayName, UnityEngine.Sprite? customIcon)
+        private static System.Collections.IEnumerator SetHealthBarIconDelayed(object health, UnityEngine.Sprite customIcon)
         {
             yield return null; // 等待一帧，让 HealthBar 创建完成
             
-            var healthBarManagerType = AccessTools.TypeByName("Duckov.UI.HealthBarManager");
-            if (healthBarManagerType == null)
+            if (CachedReflection.HealthBarManagerInstance == null || CachedReflection.GetActiveHealthBarMethod == null)
             {
-                UnityEngine.Debug.LogWarning("[CharacterCreationUtils] 未找到 HealthBarManager 类型");
                 yield break;
             }
             
-            var instanceProp = AccessTools.Property(healthBarManagerType, "Instance");
-            object? healthBarManager = instanceProp?.GetValue(null);
+            object? healthBarManager = CachedReflection.HealthBarManagerInstance.GetValue(null);
+            if (healthBarManager == null) yield break;
             
-            if (healthBarManager == null)
+            object? healthBar = CachedReflection.GetActiveHealthBarMethod.Invoke(healthBarManager, new object[] { health });
+            if (healthBar != null)
             {
-                UnityEngine.Debug.LogWarning("[CharacterCreationUtils] HealthBarManager.Instance 为空");
-                yield break;
+                SetHealthBarIcon(healthBar, customIcon);
             }
-            
-            var getActiveHealthBarMethod = AccessTools.Method(healthBarManagerType, "GetActiveHealthBar");
-            
-            // 🔥 持续设置 10 秒，每 0.2 秒设置一次
-            // 这样可以覆盖任何因事件触发的 RefreshCharacterIcon()
-            float duration = 10f;
-            float interval = 0.2f;
-            float elapsed = 0f;
-            
-            while (elapsed < duration)
-            {
-                object? healthBar = getActiveHealthBarMethod?.Invoke(healthBarManager, new object[] { health });
-                
-                if (healthBar != null)
-                {
-                    // 🔥 强制刷新血条图标和名字（调用 RefreshCharacterIcon）
-                    var refreshIconMethod = AccessTools.Method(healthBar.GetType(), "RefreshCharacterIcon");
-                    if (refreshIconMethod != null)
-                    {
-                        refreshIconMethod.Invoke(healthBar, null);
-                    }
-
-                    // 直接设置 nameText（双重保险）
-                    var nameTextField = AccessTools.Field(healthBar.GetType(), "nameText");
-                    object? nameText = nameTextField?.GetValue(healthBar);
-                    
-                    if (nameText != null)
-                    {
-                        var textProp = AccessTools.Property(nameText.GetType(), "text");
-                        if (textProp != null && textProp.CanWrite)
-                        {
-                            string currentText = textProp.GetValue(nameText)?.ToString() ?? "";
-                            
-                            // 只有当文本被改变时才重新设置
-                            if (currentText != displayName)
-                            {
-                                textProp.SetValue(nameText, displayName);
-                                UnityEngine.Debug.Log($"[CharacterCreationUtils] 🔄 重新设置 HealthBar.nameText = {displayName}");
-                            }
-                        }
-                        
-                        // 强制激活名字显示
-                        var gameObjectProp = AccessTools.Property(nameText.GetType(), "gameObject");
-                        object? gameObject = gameObjectProp?.GetValue(nameText);
-                        if (gameObject != null)
-                        {
-                            var setActiveMethod = AccessTools.Method(gameObject.GetType(), "SetActive");
-                            setActiveMethod?.Invoke(gameObject, new object[] { true });
-                        }
-                    }
-                    
-                    // 首次设置图标（之后不重复设置）
-                    if (elapsed < interval)
-                    {
-                        SetHealthBarIcon(healthBar, customIcon);
-                        UnityEngine.Debug.Log($"[CharacterCreationUtils] 🎨 初始设置 HealthBar 名字 = {displayName}");
-                    }
-                }
-                
-                yield return new UnityEngine.WaitForSeconds(interval);
-                elapsed += interval;
-            }
-            
-            UnityEngine.Debug.Log($"[CharacterCreationUtils] ✅ HealthBar 名字持续设置完成 ({duration}秒)");
         }
 
         private static void SetHealthBarIcon(object healthBar, UnityEngine.Sprite? customIcon)
@@ -442,74 +305,85 @@ namespace DuckyNet.Client.Core.Utils
                     var localPlayer = GameContext.Instance.PlayerManager.LocalPlayer;
                     if (localPlayer?.AvatarTexture != null)
                     {
-                        // 将 Texture2D 转换为 Sprite
                         var texture = localPlayer.AvatarTexture;
-                        var sprite = UnityEngine.Sprite.Create(
+                        return UnityEngine.Sprite.Create(
                             texture,
                             new UnityEngine.Rect(0, 0, texture.width, texture.height),
                             new UnityEngine.Vector2(0.5f, 0.5f)
                         );
-                        
-                        UnityEngine.Debug.Log("[CharacterCreationUtils] 使用 Steam 头像作为图标");
-                        return sprite;
                     }
                 }
                 
-                // 如果 Steam 头像不可用，使用本地玩家的角色预设图标
-                var levelManagerType = AccessTools.TypeByName("LevelManager");
-                var instanceProp = AccessTools.Property(levelManagerType, "Instance");
-                var levelManager = instanceProp?.GetValue(null);
-                
-                if (levelManager != null)
+                // 备选：使用本地玩家的角色预设图标
+                if (CachedReflection.LevelManagerInstance != null && CachedReflection.MainCharacter != null)
                 {
-                    var mainCharProp = AccessTools.Property(levelManagerType, "MainCharacter");
-                    var mainChar = mainCharProp?.GetValue(levelManager);
-                    
-                    if (mainChar != null)
+                    var levelManager = CachedReflection.LevelManagerInstance.GetValue(null);
+                    if (levelManager != null)
                     {
-                        var characterPresetProp = AccessTools.Property(mainChar.GetType(), "characterPreset");
-                        var preset = characterPresetProp?.GetValue(mainChar);
-                        
-                        if (preset != null)
+                        var mainChar = CachedReflection.MainCharacter.GetValue(levelManager);
+                        if (mainChar != null)
                         {
-                            var getIconMethod = AccessTools.Method(preset.GetType(), "GetCharacterIcon");
-                            var icon = getIconMethod?.Invoke(preset, null);
-                            
-                            if (icon is UnityEngine.Sprite sprite)
+                            var preset = AccessTools.Property(mainChar.GetType(), "characterPreset")?.GetValue(mainChar);
+                            if (preset != null)
                             {
-                                UnityEngine.Debug.Log("[CharacterCreationUtils] 使用本地玩家角色预设图标");
-                                return sprite;
+                                return AccessTools.Method(preset.GetType(), "GetCharacterIcon")?.Invoke(preset, null) as UnityEngine.Sprite;
                             }
                         }
                     }
                 }
-                
-                // 如果都不可用，使用宠物图标作为默认图标
-                var gameplayDataSettingsType = AccessTools.TypeByName("Duckov.Utilities.GameplayDataSettings");
-                if (gameplayDataSettingsType != null)
-                {
-                    var uiStyleProp = AccessTools.Property(gameplayDataSettingsType, "UIStyle");
-                    var uiStyle = uiStyleProp?.GetValue(null);
-                    
-                    if (uiStyle != null)
-                    {
-                        var petIconProp = AccessTools.Property(uiStyle.GetType(), "PetCharacterIcon");
-                        var petIcon = petIconProp?.GetValue(uiStyle);
-                        
-                        if (petIcon is UnityEngine.Sprite sprite)
-                        {
-                            UnityEngine.Debug.Log("[CharacterCreationUtils] 使用默认宠物图标");
-                            return sprite;
-                        }
-                    }
-                }
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
-                UnityEngine.Debug.LogWarning($"[CharacterCreationUtils] 获取本地玩家图标失败: {ex.Message}");
+                UnityEngine.Debug.LogWarning($"[CharacterCreationUtils] 获取图标失败: {ex.Message}");
             }
             
             return null;
+        }
+
+        /// <summary>
+        /// 统一的角色创建和配置方法
+        /// </summary>
+        public static object? CreateAndConfigureCharacter(
+            Vector3 position, 
+            Quaternion rotation, 
+            string displayName, 
+            int team = 0,
+            bool isRemotePlayer = true)
+        {
+            var characterItem = CreateCharacterItem();
+            if (characterItem == null)
+            {
+                UnityEngine.Debug.LogError("[CharacterCreationUtils] 创建角色物品失败");
+                return null;
+            }
+
+            var modelPrefab = GetCharacterModelPrefab();
+            if (modelPrefab == null)
+            {
+                UnityEngine.Debug.LogError("[CharacterCreationUtils] 获取角色模型失败");
+                return null;
+            }
+
+            var character = CreateCharacterInstance(characterItem, modelPrefab, position, rotation);
+            if (character == null)
+            {
+                UnityEngine.Debug.LogError("[CharacterCreationUtils] 创建角色实例失败");
+                return null;
+            }
+
+            // 按正确顺序配置
+            ConfigureCharacterPreset(character, displayName, showName: true);
+            ConfigureCharacter(character, displayName, position, team);
+            
+            if (isRemotePlayer)
+            {
+                MarkAsRemotePlayer(character);
+                UnregisterFromDistanceSystem(character);
+            }
+            
+            RequestHealthBar(character, displayName);
+
+            return character;
         }
 
         /// <summary>
