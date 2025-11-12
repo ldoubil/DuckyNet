@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using DuckyNet.Server.Managers;
-using DuckyNet.Server.Web.Services;
 
 namespace DuckyNet.Server.Web
 {
@@ -31,7 +30,7 @@ namespace DuckyNet.Server.Web
             {
                 options.AddDefaultPolicy(policy =>
                 {
-                    policy.WithOrigins("http://localhost:3000") // Vue开发服务器
+                    policy.WithOrigins("http://localhost:3000", "http://localhost:3001") // Vue开发服务器（支持多端口）
                           .AllowAnyMethod()
                           .AllowAnyHeader()
                           .AllowCredentials(); // 允许WebSocket
@@ -43,9 +42,6 @@ namespace DuckyNet.Server.Web
             builder.Services.AddSingleton(gameServiceProvider.GetRequiredService<RoomManager>());
             builder.Services.AddSingleton(gameServiceProvider.GetRequiredService<SceneManager>());
             builder.Services.AddSingleton(gameServiceProvider.GetRequiredService<PlayerNpcManager>());
-            
-            // 注册 WebSocket 处理器
-            builder.Services.AddSingleton<WebSocketHandler>();
 
             var app = builder.Build();
 
@@ -57,31 +53,6 @@ namespace DuckyNet.Server.Web
             }
 
             app.UseCors();
-            
-            // 启用 WebSocket
-            var webSocketOptions = new WebSocketOptions
-            {
-                KeepAliveInterval = TimeSpan.FromMinutes(2)
-            };
-            app.UseWebSockets(webSocketOptions);
-            
-            // WebSocket 端点
-            var wsHandler = app.Services.GetRequiredService<WebSocketHandler>();
-            app.Use(async (context, next) =>
-            {
-                if (context.Request.Path == "/ws")
-                {
-                    await wsHandler.HandleAsync(context);
-                }
-                else
-                {
-                    await next();
-                }
-            });
-            
-            // 启动 WebSocket 广播服务
-            wsHandler.Start();
-
             app.UseRouting();
             app.MapControllers();
             
@@ -93,8 +64,8 @@ namespace DuckyNet.Server.Web
     ""name"": ""DuckyNet Server API"",
     ""version"": ""1.0.0"",
     ""swagger"": ""/swagger"",
-    ""websocket"": ""ws://localhost:5000/ws"",
-    ""frontend"": ""http://localhost:3000 (Vue3 Dev Server)""
+    ""frontend"": ""http://localhost:3001 (Vue3 Dev Server)"",
+    ""refresh"": ""HTTP Polling (3 seconds)""
 }");
             });
 

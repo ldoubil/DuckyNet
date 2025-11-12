@@ -49,114 +49,13 @@ export const api = {
   
   // NPC
   getNpcs: () => http.get('/api/npcs'),
-  getNpcDetail: (npcId) => http.get(`/api/npcs/${npcId}`)
+  getNpcDetail: (npcId) => http.get(`/api/npcs/${npcId}`),
+  
+  // 监控
+  getPerformance: () => http.get('/api/monitor/performance'),
+  getPlayerDistribution: () => http.get('/api/monitor/player-distribution'),
+  getNpcStats: () => http.get('/api/monitor/npc-stats'),
+  getHotScenes: () => http.get('/api/monitor/hot-scenes'),
+  getHealth: () => http.get('/api/monitor/health')
 }
-
-// WebSocket管理器
-class WebSocketManager {
-  constructor() {
-    this.ws = null
-    this.reconnectTimer = null
-    this.reconnectDelay = 3000
-    this.listeners = {
-      message: [],
-      connected: [],
-      disconnected: [],
-      error: []
-    }
-  }
-  
-  connect() {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      return
-    }
-    
-    try {
-      this.ws = new WebSocket(`${WS_BASE_URL}/ws`)
-      
-      this.ws.onopen = () => {
-        console.log('WebSocket 连接成功')
-        this.trigger('connected')
-        if (this.reconnectTimer) {
-          clearTimeout(this.reconnectTimer)
-          this.reconnectTimer = null
-        }
-      }
-      
-      this.ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data)
-          this.trigger('message', data)
-        } catch (error) {
-          console.error('WebSocket 消息解析失败:', error)
-        }
-      }
-      
-      this.ws.onerror = (error) => {
-        console.error('WebSocket 错误:', error)
-        this.trigger('error', error)
-      }
-      
-      this.ws.onclose = () => {
-        console.log('WebSocket 连接关闭')
-        this.trigger('disconnected')
-        this.reconnect()
-      }
-    } catch (error) {
-      console.error('WebSocket 连接失败:', error)
-      this.reconnect()
-    }
-  }
-  
-  disconnect() {
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer)
-      this.reconnectTimer = null
-    }
-    if (this.ws) {
-      this.ws.close()
-      this.ws = null
-    }
-  }
-  
-  reconnect() {
-    if (this.reconnectTimer) {
-      return
-    }
-    console.log(`将在 ${this.reconnectDelay / 1000} 秒后重连...`)
-    this.reconnectTimer = setTimeout(() => {
-      this.reconnectTimer = null
-      this.connect()
-    }, this.reconnectDelay)
-  }
-  
-  send(data) {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(data))
-    }
-  }
-  
-  on(event, callback) {
-    if (this.listeners[event]) {
-      this.listeners[event].push(callback)
-    }
-  }
-  
-  off(event, callback) {
-    if (this.listeners[event]) {
-      const index = this.listeners[event].indexOf(callback)
-      if (index > -1) {
-        this.listeners[event].splice(index, 1)
-      }
-    }
-  }
-  
-  trigger(event, data) {
-    if (this.listeners[event]) {
-      this.listeners[event].forEach(callback => callback(data))
-    }
-  }
-}
-
-export const wsManager = new WebSocketManager()
 

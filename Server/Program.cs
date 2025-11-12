@@ -11,6 +11,8 @@ using DuckyNet.Server.Plugin;
 using DuckyNet.Server.Events;
 using DuckyNet.Server.Web;
 
+#nullable enable
+
 namespace DuckyNet.Server
 {
     /// <summary>
@@ -132,11 +134,19 @@ namespace DuckyNet.Server
                 _pluginManager.UnloadAllPlugins();
                 _server.Stop();
                 
-                // 停止 Web 服务器
+                // 停止 Web 服务器（设置短超时避免卡住）
                 if (_webApp != null)
                 {
-                    await _webApp.StopAsync();
-                    Console.WriteLine("[Server] Web server stopped");
+                    var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+                    try
+                    {
+                        await _webApp.StopAsync(cts.Token);
+                        Console.WriteLine("[Server] Web server stopped");
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        Console.WriteLine("[Server] Web server force stopped (timeout)");
+                    }
                 }
             }
             catch (Exception ex)
