@@ -61,16 +61,42 @@ namespace DuckyNet.Client.Services
                 var npcManager = GameContext.Instance.NpcManager;
                 if (npcManager == null) return;
 
+                int missingCount = 0;
+                int updatedCount = 0;
+
                 // 批量更新远程 NPC 位置
                 for (int i = 0; i < batchData.Count; i++)
                 {
+                    string npcId = batchData.NpcIds[i];
                     Vector3 position = new Vector3(
                         batchData.PositionsX[i], 
                         batchData.PositionsY[i], 
                         batchData.PositionsZ[i]
                     );
                     
-                    npcManager.UpdateRemoteNpcTransform(batchData.NpcIds[i], position, batchData.RotationsY[i]);
+                    // 尝试更新位置
+                    var npc = npcManager.GetNpc(npcId);
+                    if (npc != null)
+                    {
+                        // NPC 存在，更新位置
+                        npcManager.UpdateRemoteNpcTransform(npcId, position, batchData.RotationsY[i]);
+                        updatedCount++;
+                    }
+                    else
+                    {
+                        // NPC 不存在，请求创建
+                        if (npcManager.CheckAndRequestMissingNpc(npcId))
+                        {
+                            missingCount++;
+                            Debug.Log($"[NpcSyncClient] 🔍 发现缺失 NPC，已请求: {npcId}");
+                        }
+                    }
+                }
+
+                // 只在有缺失时输出日志
+                if (missingCount > 0)
+                {
+                    Debug.Log($"[NpcSyncClient] 位置更新完成: {updatedCount} 个更新, {missingCount} 个请求创建");
                 }
             }
             catch (Exception ex)

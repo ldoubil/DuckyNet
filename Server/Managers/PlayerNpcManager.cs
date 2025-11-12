@@ -170,6 +170,24 @@ namespace DuckyNet.Server.Managers
         }
 
         /// <summary>
+        /// 根据 ID 获取 NPC（用于单个 NPC 请求）
+        /// </summary>
+        public NpcSpawnData? GetNpcById(string npcId)
+        {
+            lock (_lock)
+            {
+                if (_npcOwners.TryGetValue(npcId, out var playerId))
+                {
+                    if (_playerNpcs.TryGetValue(playerId, out var npcs))
+                    {
+                        return npcs.FirstOrDefault(n => n.NpcId == npcId);
+                    }
+                }
+                return null;
+            }
+        }
+
+        /// <summary>
         /// 获取统计信息
         /// </summary>
         public (int TotalPlayers, int TotalNpcs) GetStats()

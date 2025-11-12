@@ -24,7 +24,7 @@ namespace DuckyNet.Server.Services
         }
 
         /// <summary>
-        /// 客户端通知 NPC 生成（只记录，不立即广播）
+        /// 客户端通知 NPC 生成（记录并主动推送给范围内玩家）
         /// </summary>
         public async Task NotifyNpcSpawned(IClientContext client, NpcSpawnData spawnData)
         {
@@ -35,11 +35,48 @@ namespace DuckyNet.Server.Services
 
                 Console.WriteLine($"[NpcSyncService] 📥 收到 NPC 生成: {spawnData.NpcType} (ID: {spawnData.NpcId}, 来自: {player.SteamName})");
 
-                // 🔥 只记录到玩家的 NPC 列表，不立即广播
-                // 等其他玩家位置更新时，会自动检测并发送
+                // 1. 记录到玩家的 NPC 列表
                 _playerNpcManager.AddNpc(player.SteamId, spawnData);
 
-                Console.WriteLine($"[NpcSyncService] ✅ NPC 已记录到玩家列表（等待靠近时动态同步）");
+                // 2. 🔥 主动推送给范围内的其他玩家
+                var scenePlayers = ServerContext.Players.GetScenePlayers(player, excludeSelf: true);
+                if (scenePlayers.Count == 0)
+                {
+                    Console.WriteLine($"[NpcSyncService] ✅ NPC 已记录（无其他玩家在场景）");
+                    return;
+                }
+
+                // 获取场景所有 NPC（用于可见性计算）
+                var allNpcs = _playerNpcManager.GetSceneNpcs(
+                    player.CurrentScenelData?.SceneName ?? "", 
+                    player.CurrentScenelData?.SubSceneName ?? ""
+                );
+
+                // 对每个玩家检查可见性并推送
+                int pushedCount = 0;
+                foreach (var targetPlayer in scenePlayers)
+                {
+                    var targetClientId = ServerContext.Players.GetClientIdBySteamId(targetPlayer.SteamId);
+                    if (targetClientId == null) continue;
+
+                    // 更新可见性
+                    var change = _visibilityTracker.UpdatePlayerVisibility(
+                        targetClientId,
+                        targetPlayer,
+                        allNpcs
+                    );
+
+                    // 如果新 NPC 在该玩家范围内，推送
+                    if (change.EnteredRange.Contains(spawnData.NpcId))
+                    {
+                        ServerContext.Broadcast.CallClientTyped<INpcSyncClientService>(targetPlayer,
+                            service => service.OnNpcSpawned(spawnData));
+                        pushedCount++;
+                        Console.WriteLine($"[NpcSyncService] 🚀 主动推送 NPC {spawnData.NpcId} 给 {targetPlayer.SteamName}");
+                    }
+                }
+
+                Console.WriteLine($"[NpcSyncService] ✅ NPC 已记录并推送给 {pushedCount} 个玩家");
             }
             catch (Exception ex)
             {
@@ -244,6 +281,66 @@ namespace DuckyNet.Server.Services
             }
         }
 
+        /// <summary>
+        /// 请求单个 NPC 信息（按需加载）
+        /// </summary>
+        public Task<NpcSpawnData?> RequestSingleNpc(IClientContext client, string npcId)
+        {
+            try
+            {
+                var player = ServerContext.Players.GetPlayer(client.ClientId);
+                if (player == null)
+                {
+                    Console.WriteLine($"[NpcSyncService] ⚠️ 未找到玩家: {client.ClientId}");
+                    return Task.FromResult<NpcSpawnData?>(null);
+                }
+
+                Console.WriteLine($"[NpcSyncService] 📥 玩家请求单个 NPC: {player.SteamName} → {npcId}");
+
+                // 从所有玩家的 NPC 中查找
+                var npc = _playerNpcManager.GetNpcById(npcId);
+                if (npc == null)
+                {
+                    Console.WriteLine($"[NpcSyncService] ⚠️ NPC 不存在: {npcId}");
+                    return Task.FromResult<NpcSpawnData?>(null);
+                }
+
+                // 检查可见性（只返回范围内的 NPC）
+                var distance = CalculateDistance(player, npc);
+                if (distance > _visibilityTracker.SyncRange)
+                {
+                    Console.WriteLine($"[NpcSyncService] ⚠️ NPC 超出范围: {npcId} (距离: {distance:F1}m)");
+                    return Task.FromResult<NpcSpawnData?>(null);
+                }
+
+                Console.WriteLine($"[NpcSyncService] ✅ 返回单个 NPC: {npcId} (距离: {distance:F1}m)");
+                return Task.FromResult<NpcSpawnData?>(npc);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[NpcSyncService] 请求单个 NPC 失败: {ex.Message}");
+                return Task.FromResult<NpcSpawnData?>(null);
+            }
+        }
+
+        /// <summary>
+        /// 计算玩家与 NPC 的距离
+        /// </summary>
+        private float CalculateDistance(PlayerInfo player, NpcSpawnData npc)
+        {
+            // 从 SceneManager 缓存中获取玩家位置
+            var playerPosNullable = ServerContext.Scenes.GetPlayerPosition(player.SteamId);
+            if (!playerPosNullable.HasValue)
+            {
+                return float.MaxValue;
+            }
+
+            var playerPos = playerPosNullable.Value;
+            float dx = playerPos.X - npc.PositionX;
+            float dy = playerPos.Y - npc.PositionY;
+            float dz = playerPos.Z - npc.PositionZ;
+            return (float)Math.Sqrt(dx * dx + dy * dy + dz * dz);
+        }
     }
 }
 

@@ -39,6 +39,12 @@ namespace DuckyNet.Shared.Services
         /// </summary>
         [ClientToServer]
         Task<NpcSpawnData[]> RequestSceneNpcs(IClientContext client, string sceneName, string subSceneName);
+
+        /// <summary>
+        /// 请求单个 NPC 信息（按需加载）
+        /// </summary>
+        [ClientToServer]
+        Task<NpcSpawnData?> RequestSingleNpc(IClientContext client, string npcId);
     }
 
     /// <summary>

@@ -18,6 +18,7 @@ namespace DuckyNet.Shared.Services.Generated
                 case "NotifyNpcBatchTransform": return _impl.NotifyNpcBatchTransform(ctx, (NpcBatchTransformData)args[0]);
                 case "NotifyNpcDestroyed": return _impl.NotifyNpcDestroyed(ctx, (NpcDestroyData)args[0]);
                 case "RequestSceneNpcs": return _impl.RequestSceneNpcs(ctx, (string)args[0], (string)args[1]);
+                case "RequestSingleNpc": return _impl.RequestSingleNpc(ctx, (string)args[0]);
                 default: throw new Exception("Unknown method");
             }
         }

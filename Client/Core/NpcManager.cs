@@ -41,6 +41,12 @@ namespace DuckyNet.Client.Core
         // 对象池
         private readonly ShadowNpcPool _npcPool;
 
+        // NPC 请求管理（去重和节流）
+        private readonly HashSet<string> _pendingRequests = new HashSet<string>(); // 正在请求的 NPC
+        private readonly HashSet<string> _failedRequests = new HashSet<string>(); // 请求失败的 NPC（避免重复请求）
+        private float _lastRequestTime = 0f;
+        private const float RequestThrottle = 0.2f; // 请求节流：200ms 内最多请求一次
+
         public NpcManager()
         {
             _visibilityManager = new NpcVisibilityManager
@@ -391,6 +397,87 @@ namespace DuckyNet.Client.Core
         }
 
         /// <summary>
+        /// 检测并请求缺失的 NPC（收到位置更新但本地没有时）
+        /// </summary>
+        public bool CheckAndRequestMissingNpc(string npcId)
+        {
+            // 1. 检查是否已存在（本地或远程）
+            if (_localNpcs.ContainsKey(npcId) || _remoteNpcs.ContainsKey(npcId))
+            {
+                return false; // 已存在，无需请求
+            }
+
+            // 2. 检查是否正在请求或已失败
+            if (_pendingRequests.Contains(npcId) || _failedRequests.Contains(npcId))
+            {
+                return false; // 避免重复请求
+            }
+
+            // 3. 节流检查
+            if (Time.time - _lastRequestTime < RequestThrottle)
+            {
+                return false; // 太频繁，等待下次
+            }
+
+            // 4. 发起请求
+            RequestSingleNpcAsync(npcId);
+            return true;
+        }
+
+        /// <summary>
+        /// 请求单个 NPC（异步）
+        /// </summary>
+        private async void RequestSingleNpcAsync(string npcId)
+        {
+            try
+            {
+                if (!GameContext.IsInitialized || GameContext.Instance.RpcClient == null) return;
+
+                _pendingRequests.Add(npcId);
+                _lastRequestTime = Time.time;
+
+                Debug.Log($"[NpcManager] 🔍 请求缺失 NPC: {npcId}");
+
+                var serverContext = new RPC.ClientServerContext(GameContext.Instance.RpcClient);
+                var npcService = new Shared.Services.Generated.NpcSyncServiceClientProxy(serverContext);
+                var npcData = await npcService.RequestSingleNpc(npcId);
+
+                if (npcData != null)
+                {
+                    Debug.Log($"[NpcManager] ✅ 收到 NPC 数据: {npcData.NpcType} (ID: {npcId})");
+                    
+                    // 检查场景是否匹配
+                    var localSceneData = GameContext.Instance.PlayerManager?.LocalPlayer?.Info?.CurrentScenelData;
+                    if (localSceneData != null &&
+                        localSceneData.SceneName == npcData.SceneName &&
+                        localSceneData.SubSceneName == npcData.SubSceneName)
+                    {
+                        // 创建远程 NPC
+                        AddRemoteNpc(npcId, npcData);
+                    }
+                    else
+                    {
+                        Debug.Log($"[NpcManager] ⏭️ NPC 不在当前场景，跳过创建");
+                    }
+                }
+                else
+                {
+                    Debug.LogWarning($"[NpcManager] ⚠️ NPC 不存在或超出范围: {npcId}");
+                    _failedRequests.Add(npcId); // 标记为失败，避免重复请求
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[NpcManager] 请求单个 NPC 失败: {ex.Message}");
+                _failedRequests.Add(npcId);
+            }
+            finally
+            {
+                _pendingRequests.Remove(npcId);
+            }
+        }
+
+        /// <summary>
         /// 移除远程 NPC（回收到对象池）
         /// </summary>
         public void RemoveRemoteNpc(string npcId)
@@ -639,6 +726,8 @@ namespace DuckyNet.Client.Core
             _npcPool.Dispose();
             _localNpcs.Clear();
             _remoteNpcs.Clear();
+            _pendingRequests.Clear();
+            _failedRequests.Clear();
             Debug.Log("[NpcManager] NPC 管理器已释放");
         }
     }

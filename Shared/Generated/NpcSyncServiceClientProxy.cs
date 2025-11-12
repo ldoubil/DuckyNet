@@ -18,5 +18,6 @@ namespace DuckyNet.Shared.Services.Generated
         public Task NotifyNpcBatchTransform(NpcBatchTransformData batchData) => _ctx.InvokeAsync<DuckyNet.Shared.Services.INpcSyncService, object>("NotifyNpcBatchTransform", batchData);
         public Task NotifyNpcDestroyed(NpcDestroyData destroyData) => _ctx.InvokeAsync<DuckyNet.Shared.Services.INpcSyncService, object>("NotifyNpcDestroyed", destroyData);
         public Task<NpcSpawnData[]> RequestSceneNpcs(string sceneName, string subSceneName) => _ctx.InvokeAsync<DuckyNet.Shared.Services.INpcSyncService, NpcSpawnData[]>("RequestSceneNpcs", sceneName, subSceneName);
+        public Task<NpcSpawnData> RequestSingleNpc(string npcId) => _ctx.InvokeAsync<DuckyNet.Shared.Services.INpcSyncService, NpcSpawnData>("RequestSingleNpc", npcId);
     }
 }
