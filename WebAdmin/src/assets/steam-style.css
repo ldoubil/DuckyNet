@@ -1,0 +1,494 @@
+/* Steam 风格配色 */
+:root {
+    --steam-dark: #1b2838;
+    --steam-darker: #171a21;
+    --steam-blue: #1a9fff;
+    --steam-blue-hover: #66c0f4;
+    --steam-gray: #2a475e;
+    --steam-light-gray: #c7d5e0;
+    --steam-green: #5c7e10;
+    --steam-card-bg: #16202d;
+    --steam-border: #3c4f5e;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: "Motiva Sans", Arial, sans-serif;
+    background: linear-gradient(135deg, var(--steam-darker) 0%, var(--steam-dark) 100%);
+    color: var(--steam-light-gray);
+    min-height: 100vh;
+}
+
+/* 顶部导航栏 */
+.steam-header {
+    background: var(--steam-darker);
+    border-bottom: 2px solid var(--steam-blue);
+    padding: 1rem 2rem;
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.header-logo h1 {
+    font-size: 1.5rem;
+    color: var(--steam-blue-hover);
+    font-weight: bold;
+}
+
+.header-nav {
+    display: flex;
+    gap: 0.5rem;
+    flex: 1;
+}
+
+.nav-button {
+    background: transparent;
+    border: 2px solid var(--steam-gray);
+    color: var(--steam-light-gray);
+    padding: 0.5rem 1.5rem;
+    cursor: pointer;
+    font-size: 1rem;
+    border-radius: 3px;
+    transition: all 0.3s ease;
+}
+
+.nav-button:hover {
+    background: var(--steam-gray);
+    border-color: var(--steam-blue);
+}
+
+.nav-button.active {
+    background: linear-gradient(to bottom, var(--steam-blue) 0%, #1a7dc4 100%);
+    border-color: var(--steam-blue);
+    color: white;
+    box-shadow: 0 0 10px rgba(26, 159, 255, 0.5);
+}
+
+.header-time {
+    color: var(--steam-light-gray);
+    font-size: 0.9rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.25rem;
+}
+
+/* WebSocket 状态 */
+.ws-status {
+    font-size: 0.75rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 3px;
+}
+
+.ws-status.connected {
+    background: rgba(92, 126, 16, 0.3);
+    color: #9cdb3c;
+}
+
+.ws-status.disconnected {
+    background: rgba(211, 47, 47, 0.3);
+    color: #ff6b6b;
+}
+
+/* 主内容区 */
+.steam-main {
+    padding: 2rem;
+    max-width: 1600px;
+    margin: 0 auto;
+}
+
+.content-panel {
+    background: var(--steam-card-bg);
+    border: 1px solid var(--steam-border);
+    border-radius: 5px;
+    padding: 2rem;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.panel-title {
+    color: var(--steam-blue-hover);
+    font-size: 1.8rem;
+    margin-bottom: 1.5rem;
+    border-bottom: 2px solid var(--steam-blue);
+    padding-bottom: 0.5rem;
+}
+
+/* 统计卡片网格 */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-top: 2rem;
+}
+
+.stat-card {
+    background: linear-gradient(135deg, var(--steam-gray) 0%, var(--steam-dark) 100%);
+    border: 1px solid var(--steam-border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(26, 159, 255, 0.3);
+}
+
+.stat-icon {
+    font-size: 3rem;
+}
+
+.stat-content {
+    flex: 1;
+}
+
+.stat-value {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: var(--steam-blue-hover);
+}
+
+.stat-label {
+    color: var(--steam-light-gray);
+    font-size: 0.9rem;
+    margin-top: 0.25rem;
+}
+
+/* 房间列表 */
+.room-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.room-card {
+    background: var(--steam-dark);
+    border: 1px solid var(--steam-border);
+    border-radius: 5px;
+    padding: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.room-card:hover {
+    background: var(--steam-gray);
+    border-color: var(--steam-blue);
+    transform: translateX(5px);
+}
+
+.room-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.room-name {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: var(--steam-blue-hover);
+}
+
+.room-id {
+    font-size: 0.8rem;
+    color: #999;
+}
+
+.room-info {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.room-players {
+    color: var(--steam-blue-hover);
+    font-weight: bold;
+}
+
+.room-meta {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.badge {
+    background: var(--steam-green);
+    padding: 0.2rem 0.5rem;
+    border-radius: 3px;
+    font-size: 0.75rem;
+}
+
+.badge.full {
+    background: #d32f2f;
+}
+
+.room-time {
+    font-size: 0.75rem;
+    color: #999;
+}
+
+/* 玩家列表 */
+.player-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.player-card {
+    background: var(--steam-dark);
+    border: 1px solid var(--steam-border);
+    border-radius: 5px;
+    padding: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: all 0.3s ease;
+}
+
+.player-card:hover {
+    background: var(--steam-gray);
+    border-color: var(--steam-blue);
+}
+
+.player-avatar {
+    font-size: 2.5rem;
+}
+
+.player-info {
+    flex: 1;
+}
+
+.player-name {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: var(--steam-blue-hover);
+}
+
+.player-id {
+    font-size: 0.8rem;
+    color: #999;
+    margin-top: 0.25rem;
+}
+
+.player-status {
+    text-align: right;
+    font-size: 0.9rem;
+}
+
+.player-room, .player-scene, .player-position {
+    margin-bottom: 0.25rem;
+}
+
+/* 场景列表 */
+.scene-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.scene-card {
+    background: var(--steam-dark);
+    border: 1px solid var(--steam-border);
+    border-radius: 5px;
+    padding: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.scene-card:hover {
+    background: var(--steam-gray);
+    border-color: var(--steam-blue);
+    transform: scale(1.02);
+}
+
+.scene-header {
+    margin-bottom: 0.5rem;
+}
+
+.scene-name {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: var(--steam-blue-hover);
+}
+
+.scene-sub {
+    color: #999;
+    font-size: 0.9rem;
+}
+
+.scene-stats {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.9rem;
+}
+
+/* 详情面板 */
+.detail-panel {
+    position: fixed;
+    right: 2rem;
+    top: 120px;
+    width: 400px;
+    max-height: calc(100vh - 140px);
+    overflow-y: auto;
+    background: var(--steam-card-bg);
+    border: 2px solid var(--steam-blue);
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+.detail-panel h3 {
+    color: var(--steam-blue-hover);
+    margin-bottom: 1rem;
+}
+
+.detail-panel h4 {
+    color: var(--steam-light-gray);
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid var(--steam-border);
+    padding-bottom: 0.25rem;
+}
+
+.close-btn {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: transparent;
+    border: none;
+    color: var(--steam-light-gray);
+    font-size: 1.5rem;
+    cursor: pointer;
+}
+
+.close-btn:hover {
+    color: var(--steam-blue-hover);
+}
+
+.detail-content p {
+    margin-bottom: 0.5rem;
+}
+
+.player-mini-list, .entity-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.player-mini-card, .entity-card {
+    background: var(--steam-dark);
+    padding: 0.5rem;
+    border-radius: 3px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.entity-card.npc {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+}
+
+.npc-main {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    align-items: center;
+}
+
+.entity-name {
+    font-weight: bold;
+    color: var(--steam-blue-hover);
+}
+
+.npc-id {
+    font-size: 0.75rem;
+    color: #999;
+}
+
+.npc-stats {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.85rem;
+    width: 100%;
+}
+
+.npc-health {
+    color: #ff6b6b;
+}
+
+.entity-pos {
+    font-size: 0.8rem;
+    color: #999;
+}
+
+.npc-meta {
+    font-size: 0.75rem;
+    color: #999;
+    width: 100%;
+}
+
+/* 空状态 */
+.empty-state {
+    text-align: center;
+    padding: 3rem;
+    color: #999;
+    font-size: 1.1rem;
+}
+
+/* 加载动画 */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.loading-spinner {
+    background: var(--steam-card-bg);
+    border: 2px solid var(--steam-blue);
+    padding: 2rem 3rem;
+    border-radius: 8px;
+    font-size: 1.2rem;
+    color: var(--steam-blue-hover);
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+    width: 12px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--steam-darker);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--steam-gray);
+    border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--steam-blue);
+}
+

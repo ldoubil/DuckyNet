@@ -1,12 +1,15 @@
 ﻿using System;
 using System.IO;
 using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.Builder;
 using DuckyNet.Server.Core;
 using DuckyNet.Server.RPC;
 using DuckyNet.Server.Managers;
 using DuckyNet.Server.Plugin;
 using DuckyNet.Server.Events;
+using DuckyNet.Server.Web;
 
 namespace DuckyNet.Server
 {
@@ -21,9 +24,10 @@ namespace DuckyNet.Server
         private static PlayerManager _playerManager = null!;
         private static EventBus _eventBus = null!;
         private static PluginManager _pluginManager = null!;
+        private static WebApplication? _webApp = null;
         private static bool _running = true;
 
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
             Console.WriteLine("=== DuckyNet Server ===");
             Console.WriteLine();
@@ -86,7 +90,15 @@ namespace DuckyNet.Server
                 // 发布服务器启动事件
                 _eventBus.Publish(new ServerStartedEvent { Port = port });
 
-                // ========== 阶段4：启动后台任务 ==========
+                // ========== 阶段4：启动Web服务器 ==========
+                Console.WriteLine("[Server] Starting Web server...");
+                _webApp = WebServerStartup.CreateAndConfigureWebApp(_serviceProvider, args);
+                var webTask = _webApp.RunAsync("http://localhost:5000");
+                Console.WriteLine("[Server] ✓ Web server started at http://localhost:5000");
+                Console.WriteLine("[Server] ✓ Admin dashboard: http://localhost:5000");
+                Console.WriteLine();
+
+                // ========== 阶段5：启动后台任务 ==========
                 var updateThread = new Thread(UpdateLoop);
                 updateThread.IsBackground = true;
                 updateThread.Start();
@@ -98,6 +110,8 @@ namespace DuckyNet.Server
                 Console.WriteLine();
                 Console.WriteLine("==================================");
                 Console.WriteLine("  Server is ready!");
+                Console.WriteLine("  RPC Server: Port 9050");
+                Console.WriteLine("  Web Admin: http://localhost:5000");
                 Console.WriteLine("  Press Ctrl+C to stop server");
                 Console.WriteLine("==================================");
                 Console.WriteLine();
@@ -117,6 +131,13 @@ namespace DuckyNet.Server
                 _eventBus.Publish(new ServerStoppingEvent());
                 _pluginManager.UnloadAllPlugins();
                 _server.Stop();
+                
+                // 停止 Web 服务器
+                if (_webApp != null)
+                {
+                    await _webApp.StopAsync();
+                    Console.WriteLine("[Server] Web server stopped");
+                }
             }
             catch (Exception ex)
             {
