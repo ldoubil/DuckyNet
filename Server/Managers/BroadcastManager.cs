@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using DuckyNet.Server.RPC;
-using DuckyNet.Shared.RPC;
+using DuckyNet.RPC;
+using DuckyNet.RPC.Core;
+using DuckyNet.RPC.Extensions;
+using DuckyNet.RPC.Context;
 using DuckyNet.Shared.Services;
 
 namespace DuckyNet.Server.Managers
@@ -139,30 +141,58 @@ namespace DuckyNet.Server.Managers
         }
 
         /// <summary>
-        /// 使用强类型广播到房间（排除自己）
+        /// 使用强类型广播到房间（排除自己，使用过滤器）
         /// 例如：BroadcastToRoomTyped<IWeaponSyncClientService>(player, (service) => service.OnWeaponFired(data))
         /// </summary>
         public void BroadcastToRoomTyped<TService>(PlayerInfo player, Action<TService> action, bool excludeSelf = true) 
             where TService : class
         {
-            var clientIds = GetRoomClientIds(player, excludeSelf);
-            if (clientIds.Count > 0)
+            var room = _roomManager.GetPlayerRoom(player);
+            if (room == null) return;
+
+            var roomPlayers = _roomManager.GetRoomPlayers(room.RoomId);
+            var roomSteamIds = roomPlayers
+                .Where(p => !excludeSelf || p.SteamId != player.SteamId)
+                .Select(p => p.SteamId)
+                .ToHashSet();
+
+            if (roomSteamIds.Count > 0)
             {
-                var proxy = _server.BroadcastToClients<TService>(clientIds);
+                var proxy = _server.SendTo<TService>(clientId =>
+                {
+                    var player = _playerManager.GetPlayer(clientId);
+                    return player != null && roomSteamIds.Contains(player.SteamId);
+                });
                 action(proxy);
             }
         }
 
         /// <summary>
-        /// 使用强类型广播到场景（排除自己）
+        /// 使用强类型广播到场景（排除自己，使用过滤器）
         /// </summary>
         public void BroadcastToSceneTyped<TService>(PlayerInfo player, Action<TService> action, bool excludeSelf = true) 
             where TService : class
         {
-            var clientIds = GetSceneClientIds(player, excludeSelf);
-            if (clientIds.Count > 0)
+            var scenePlayers = _sceneManager.GetOtherPlayersInSameScene(player);
+            if (!excludeSelf)
             {
-                var proxy = _server.BroadcastToClients<TService>(clientIds);
+                // 包括自己
+                var allPlayers = _playerManager.GetAllOnlinePlayers();
+                scenePlayers = allPlayers.Where(p => 
+                    p.CurrentScenelData?.SceneName == player.CurrentScenelData?.SceneName &&
+                    p.CurrentScenelData?.SubSceneName == player.CurrentScenelData?.SubSceneName
+                ).ToArray();
+            }
+
+            var sceneSteamIds = scenePlayers.Select(p => p.SteamId).ToHashSet();
+
+            if (sceneSteamIds.Count > 0)
+            {
+                var proxy = _server.SendTo<TService>(clientId =>
+                {
+                    var player = _playerManager.GetPlayer(clientId);
+                    return player != null && sceneSteamIds.Contains(player.SteamId);
+                });
                 action(proxy);
             }
         }
@@ -224,7 +254,7 @@ namespace DuckyNet.Server.Managers
         }
 
         /// <summary>
-        /// 单个客户端调用（强类型）
+        /// 单个客户端调用（强类型，使用过滤器）
         /// </summary>
         public void CallClientTyped<TService>(PlayerInfo player, Action<TService> action)
             where TService : class
@@ -236,8 +266,7 @@ namespace DuckyNet.Server.Managers
                 return;
             }
 
-            var clientIds = new List<string> { clientId };
-            var proxy = _server.BroadcastToClients<TService>(clientIds);
+            var proxy = _server.SendTo<TService>(id => id == clientId);
             action(proxy);
         }
 

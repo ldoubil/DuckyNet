@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
-using DuckyNet.Client.RPC;
+using DuckyNet.RPC;
+using DuckyNet.RPC.Core;
 
 namespace DuckyNet.Client.Core.DebugModule
 {

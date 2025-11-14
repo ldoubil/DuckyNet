@@ -1,6 +1,8 @@
 using System.Threading.Tasks;
 using DuckyNet.Shared.Data;
-using DuckyNet.Shared.RPC;
+using DuckyNet.RPC;
+using DuckyNet.RPC.Messages;
+using DuckyNet.RPC.Context;
 
 namespace DuckyNet.Shared.Services
 {

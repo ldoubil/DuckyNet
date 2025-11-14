@@ -1,5 +1,6 @@
 using DuckyNet.Server.Managers;
-using DuckyNet.Server.RPC;
+using DuckyNet.RPC;
+using DuckyNet.RPC.Core;
 using DuckyNet.Server.Events;
 
 namespace DuckyNet.Server.Plugin

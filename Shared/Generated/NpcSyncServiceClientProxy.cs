@@ -1,7 +1,9 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using DuckyNet.Shared.RPC;
+using DuckyNet.RPC;
+using DuckyNet.RPC.Context;
+using DuckyNet.RPC.Context;
 using DuckyNet.Shared.Data;
 namespace DuckyNet.Shared.Services.Generated
 {

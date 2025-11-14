@@ -1,4 +1,6 @@
-using DuckyNet.Shared.RPC;
+using DuckyNet.RPC;
+using DuckyNet.RPC.Messages;
+using DuckyNet.RPC.Context;
 using System;
 using System.Threading.Tasks;
 

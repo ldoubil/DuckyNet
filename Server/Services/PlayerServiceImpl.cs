@@ -3,8 +3,10 @@ using System.Linq;
 using System.Threading.Tasks;
 using DuckyNet.Server.Core;
 using DuckyNet.Server.Events;
-using DuckyNet.Server.RPC;
-using DuckyNet.Shared.RPC;
+using DuckyNet.RPC;
+using DuckyNet.RPC.Core;
+using DuckyNet.RPC.Extensions;
+using DuckyNet.RPC.Context;
 using DuckyNet.Shared.Services;
 
 namespace DuckyNet.Server.Services
@@ -33,7 +35,7 @@ namespace DuckyNet.Server.Services
                 
                 if (clientIds.Count > 0)
                 {
-                    ServerContext.Server.BroadcastToClients<IPlayerClientService>(clientIds)
+                    ServerContext.Server.SendTo<IPlayerClientService>(clientIds)
                         .OnPlayerJoined(playerInfo);
                 }
                 
@@ -61,7 +63,7 @@ namespace DuckyNet.Server.Services
                 
                 if (clientIds.Count > 0)
                 {
-                    ServerContext.Server.BroadcastToClients<IPlayerClientService>(clientIds)
+                    ServerContext.Server.SendTo<IPlayerClientService>(clientIds)
                         .OnPlayerLeft(player);
                 }
                 
@@ -90,9 +92,18 @@ namespace DuckyNet.Server.Services
             {
                 // 在房间中，广播到房间内所有玩家（包括自己）
                 Console.WriteLine($"[Chat] 广播到房间 {room.RoomId}");
-                ServerContext.Broadcast.BroadcastToRoomTyped<IPlayerClientService>(player, 
-                    service => service.OnChatMessage(player, message),
-                    excludeSelf: false);
+                var roomPlayers = ServerContext.Rooms.GetRoomPlayers(room.RoomId);
+                var roomClientIds = roomPlayers
+                    .Select(p => ServerContext.Players.GetClientIdBySteamId(p.SteamId))
+                    .Where(id => !string.IsNullOrEmpty(id))
+                    .Cast<string>()
+                    .ToList();
+                
+                if (roomClientIds.Count > 0)
+                {
+                    ServerContext.Server.SendTo<IPlayerClientService>(roomClientIds)
+                        .OnChatMessage(player, message);
+                }
             }
             else
             {
@@ -107,7 +118,7 @@ namespace DuckyNet.Server.Services
                 
                 if (clientIds.Count > 0)
                 {
-                    ServerContext.Server.BroadcastToClients<IPlayerClientService>(clientIds)
+                    ServerContext.Server.SendTo<IPlayerClientService>(clientIds)
                         .OnChatMessage(player, message);
                 }
             }

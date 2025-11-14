@@ -7,8 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="LiteNetLib" Version="1.2.0" />
-    <PackageReference Include="NetSerializer" Version="4.1.1" />
+    <ProjectReference Include="..\RPC\DuckyNet.RPC.csproj" />
   </ItemGroup>
 
   <ItemGroup>

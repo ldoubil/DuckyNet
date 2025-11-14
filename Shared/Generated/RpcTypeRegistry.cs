@@ -4,7 +4,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace DuckyNet.Shared.RPC.Generated
+namespace DuckyNet.RPC.Generated
 {
     /// <summary>
     /// 自动生成的 RPC 序列化类型注册表
@@ -30,8 +30,8 @@ namespace DuckyNet.Shared.RPC.Generated
                 typeof(DateTime),
 
                 // RPC 消息类型
-                typeof(DuckyNet.Shared.RPC.RpcMessage),
-                typeof(DuckyNet.Shared.RPC.RpcResponse),
+                typeof(DuckyNet.RPC.Messages.RpcMessage),
+                typeof(DuckyNet.RPC.Messages.RpcResponse),
 
                 // 应用数据类型 (自动发现)
                 typeof(DuckyNet.Shared.Data.AllPlayersEquipmentData),

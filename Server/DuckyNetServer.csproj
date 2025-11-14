@@ -9,11 +9,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="LiteNetLib" Version="1.2.0" />
-    <PackageReference Include="NetSerializer" Version="4.1.1" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
     <ProjectReference Include="..\Shared\DuckyNetShared.csproj" />
+    <ProjectReference Include="..\RPC\DuckyNet.RPC.csproj" />
   </ItemGroup>
 
   <ItemGroup>

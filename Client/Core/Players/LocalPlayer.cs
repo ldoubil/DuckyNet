@@ -10,6 +10,8 @@ using DuckyNet.Client.Core.EventBus;
 using DuckyNet.Client.Core.EventBus.Events;
 using DuckyNet.Shared.Data;
 using Unity.VisualScripting;
+using DuckyNet.RPC;
+using DuckyNet.RPC.Core;
 using DuckyNet.Client.RPC;
 using DuckyNet.Shared.Services.Generated;
 

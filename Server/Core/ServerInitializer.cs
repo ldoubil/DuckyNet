@@ -1,5 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
-using DuckyNet.Server.RPC;
+using DuckyNet.RPC;
 using DuckyNet.Server.Events;
 using DuckyNet.Server.Managers;
 
@@ -14,8 +14,7 @@ namespace DuckyNet.Server.Core
     {
         /// <summary>
         /// 初始化静态依赖（兼容性过渡）
-        /// 当前一些辅助类（RoomBroadcastHelper, ServerEventPublisher）
-        /// 仍然使用静态字段，需要手动初始化
+        /// 当前一些辅助类（ServerEventPublisher）仍然使用静态字段，需要手动初始化
         /// </summary>
         public static void InitializeStaticDependencies(IServiceProvider serviceProvider)
         {
@@ -23,10 +22,7 @@ namespace DuckyNet.Server.Core
             var eventBus = serviceProvider.GetRequiredService<EventBus>();
             ServerEventPublisher.Initialize(eventBus);
 
-            // 初始化房间广播辅助类（用于 BroadcastToRoom 扩展方法）
-            var roomManager = serviceProvider.GetRequiredService<RoomManager>();
-            var playerManager = serviceProvider.GetRequiredService<PlayerManager>();
-            RoomBroadcastHelper.Initialize(roomManager, playerManager);
+            // 注意：RoomBroadcastHelper 已被 BroadcastManager 替代，通过依赖注入使用
         }
     }
 }

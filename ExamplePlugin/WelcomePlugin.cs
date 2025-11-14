@@ -4,7 +4,7 @@ using DuckyNet.Server.Plugin;
 using DuckyNet.Server.Events;
 using DuckyNet.Server.RPC;
 using DuckyNet.Shared.Services;
-using DuckyNet.Shared.RPC;
+using DuckyNet.RPC;
 using DuckyNet.Shared.Data;
 
 namespace ExamplePlugin

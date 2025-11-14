@@ -15,7 +15,7 @@ if %ERRORLEVEL% NEQ 0 (
 
 echo.
 echo [2/5] Running Code Generator...
-dotnet run --project Tools/RpcCodeGen/RpcCodeGen.csproj
+dotnet run --project RPC/DuckyNet.RPC.csproj -c Debug
 
 if %ERRORLEVEL% NEQ 0 (
     echo [ERROR] Code generation failed!

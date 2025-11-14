@@ -2,7 +2,8 @@ using System;
 using System.Threading.Tasks;
 using DuckyNet.Server.Core;
 using DuckyNet.Shared.Data;
-using DuckyNet.Shared.RPC;
+using DuckyNet.RPC;
+using DuckyNet.RPC.Context;
 using DuckyNet.Shared.Services;
 
 namespace DuckyNet.Server.Services

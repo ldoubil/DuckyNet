@@ -12,11 +12,10 @@
     <Reference Include="$(DuckovPath)\Duckov_Data\Managed\Unity*" />
     <Reference Include="$(DuckovPath)\Duckov_Data\Managed\com.rlabrecque.steamworks.net.dll" />
     <PackageReference Include="Lib.Harmony" Version="2.4.1" />
-    <PackageReference Include="LiteNetLib" Version="1.2.0" />
-    <PackageReference Include="NetSerializer" Version="4.1.1" />
     <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
     <Reference Include="$(DuckovPath)\Duckov_Data\Managed\ItemStatsSystem.dll" />
     <ProjectReference Include="..\Shared\DuckyNetShared.csproj" />
+    <ProjectReference Include="..\RPC\DuckyNet.RPC.csproj" />
   </ItemGroup>
 
   <!-- 定义 res 目录 -->
@@ -34,6 +33,9 @@
       <!-- 包含 DuckyNet.Shared.dll -->
       <OutputFiles Include="$(TargetDir)DuckyNet.Shared.dll" Condition="Exists('$(TargetDir)DuckyNet.Shared.dll')" />
       <OutputFiles Include="$(TargetDir)DuckyNet.Shared.pdb" Condition="Exists('$(TargetDir)DuckyNet.Shared.pdb')" />
+      <!-- 包含 DuckyNet.RPC.dll -->
+      <OutputFiles Include="$(TargetDir)DuckyNet.RPC.dll" Condition="Exists('$(TargetDir)DuckyNet.RPC.dll')" />
+      <OutputFiles Include="$(TargetDir)DuckyNet.RPC.pdb" Condition="Exists('$(TargetDir)DuckyNet.RPC.pdb')" />
       <!-- 包含 LiteNetLib.dll -->
       <OutputFiles Include="$(TargetDir)LiteNetLib.dll" Condition="Exists('$(TargetDir)LiteNetLib.dll')" />
       <!-- 包含 NetSerializer.dll -->

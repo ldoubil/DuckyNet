@@ -3,7 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using DuckyNet.Shared.Services;
 using DuckyNet.Shared.Data;
-using DuckyNet.Server.RPC;
+using DuckyNet.RPC;
+using DuckyNet.RPC.Core;
 
 namespace DuckyNet.Server.Managers
 {

@@ -1,6 +1,10 @@
 using System;
+using System.Linq;
 using DuckyNet.Server.Core;
-using DuckyNet.Shared.RPC;
+using DuckyNet.RPC;
+using DuckyNet.RPC.Core;
+using DuckyNet.RPC.Extensions;
+using DuckyNet.RPC.Context;
 using DuckyNet.Shared.Services;
 using DuckyNet.Shared.Data;
 
@@ -32,19 +36,19 @@ namespace DuckyNet.Server.Services
                     return;
                 }
 
-                // 使用 BroadcastManager 广播给同场景的玩家
-                ServerContext.Broadcast.BroadcastToScene(senderPlayer, (targetPlayer, targetContext) =>
+                // 广播给同场景的玩家
+                var scenePlayers = ServerContext.Scenes.GetOtherPlayersInSameScene(senderPlayer);
+                var sceneClientIds = scenePlayers
+                    .Select(p => ServerContext.Players.GetClientIdBySteamId(p.SteamId))
+                    .Where(id => !string.IsNullOrEmpty(id))
+                    .Cast<string>()
+                    .ToList();
+                
+                if (sceneClientIds.Count > 0)
                 {
-                    try
-                    {
-                        targetContext.Call<IAnimatorSyncClientService>()
-                            .OnAnimatorStateUpdated(senderPlayer.SteamId, animatorData);
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"[AnimatorSyncService] ❌ 向 {targetPlayer.SteamName} 转发动画状态失败: {ex.Message}");
-                    }
-                });
+                    ServerContext.Server.SendTo<IAnimatorSyncClientService>(sceneClientIds)
+                        .OnAnimatorStateUpdated(senderPlayer.SteamId, animatorData);
+                }
             }
             catch (Exception ex)
             {

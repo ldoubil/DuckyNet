@@ -3,6 +3,9 @@ using UnityEngine;
 using DuckyNet.Client.Core;
 using DuckyNet.Client.Core.Helpers;
 using DuckyNet.Client.Core.EventBus;
+using DuckyNet.RPC;
+using DuckyNet.RPC.Core;
+using DuckyNet.Shared.Services.Generated;
 using HarmonyLib;
 
 namespace DuckyNet.Client
@@ -81,7 +84,7 @@ namespace DuckyNet.Client
         private void RegisterCoreServices(GameContext context)
         {
             context.RegisterPlayerManager(new Core.Players.PlayerManager());
-            context.RegisterRpcClient(new RPC.RpcClient());
+            context.RegisterRpcClient(new RpcClient());
             context.RegisterInputManager(new Core.InputManager());
             context.RegisterAvatarManager(new Core.AvatarManager());
             context.RegisterCharacterCustomizationManager(new Core.CharacterCustomizationManager());
@@ -95,30 +98,71 @@ namespace DuckyNet.Client
         }
 
         /// <summary>
-        /// 注册客户端 RPC 服务
+        /// 注册客户端 RPC 服务（使用极简流畅 API）
         /// </summary>
         private void RegisterClientServices(GameContext context)
         {
             var rpcClient = context.RpcClient;
-
-            // 注册基础客户端服务
-            rpcClient.RegisterClientService<Shared.Services.IPlayerClientService>(new Services.PlayerClientServiceImpl());
-            rpcClient.RegisterClientService<Shared.Services.IRoomClientService>(new Services.RoomClientServiceImpl());
-            rpcClient.RegisterClientService<Shared.Services.ISceneClientService>(new Services.SceneClientServiceImpl());
-            rpcClient.RegisterClientService<Shared.Services.ICharacterClientService>(new Services.CharacterClientServiceImpl());
-            rpcClient.RegisterClientService<Shared.Services.ICharacterAppearanceClientService>(new Services.CharacterAppearanceClientServiceImpl());
-            
-            // 注册动画同步服务并保存实例
+            var playerService = new Services.PlayerClientServiceImpl();
+            var roomService = new Services.RoomClientServiceImpl();
+            var sceneService = new Services.SceneClientServiceImpl();
+            var characterService = new Services.CharacterClientServiceImpl();
+            var characterAppearanceService = new Services.CharacterAppearanceClientServiceImpl();
             var animatorSyncClientService = new Services.AnimatorSyncClientServiceImpl();
-            rpcClient.RegisterClientService<Shared.Services.IAnimatorSyncClientService>(animatorSyncClientService);
+            var itemSyncService = new Services.ItemSyncClientServiceImpl();
+            var equipmentService = new Services.EquipmentClientServiceImpl();
+            var weaponSyncService = new Services.WeaponSyncClientServiceImpl();
+            var healthSyncService = new Services.HealthSyncClientServiceImpl();
+            var npcSyncService = new Services.NpcSyncClientServiceImpl();
+
+            // 使用极简流畅 API 注册服务
+            rpcClient.Reg<Shared.Services.IPlayerClientService>()
+                .OnChatMessage(playerService.OnChatMessage)
+                .OnPlayerJoined(playerService.OnPlayerJoined)
+                .OnPlayerLeft(playerService.OnPlayerLeft)
+                .OnServerMessage(playerService.OnServerMessage)
+                .OnPlayerUnitySyncReceived(playerService.OnPlayerUnitySyncReceived);
+
+            rpcClient.Reg<Shared.Services.IRoomClientService>()
+                .OnPlayerJoinedRoom(roomService.OnPlayerJoinedRoom)
+                .OnPlayerLeftRoom(roomService.OnPlayerLeftRoom)
+                .OnKickedFromRoom(roomService.OnKickedFromRoom);
+
+            rpcClient.Reg<Shared.Services.ISceneClientService>()
+                .OnPlayerEnteredScene(sceneService.OnPlayerEnteredScene)
+                .OnPlayerLeftScene(sceneService.OnPlayerLeftScene);
+
+            rpcClient.Reg<Shared.Services.ICharacterClientService>()
+                .OnPlayerAppearanceUpdated(characterService.OnPlayerAppearanceUpdated);
+
+            rpcClient.Reg<Shared.Services.ICharacterAppearanceClientService>()
+                .OnAppearanceReceived(characterAppearanceService.OnAppearanceReceived);
+
+            rpcClient.Reg<Shared.Services.IAnimatorSyncClientService>()
+                .OnAnimatorStateUpdated(animatorSyncClientService.OnAnimatorStateUpdated);
             context.AnimatorSyncClientService = animatorSyncClientService;
 
-            // 注册同步服务
-            rpcClient.RegisterClientService<Shared.Services.IItemSyncClientService>(new Services.ItemSyncClientServiceImpl());
-            rpcClient.RegisterClientService<Shared.Services.IEquipmentClientService>(new Services.EquipmentClientServiceImpl());
-            rpcClient.RegisterClientService<Shared.Services.IWeaponSyncClientService>(new Services.WeaponSyncClientServiceImpl());
-            rpcClient.RegisterClientService<Shared.Services.IHealthSyncClientService>(new Services.HealthSyncClientServiceImpl());
-            rpcClient.RegisterClientService<Shared.Services.INpcSyncClientService>(new Services.NpcSyncClientServiceImpl());
+            rpcClient.Reg<Shared.Services.IItemSyncClientService>()
+                .OnRemoteItemDropped(itemSyncService.OnRemoteItemDropped)
+                .OnRemoteItemPickedUp(itemSyncService.OnRemoteItemPickedUp);
+
+            rpcClient.Reg<Shared.Services.IEquipmentClientService>()
+                .OnEquipmentSlotUpdated(equipmentService.OnEquipmentSlotUpdated)
+                .OnAllPlayersEquipmentReceived(equipmentService.OnAllPlayersEquipmentReceived);
+
+            rpcClient.Reg<Shared.Services.IWeaponSyncClientService>()
+                .OnWeaponSlotUpdated(weaponSyncService.OnWeaponSlotUpdated)
+                .OnAllPlayersWeaponReceived(weaponSyncService.OnAllPlayersWeaponReceived)
+                .OnWeaponSwitched(weaponSyncService.OnWeaponSwitched)
+                .OnWeaponFired(weaponSyncService.OnWeaponFired);
+
+            rpcClient.Reg<Shared.Services.IHealthSyncClientService>()
+                .OnHealthSyncReceived(healthSyncService.OnHealthSyncReceived);
+
+            rpcClient.Reg<Shared.Services.INpcSyncClientService>()
+                .OnNpcSpawned(npcSyncService.OnNpcSpawned)
+                .OnNpcBatchTransform(npcSyncService.OnNpcBatchTransform)
+                .OnNpcDestroyed(npcSyncService.OnNpcDestroyed);
 
             // 创建并注册物品网络协调器
             var clientContext = new RPC.ClientServerContext(rpcClient);
@@ -126,7 +170,7 @@ namespace DuckyNet.Client
             var itemNetworkCoordinator = new Services.ItemNetworkCoordinator(itemSyncServiceProxy);
             context.RegisterItemNetworkCoordinator(itemNetworkCoordinator);
 
-            Debug.Log("[ModBehaviour] 客户端服务已注册");
+            Debug.Log("[ModBehaviour] 客户端服务已注册（使用极简流畅 API）");
         }
 
         /// <summary>

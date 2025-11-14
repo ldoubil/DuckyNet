@@ -1,7 +1,8 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using DuckyNet.Client.RPC;
+using DuckyNet.RPC;
+using DuckyNet.RPC.Core;
 using DuckyNet.Client.Core;
 using DuckyNet.Client.Core.Helpers;
 using DuckyNet.Shared.Services;

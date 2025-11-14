@@ -1,5 +1,6 @@
 using DuckyNet.Shared.Data;
-using DuckyNet.Shared.RPC;
+using DuckyNet.RPC;
+using DuckyNet.RPC.Context;
 using DuckyNet.Shared.Services;
 using DuckyNet.Server.Core;
 using System;

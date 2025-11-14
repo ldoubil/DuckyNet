@@ -47,7 +47,7 @@ if ($LASTEXITCODE -ne 0) {
 
 Write-Host ""
 Write-Host "[2/6] Running Code Generator..." -ForegroundColor Green
-dotnet run --project Tools/RpcCodeGen/RpcCodeGen.csproj
+dotnet run --project RPC/DuckyNet.RPC.csproj -c Debug
 if ($LASTEXITCODE -ne 0) {
     Write-Host "ERROR: Code generation failed!" -ForegroundColor Red
     exit 1

@@ -2,7 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using DuckyNet.Client.RPC;
+using DuckyNet.RPC;
+using DuckyNet.RPC.Core;
 
 namespace DuckyNet.Client.Core.DebugModule
 {

@@ -3,7 +3,8 @@ using System.Collections.Generic;
 using DuckyNet.Server.Core;
 using DuckyNet.Server.Events;
 using DuckyNet.Shared.Data;
-using DuckyNet.Shared.RPC;
+using DuckyNet.RPC;
+using DuckyNet.RPC.Context;
 using DuckyNet.Shared.Services;
 
 namespace DuckyNet.Server.Services

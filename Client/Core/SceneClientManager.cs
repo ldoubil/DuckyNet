@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using DuckyNet.Client.UI;
+using DuckyNet.RPC;
 using DuckyNet.Client.RPC;
 using DuckyNet.Client.Services;
 using DuckyNet.Shared.Services;

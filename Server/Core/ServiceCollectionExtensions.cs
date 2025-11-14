@@ -1,11 +1,12 @@
 using Microsoft.Extensions.DependencyInjection;
-using DuckyNet.Server.RPC;
+using DuckyNet.RPC;
+using DuckyNet.RPC.Core;
+using DuckyNet.RPC.Utils;
 using DuckyNet.Server.Events;
 using DuckyNet.Server.Managers;
 using DuckyNet.Server.Services;
 using DuckyNet.Server.Plugin;
 using DuckyNet.Shared.Services;
-using DuckyNet.Shared.RPC;
 
 namespace DuckyNet.Server.Core
 {
