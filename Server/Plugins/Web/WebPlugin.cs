@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace DuckyNet.Server.Plugins.Web
 {
+    [DependsOn("CorePlugin")]
     public class WebPlugin : IPlugin
     {
         public string Name => "WebPlugin";

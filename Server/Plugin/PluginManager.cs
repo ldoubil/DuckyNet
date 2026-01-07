@@ -5,9 +5,6 @@ using System.Linq;
 using System.Reflection;
 using System.Text.Json;
 using DuckyNet.RPC.Core;
-using DuckyNet.Server.Plugins.Core;
-using DuckyNet.Server.Plugins.Modules;
-using DuckyNet.Server.Plugins.Web;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -38,28 +35,20 @@ namespace DuckyNet.Server.Plugin
             public IPlugin Plugin { get; }
             public PluginLayer Layer { get; }
             public bool Loaded { get; set; }
+            public bool RpcConfigured { get; set; }
         }
 
         private readonly List<IPlugin> _plugins = new List<IPlugin>();
         private readonly List<PluginEntryInfo> _configuredPlugins = new List<PluginEntryInfo>();
         private readonly PluginConfiguration _configuration;
-        private readonly Dictionary<string, Type> _builtinPlugins;
+        private readonly Dictionary<string, Type> _availablePlugins;
         private readonly object _lock = new object();
         private IPluginContext? _context;
 
         public PluginManager(PluginConfiguration configuration)
         {
             _configuration = configuration;
-            _builtinPlugins = new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase)
-            {
-                { "CorePlugin", typeof(CorePlugin) },
-                { "PlayerModule", typeof(PlayerModulePlugin) },
-                { "RoomModule", typeof(RoomModulePlugin) },
-                { "SceneModule", typeof(SceneModulePlugin) },
-                { "NpcModule", typeof(NpcModulePlugin) },
-                { "SyncModule", typeof(SyncModulePlugin) },
-                { "WebPlugin", typeof(WebPlugin) }
-            };
+            _availablePlugins = DiscoverBuiltinPlugins();
         }
 
         public static PluginConfiguration LoadConfiguration(string configPath)
@@ -113,7 +102,7 @@ namespace DuckyNet.Server.Plugin
             }
         }
 
-        public void LoadConfiguredPlugins(RpcServer server)
+        public void LoadConfiguredPlugins()
         {
             EnsureConfiguredPlugins();
             EnsureContext();
@@ -126,7 +115,6 @@ namespace DuckyNet.Server.Plugin
                 }
 
                 pluginEntry.Plugin.OnLoad(_context!);
-                pluginEntry.Plugin.ConfigureRpc(server);
                 pluginEntry.Loaded = true;
                 _plugins.Add(pluginEntry.Plugin);
 
@@ -141,6 +129,17 @@ namespace DuckyNet.Server.Plugin
             foreach (var pluginEntry in _configuredPlugins.Where(p => p.Layer == PluginLayer.Web))
             {
                 pluginEntry.Plugin.ConfigureWeb(endpoints);
+            }
+        }
+
+        public void ConfigureRpc(RpcServer server)
+        {
+            EnsureConfiguredPlugins();
+            EnsureContext();
+
+            foreach (var pluginEntry in _configuredPlugins.Where(entry => entry.Loaded && !entry.RpcConfigured))
+            {
+                ConfigureRpcForEntry(server, pluginEntry);
             }
         }
 
@@ -163,17 +162,26 @@ namespace DuckyNet.Server.Plugin
             var dllFiles = Directory.GetFiles(pluginDirectory, "*.dll", SearchOption.AllDirectories);
             Console.WriteLine($"[PluginManager] 发现 {dllFiles.Length} 个 DLL 文件");
 
+            var entriesToLoad = new List<PluginEntryInfo>();
+
             foreach (var dllFile in dllFiles)
             {
                 try
                 {
-                    LoadPlugin(dllFile, server);
+                    var entries = LoadPluginEntries(dllFile);
+                    entriesToLoad.AddRange(entries);
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"[PluginManager] 加载插件失败: {dllFile}");
                     Console.WriteLine($"[PluginManager] 错误: {ex.Message}");
                 }
+            }
+
+            var sortedEntries = SortEntriesByDependencies(entriesToLoad, _plugins.Select(p => p.Name).ToList());
+            foreach (var entry in sortedEntries)
+            {
+                LoadExternalPluginEntry(entry, server);
             }
 
             Console.WriteLine($"[PluginManager] 已加载 {_plugins.Count} 个插件");
@@ -184,6 +192,21 @@ namespace DuckyNet.Server.Plugin
         /// </summary>
         /// <param name="dllPath">DLL 文件路径</param>
         public void LoadPlugin(string dllPath, RpcServer server)
+        {
+            var entries = LoadPluginEntries(dllPath);
+            if (entries.Count == 0)
+            {
+                return;
+            }
+
+            var sortedEntries = SortEntriesByDependencies(entries, _plugins.Select(p => p.Name).ToList());
+            foreach (var entry in sortedEntries)
+            {
+                LoadExternalPluginEntry(entry, server);
+            }
+        }
+
+        private List<PluginEntryInfo> LoadPluginEntries(string dllPath)
         {
             EnsureContext();
 
@@ -203,29 +226,17 @@ namespace DuckyNet.Server.Plugin
             if (pluginTypes.Count == 0)
             {
                 Console.WriteLine($"[PluginManager] 未找到插件类: {dllPath}");
-                return;
+                return new List<PluginEntryInfo>();
             }
 
+            var entries = new List<PluginEntryInfo>();
             foreach (var pluginType in pluginTypes)
             {
                 try
                 {
                     // 创建插件实例
                     var plugin = (IPlugin)Activator.CreateInstance(pluginType)!;
-                    var entry = new PluginEntryInfo(plugin, PluginLayer.External);
-
-                    lock (_lock)
-                    {
-                        // 调用插件的加载方法
-                        plugin.OnLoad(_context!);
-                        plugin.ConfigureRpc(server);
-                        entry.Loaded = true;
-                        _plugins.Add(plugin);
-                        _configuredPlugins.Add(entry);
-                        
-                        Console.WriteLine($"[PluginManager] 已加载插件: {plugin.Name} v{plugin.Version} by {plugin.Author}");
-                        Console.WriteLine($"[PluginManager]   描述: {plugin.Description}");
-                    }
+                    entries.Add(new PluginEntryInfo(plugin, PluginLayer.External));
                 }
                 catch (Exception ex)
                 {
@@ -233,6 +244,8 @@ namespace DuckyNet.Server.Plugin
                     Console.WriteLine($"[PluginManager] 错误: {ex.Message}");
                 }
             }
+
+            return entries;
         }
 
         /// <summary>
@@ -313,13 +326,16 @@ namespace DuckyNet.Server.Plugin
             AddConfiguredPlugins(_configuration.CorePlugins, PluginLayer.Core);
             AddConfiguredPlugins(_configuration.ModulePlugins, PluginLayer.Module);
             AddConfiguredPlugins(_configuration.WebPlugins, PluginLayer.Web);
+            var sortedEntries = SortEntriesByDependencies(_configuredPlugins, Array.Empty<string>());
+            _configuredPlugins.Clear();
+            _configuredPlugins.AddRange(sortedEntries);
         }
 
         private void AddConfiguredPlugins(IEnumerable<PluginEntry> entries, PluginLayer layer)
         {
             foreach (var entry in entries.Where(e => e.Enabled))
             {
-                if (!_builtinPlugins.TryGetValue(entry.Name, out var pluginType))
+                if (!_availablePlugins.TryGetValue(entry.Name, out var pluginType))
                 {
                     Console.WriteLine($"[PluginManager] 未注册的插件: {entry.Name}");
                     continue;
@@ -328,6 +344,164 @@ namespace DuckyNet.Server.Plugin
                 var plugin = (IPlugin)Activator.CreateInstance(pluginType)!;
                 _configuredPlugins.Add(new PluginEntryInfo(plugin, layer));
             }
+        }
+
+        private Dictionary<string, Type> DiscoverBuiltinPlugins()
+        {
+            var discovered = new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase);
+            var assembly = Assembly.GetExecutingAssembly();
+            var pluginTypes = assembly.GetTypes()
+                .Where(t => typeof(IPlugin).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract)
+                .ToList();
+
+            foreach (var pluginType in pluginTypes)
+            {
+                try
+                {
+                    var plugin = (IPlugin)Activator.CreateInstance(pluginType)!;
+                    if (string.IsNullOrWhiteSpace(plugin.Name))
+                    {
+                        Console.WriteLine($"[PluginManager] 插件名称为空，跳过: {pluginType.FullName}");
+                        continue;
+                    }
+
+                    if (discovered.ContainsKey(plugin.Name))
+                    {
+                        Console.WriteLine($"[PluginManager] 插件名称重复，跳过: {plugin.Name} ({pluginType.FullName})");
+                        continue;
+                    }
+
+                    discovered.Add(plugin.Name, pluginType);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[PluginManager] 插件发现失败: {pluginType.FullName}");
+                    Console.WriteLine($"[PluginManager] 错误: {ex.Message}");
+                }
+            }
+
+            return discovered;
+        }
+
+        private List<PluginEntryInfo> SortEntriesByDependencies(
+            List<PluginEntryInfo> entries,
+            IReadOnlyCollection<string> loadedPluginNames)
+        {
+            if (entries.Count <= 1)
+            {
+                return entries;
+            }
+
+            var entryByName = entries.ToDictionary(entry => entry.Plugin.Name, StringComparer.OrdinalIgnoreCase);
+            var dependencyMap = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+            var originalIndex = entries
+                .Select((entry, index) => new { entry.Plugin.Name, Index = index })
+                .ToDictionary(item => item.Name, item => item.Index, StringComparer.OrdinalIgnoreCase);
+
+            foreach (var entry in entries)
+            {
+                var dependencies = new HashSet<string>(GetDependencies(entry.Plugin.GetType()), StringComparer.OrdinalIgnoreCase);
+                dependencies.RemoveWhere(dep =>
+                {
+                    if (loadedPluginNames.Contains(dep))
+                    {
+                        return true;
+                    }
+
+                    if (!entryByName.ContainsKey(dep))
+                    {
+                        Console.WriteLine($"[PluginManager] 插件 {entry.Plugin.Name} 依赖未满足: {dep}");
+                        return true;
+                    }
+
+                    return false;
+                });
+
+                dependencyMap[entry.Plugin.Name] = dependencies;
+            }
+
+            var remaining = new HashSet<string>(entryByName.Keys, StringComparer.OrdinalIgnoreCase);
+            var sorted = new List<PluginEntryInfo>();
+
+            while (remaining.Count > 0)
+            {
+                var ready = remaining
+                    .Where(name => dependencyMap[name].Count == 0)
+                    .Select(name => entryByName[name])
+                    .OrderBy(entry => GetLayerOrder(entry.Layer))
+                    .ThenBy(entry => originalIndex[entry.Plugin.Name])
+                    .ToList();
+
+                if (ready.Count == 0)
+                {
+                    Console.WriteLine("[PluginManager] 插件依赖存在循环，按原始顺序加载剩余插件。");
+                    sorted.AddRange(remaining
+                        .Select(name => entryByName[name])
+                        .OrderBy(entry => originalIndex[entry.Plugin.Name]));
+                    break;
+                }
+
+                foreach (var entry in ready)
+                {
+                    var name = entry.Plugin.Name;
+                    sorted.Add(entry);
+                    remaining.Remove(name);
+                    foreach (var other in remaining)
+                    {
+                        dependencyMap[other].Remove(name);
+                    }
+                }
+            }
+
+            return sorted;
+        }
+
+        private static int GetLayerOrder(PluginLayer layer)
+        {
+            return layer switch
+            {
+                PluginLayer.Core => 0,
+                PluginLayer.Module => 1,
+                PluginLayer.Web => 2,
+                PluginLayer.External => 3,
+                _ => 99
+            };
+        }
+
+        private static IEnumerable<string> GetDependencies(Type pluginType)
+        {
+            return pluginType
+                .GetCustomAttributes(typeof(DependsOnAttribute), true)
+                .OfType<DependsOnAttribute>()
+                .SelectMany(attribute => attribute.Dependencies)
+                .Where(dep => !string.IsNullOrWhiteSpace(dep))
+                .Select(dep => dep.Trim());
+        }
+
+        private void LoadExternalPluginEntry(PluginEntryInfo entry, RpcServer server)
+        {
+            lock (_lock)
+            {
+                entry.Plugin.OnLoad(_context!);
+                entry.Loaded = true;
+                _plugins.Add(entry.Plugin);
+                _configuredPlugins.Add(entry);
+                ConfigureRpcForEntry(server, entry);
+
+                Console.WriteLine($"[PluginManager] 已加载插件: {entry.Plugin.Name} v{entry.Plugin.Version} by {entry.Plugin.Author}");
+                Console.WriteLine($"[PluginManager]   描述: {entry.Plugin.Description}");
+            }
+        }
+
+        private void ConfigureRpcForEntry(RpcServer server, PluginEntryInfo entry)
+        {
+            if (entry.RpcConfigured)
+            {
+                return;
+            }
+
+            entry.Plugin.ConfigureRpc(server);
+            entry.RpcConfigured = true;
         }
 
         private void EnsureContext()

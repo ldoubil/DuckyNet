@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace DuckyNet.Server.Plugins.Modules
 {
+    [DependsOn("CorePlugin")]
     public class PlayerModulePlugin : IPlugin
     {
         public string Name => "PlayerModule";
