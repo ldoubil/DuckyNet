@@ -1,3 +1,4 @@
+using DuckyNet.Shared.Events;
 using EquipmentSlotType = DuckyNet.Shared.Data.EquipmentSlotType;
 
 namespace DuckyNet.Client.Core.EventBus.Events
@@ -29,7 +30,7 @@ namespace DuckyNet.Client.Core.EventBus.Events
     /// });
     /// </code>
     /// </summary>
-    public class EquipmentSlotChangedEvent
+    public class EquipmentSlotChangedEvent : EventBase
     {
         /// <summary>槽位类型</summary>
         public EquipmentSlotType SlotType { get; }
@@ -114,4 +115,3 @@ namespace DuckyNet.Client.Core.EventBus.Events
         }
     }
 }
-

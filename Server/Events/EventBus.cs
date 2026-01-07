@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using DuckyNet.Shared.Events;
 
 namespace DuckyNet.Server.Events
 {
@@ -16,7 +17,7 @@ namespace DuckyNet.Server.Events
         /// <summary>
         /// 订阅事件
         /// </summary>
-        public void Subscribe<TEvent>(Action<TEvent> handler) where TEvent : class
+        public void Subscribe<TEvent>(Action<TEvent> handler) where TEvent : IEvent
         {
             if (handler == null)
                 throw new ArgumentNullException(nameof(handler));
@@ -35,7 +36,7 @@ namespace DuckyNet.Server.Events
         /// <summary>
         /// 取消订阅事件
         /// </summary>
-        public void Unsubscribe<TEvent>(Action<TEvent> handler) where TEvent : class
+        public void Unsubscribe<TEvent>(Action<TEvent> handler) where TEvent : IEvent
         {
             if (handler == null)
                 throw new ArgumentNullException(nameof(handler));
@@ -59,7 +60,7 @@ namespace DuckyNet.Server.Events
         /// <summary>
         /// 发布事件
         /// </summary>
-        public void Publish<TEvent>(TEvent eventData) where TEvent : class
+        public void Publish<TEvent>(TEvent eventData) where TEvent : IEvent
         {
             if (eventData == null)
                 throw new ArgumentNullException(nameof(eventData));
@@ -91,4 +92,3 @@ namespace DuckyNet.Server.Events
         }
     }
 }
-

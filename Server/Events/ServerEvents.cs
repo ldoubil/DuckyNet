@@ -1,3 +1,4 @@
+using DuckyNet.Shared.Events;
 using DuckyNet.Shared.Services;
 
 namespace DuckyNet.Server.Events
@@ -5,7 +6,7 @@ namespace DuckyNet.Server.Events
     /// <summary>
     /// 玩家登录事件
     /// </summary>
-    public class PlayerLoginEvent
+    public class PlayerLoginEvent : EventBase
     {
         public string ClientId { get; set; } = string.Empty;
         public PlayerInfo Player { get; set; } = null!;
@@ -14,7 +15,7 @@ namespace DuckyNet.Server.Events
     /// <summary>
     /// 玩家登出事件
     /// </summary>
-    public class PlayerLogoutEvent
+    public class PlayerLogoutEvent : EventBase
     {
         public string ClientId { get; set; } = string.Empty;
         public PlayerInfo Player { get; set; } = null!;
@@ -23,7 +24,7 @@ namespace DuckyNet.Server.Events
     /// <summary>
     /// 玩家连接事件
     /// </summary>
-    public class PlayerConnectedEvent
+    public class PlayerConnectedEvent : EventBase
     {
         public string ClientId { get; set; } = string.Empty;
     }
@@ -31,7 +32,7 @@ namespace DuckyNet.Server.Events
     /// <summary>
     /// 玩家断开事件
     /// </summary>
-    public class PlayerDisconnectedEvent
+    public class PlayerDisconnectedEvent : EventBase
     {
         public string ClientId { get; set; } = string.Empty;
         public PlayerInfo? Player { get; set; }
@@ -40,7 +41,7 @@ namespace DuckyNet.Server.Events
     /// <summary>
     /// 房间创建事件
     /// </summary>
-    public class RoomCreatedEvent
+    public class RoomCreatedEvent : EventBase
     {
         public RoomInfo Room { get; set; } = null!;
         public PlayerInfo Host { get; set; } = null!;
@@ -49,7 +50,7 @@ namespace DuckyNet.Server.Events
     /// <summary>
     /// 玩家加入房间事件
     /// </summary>
-    public class PlayerJoinedRoomEvent
+    public class PlayerJoinedRoomEvent : EventBase
     {
         public RoomInfo Room { get; set; } = null!;
         public PlayerInfo Player { get; set; } = null!;
@@ -58,7 +59,7 @@ namespace DuckyNet.Server.Events
     /// <summary>
     /// 玩家离开房间事件
     /// </summary>
-    public class PlayerLeftRoomEvent
+    public class PlayerLeftRoomEvent : EventBase
     {
         public RoomInfo? Room { get; set; }
         public PlayerInfo Player { get; set; } = null!;
@@ -67,7 +68,7 @@ namespace DuckyNet.Server.Events
     /// <summary>
     /// 房间删除事件
     /// </summary>
-    public class RoomDeletedEvent
+    public class RoomDeletedEvent : EventBase
     {
         public string RoomId { get; set; } = string.Empty;
     }
@@ -75,7 +76,7 @@ namespace DuckyNet.Server.Events
     /// <summary>
     /// 服务器启动事件
     /// </summary>
-    public class ServerStartedEvent
+    public class ServerStartedEvent : EventBase
     {
         public int Port { get; set; }
     }
@@ -83,8 +84,7 @@ namespace DuckyNet.Server.Events
     /// <summary>
     /// 服务器关闭事件
     /// </summary>
-    public class ServerStoppingEvent
+    public class ServerStoppingEvent : EventBase
     {
     }
 }
-

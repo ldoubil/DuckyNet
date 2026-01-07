@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using DuckyNet.Shared.Events;
 using UnityEngine;
 
 namespace DuckyNet.Client.Core.EventBus
@@ -52,7 +53,7 @@ namespace DuckyNet.Client.Core.EventBus
         /// </summary>
         /// <typeparam name="TEvent">事件类型</typeparam>
         /// <param name="handler">事件处理器</param>
-        public void Subscribe<TEvent>(Action<TEvent> handler) where TEvent : class
+        public void Subscribe<TEvent>(Action<TEvent> handler) where TEvent : IEvent
         {
             if (handler == null)
                 throw new ArgumentNullException(nameof(handler));
@@ -80,7 +81,7 @@ namespace DuckyNet.Client.Core.EventBus
         /// </summary>
         /// <typeparam name="TEvent">事件类型</typeparam>
         /// <param name="handler">事件处理器</param>
-        public void Unsubscribe<TEvent>(Action<TEvent> handler) where TEvent : class
+        public void Unsubscribe<TEvent>(Action<TEvent> handler) where TEvent : IEvent
         {
             if (handler == null)
                 return;
@@ -119,7 +120,7 @@ namespace DuckyNet.Client.Core.EventBus
         /// </summary>
         /// <typeparam name="TEvent">事件类型</typeparam>
         /// <param name="eventData">事件数据</param>
-        public void Publish<TEvent>(TEvent eventData) where TEvent : class
+        public void Publish<TEvent>(TEvent eventData) where TEvent : IEvent
         {
             if (eventData == null)
             {
@@ -318,4 +319,3 @@ namespace DuckyNet.Client.Core.EventBus
         }
     }
 }
-

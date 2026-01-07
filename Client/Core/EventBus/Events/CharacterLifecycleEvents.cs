@@ -1,3 +1,4 @@
+using DuckyNet.Shared.Events;
 using UnityEngine;
 
 namespace DuckyNet.Client.Core.EventBus.Events
@@ -6,7 +7,7 @@ namespace DuckyNet.Client.Core.EventBus.Events
     /// 单位（怪物/NPC）创建事件
     /// 当场景中生成新的 CharacterMainControl 时触发
     /// </summary>
-    public class CharacterSpawnedEvent
+    public class CharacterSpawnedEvent : EventBase
     {
         /// <summary>
         /// 角色控制器
@@ -35,7 +36,7 @@ namespace DuckyNet.Client.Core.EventBus.Events
     /// 单位销毁事件
     /// 当 CharacterMainControl 被销毁时触发
     /// </summary>
-    public class CharacterDestroyedEvent
+    public class CharacterDestroyedEvent : EventBase
     {
         /// <summary>
         /// 角色控制器
@@ -64,7 +65,7 @@ namespace DuckyNet.Client.Core.EventBus.Events
     /// 单位死亡事件
     /// 当 Health 组件触发死亡时触发（生命值为0）
     /// </summary>
-    public class CharacterDeathEvent
+    public class CharacterDeathEvent : EventBase
     {
         /// <summary>
         /// Health 组件
@@ -101,4 +102,3 @@ namespace DuckyNet.Client.Core.EventBus.Events
         }
     }
 }
-

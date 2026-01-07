@@ -1,3 +1,4 @@
+using DuckyNet.Shared.Events;
 using UnityEngine;
 
 namespace DuckyNet.Client.Core.EventBus.Events
@@ -6,7 +7,7 @@ namespace DuckyNet.Client.Core.EventBus.Events
     /// 伤害应用前事件
     /// 允许在伤害计算前修改伤害值、暴击率、护甲穿透等参数
     /// </summary>
-    public class BeforeDamageAppliedEvent
+    public class BeforeDamageAppliedEvent : EventBase
     {
         /// <summary>
         /// Health 组件实例
@@ -104,7 +105,7 @@ namespace DuckyNet.Client.Core.EventBus.Events
     /// 伤害应用后事件
     /// 在伤害已应用后触发，用于统计、日志等
     /// </summary>
-    public class AfterDamageAppliedEvent
+    public class AfterDamageAppliedEvent : EventBase
     {
         /// <summary>
         /// Health 组件实例
@@ -184,7 +185,7 @@ namespace DuckyNet.Client.Core.EventBus.Events
     /// <summary>
     /// 角色血量变化事件
     /// </summary>
-    public class HealthChangedEvent
+    public class HealthChangedEvent : EventBase
     {
         /// <summary>
         /// Health 组件实例
@@ -236,7 +237,7 @@ namespace DuckyNet.Client.Core.EventBus.Events
     /// <summary>
     /// 角色最大血量变化事件
     /// </summary>
-    public class MaxHealthChangedEvent
+    public class MaxHealthChangedEvent : EventBase
     {
         /// <summary>
         /// Health 组件实例
@@ -281,7 +282,7 @@ namespace DuckyNet.Client.Core.EventBus.Events
     /// <summary>
     /// 角色受伤事件
     /// </summary>
-    public class CharacterHurtEvent
+    public class CharacterHurtEvent : EventBase
     {
         /// <summary>
         /// Health 组件实例
@@ -340,7 +341,7 @@ namespace DuckyNet.Client.Core.EventBus.Events
     /// <summary>
     /// 角色死亡事件
     /// </summary>
-    public class CharacterDeadEvent
+    public class CharacterDeadEvent : EventBase
     {
         /// <summary>
         /// Health 组件实例
@@ -385,7 +386,7 @@ namespace DuckyNet.Client.Core.EventBus.Events
     /// <summary>
     /// 远程玩家血量同步事件
     /// </summary>
-    public class RemotePlayerHealthSyncEvent
+    public class RemotePlayerHealthSyncEvent : EventBase
     {
         /// <summary>
         /// 血量同步数据
@@ -398,4 +399,3 @@ namespace DuckyNet.Client.Core.EventBus.Events
         }
     }
 }
-

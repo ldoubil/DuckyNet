@@ -1,3 +1,4 @@
+using DuckyNet.Shared.Events;
 using DuckyNet.Shared.Services;
 
 namespace DuckyNet.Client.Core.EventBus.Events
@@ -6,7 +7,7 @@ namespace DuckyNet.Client.Core.EventBus.Events
     /// 聊天消息接收事件
     /// 当服务器转发其他玩家发送的聊天消息时触发此事件
     /// </summary>
-    public class ChatMessageReceivedEvent
+    public class ChatMessageReceivedEvent : EventBase
     {
         /// <summary>
         /// 发送消息的玩家信息
@@ -25,4 +26,3 @@ namespace DuckyNet.Client.Core.EventBus.Events
         }
     }
 }
-
