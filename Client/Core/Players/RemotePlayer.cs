@@ -11,7 +11,6 @@ using DuckyNet.Client.Core.EventBus;
 using DuckyNet.Client.Core.EventBus.Events;
 using ItemStatsSystem;
 using Duckov.Utilities;
-using CharacterAppearanceReceivedEvent = DuckyNet.Client.Services.CharacterAppearanceReceivedEvent;
 
 namespace DuckyNet.Client.Core.Players
 {
@@ -824,7 +823,7 @@ namespace DuckyNet.Client.Core.Players
         /// <summary>
         /// 接收到外观数据事件
         /// </summary>
-        private void OnAppearanceReceived(Services.CharacterAppearanceReceivedEvent @event)
+        private void OnAppearanceReceived(CharacterAppearanceReceivedEvent @event)
         {
             // 只处理自己的外观数据
             if (@event.SteamId != Info.SteamId)

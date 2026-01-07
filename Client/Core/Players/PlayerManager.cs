@@ -4,10 +4,14 @@ using static UnityEngine.Debug;
 using Steamworks;
 using DuckyNet.Shared.Services;
 using DuckyNet.Shared.Data;
+using DuckyNet.Client.Services;
 using DuckyNet.Client.Core.Helpers;
 using DuckyNet.Client.Core.EventBus;
 using DuckyNet.Client.Core.EventBus.Events;
+using DuckyNet.Client.Core.Utils;
 using System.Collections.Generic;
+using ItemStatsSystem;
+using Duckov.Utilities;
 
 namespace DuckyNet.Client.Core.Players
 {
@@ -64,6 +68,12 @@ namespace DuckyNet.Client.Core.Players
             
             // 🎯 订阅动画同步事件
             _eventSubscriber.Subscribe<RemoteAnimatorUpdateEvent>(OnRemoteAnimatorUpdate);
+            _eventSubscriber.Subscribe<RemoteEquipmentSlotUpdatedEvent>(OnRemoteEquipmentSlotUpdated);
+            _eventSubscriber.Subscribe<AllPlayersEquipmentReceivedEvent>(OnAllPlayersEquipmentReceived);
+            _eventSubscriber.Subscribe<RemoteWeaponSlotUpdatedEvent>(OnRemoteWeaponSlotUpdated);
+            _eventSubscriber.Subscribe<AllPlayersWeaponReceivedEvent>(OnAllPlayersWeaponReceived);
+            _eventSubscriber.Subscribe<RemoteWeaponSwitchedEvent>(OnRemoteWeaponSwitched);
+            _eventSubscriber.Subscribe<RemoteWeaponFiredEvent>(OnRemoteWeaponFired);
             
             Log($"[PlayerManager] 初始化完成 - 房间+场景双层架构 + 动画同步");
         }
@@ -272,6 +282,436 @@ namespace DuckyNet.Client.Core.Players
         {
             // Debug.Log($"[PlayerManager] 📬 接收到动画事件 - PlayerId:{@event.PlayerId}, State:{@event.AnimatorData.StateHash}");
             _remoteAnimatorSync.ReceiveAnimatorUpdate(@event.PlayerId, @event.AnimatorData);
+        }
+
+        private void OnRemoteEquipmentSlotUpdated(RemoteEquipmentSlotUpdatedEvent @event)
+        {
+            try
+            {
+                var notification = @event.Notification;
+                var localPlayerId = LocalPlayer?.Info.SteamId;
+                if (!string.IsNullOrEmpty(localPlayerId) && localPlayerId == notification.PlayerId)
+                {
+                    return;
+                }
+
+                var remotePlayer = GetRemotePlayer(notification.PlayerId);
+                if (remotePlayer == null)
+                {
+                    LogWarning($"[PlayerManager] 找不到远程玩家: {notification.PlayerId}");
+                    return;
+                }
+
+                remotePlayer.UpdateEquipmentSlot(notification.SlotType, notification.ItemTypeId);
+
+                if (remotePlayer.CharacterObject != null)
+                {
+                    ApplyEquipmentToCharacter(remotePlayer, notification.SlotType, notification.ItemTypeId);
+                }
+            }
+            catch (Exception ex)
+            {
+                LogError($"[PlayerManager] 处理装备更新失败: {ex.Message}\n{ex.StackTrace}");
+            }
+        }
+
+        private void OnAllPlayersEquipmentReceived(AllPlayersEquipmentReceivedEvent @event)
+        {
+            try
+            {
+                var playerManager = GameContext.Instance.PlayerManager;
+                if (playerManager == null)
+                {
+                    LogWarning("[PlayerManager] PlayerManager 未初始化");
+                    return;
+                }
+
+                foreach (var kvp in @event.EquipmentData.PlayersEquipment)
+                {
+                    string playerId = kvp.Key;
+                    PlayerEquipmentData equipmentData = kvp.Value;
+
+                    if (playerId == playerManager.LocalPlayer?.Info.SteamId)
+                    {
+                        continue;
+                    }
+
+                    var remotePlayer = playerManager.GetRemotePlayer(playerId);
+                    if (remotePlayer == null)
+                    {
+                        LogWarning($"[PlayerManager] 找不到远程玩家: {playerId}，跳过装备数据");
+                        continue;
+                    }
+
+                    remotePlayer.SetEquipmentData(equipmentData);
+
+                    if (remotePlayer.CharacterObject != null)
+                    {
+                        ApplyAllEquipmentToCharacter(remotePlayer);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogError($"[PlayerManager] 处理批量装备数据失败: {ex.Message}\n{ex.StackTrace}");
+            }
+        }
+
+        private void OnRemoteWeaponSlotUpdated(RemoteWeaponSlotUpdatedEvent @event)
+        {
+            try
+            {
+                var notification = @event.Notification;
+                var localPlayerId = LocalPlayer?.Info.SteamId;
+                if (!string.IsNullOrEmpty(localPlayerId) && localPlayerId == notification.PlayerId)
+                {
+                    return;
+                }
+
+                var remotePlayer = GetRemotePlayer(notification.PlayerId);
+                if (remotePlayer == null)
+                {
+                    LogWarning($"[PlayerManager] 找不到远程玩家: {notification.PlayerId}");
+                    return;
+                }
+
+                WeaponItemData? weaponData = null;
+                if (notification.ItemTypeId > 0)
+                {
+                    weaponData = new WeaponItemData
+                    {
+                        ItemTypeId = notification.ItemTypeId,
+                        ItemName = notification.ItemName,
+                        IsDefaultItem = notification.IsDefaultItem,
+                        ItemDataCompressed = notification.ItemDataCompressed
+                    };
+                }
+
+                remotePlayer.UpdateWeaponSlot(notification.SlotType, weaponData);
+
+                if (remotePlayer.CharacterObject != null)
+                {
+                    ApplyWeaponToCharacter(remotePlayer, notification.SlotType, weaponData);
+                }
+            }
+            catch (Exception ex)
+            {
+                LogError($"[PlayerManager] 处理武器更新失败: {ex.Message}\n{ex.StackTrace}");
+            }
+        }
+
+        private void OnAllPlayersWeaponReceived(AllPlayersWeaponReceivedEvent @event)
+        {
+            try
+            {
+                var playerManager = GameContext.Instance.PlayerManager;
+                if (playerManager == null)
+                {
+                    LogWarning("[PlayerManager] PlayerManager 未初始化");
+                    return;
+                }
+
+                foreach (var kvp in @event.WeaponData.PlayersWeapons)
+                {
+                    string playerId = kvp.Key;
+                    PlayerWeaponData weaponData = kvp.Value;
+
+                    if (playerId == playerManager.LocalPlayer?.Info.SteamId)
+                    {
+                        continue;
+                    }
+
+                    var remotePlayer = playerManager.GetRemotePlayer(playerId);
+                    if (remotePlayer == null)
+                    {
+                        LogWarning($"[PlayerManager] 找不到远程玩家: {playerId}，跳过武器数据");
+                        continue;
+                    }
+
+                    remotePlayer.SetWeaponData(weaponData);
+
+                    if (remotePlayer.CharacterObject != null)
+                    {
+                        ApplyAllWeaponsToCharacter(remotePlayer);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogError($"[PlayerManager] 处理批量武器数据失败: {ex.Message}\n{ex.StackTrace}");
+            }
+        }
+
+        private void OnRemoteWeaponSwitched(RemoteWeaponSwitchedEvent @event)
+        {
+            try
+            {
+                var notification = @event.Notification;
+                var localPlayerId = LocalPlayer?.Info.SteamId;
+                if (!string.IsNullOrEmpty(localPlayerId) && localPlayerId == notification.PlayerId)
+                {
+                    return;
+                }
+
+                var remotePlayer = GetRemotePlayer(notification.PlayerId);
+                if (remotePlayer == null)
+                {
+                    LogWarning($"[PlayerManager] 找不到远程玩家: {notification.PlayerId}");
+                    return;
+                }
+
+                remotePlayer.SwitchWeaponSlot(notification.CurrentWeaponSlot);
+            }
+            catch (Exception ex)
+            {
+                LogError($"[PlayerManager] 处理武器切换失败: {ex.Message}\n{ex.StackTrace}");
+            }
+        }
+
+        private void OnRemoteWeaponFired(RemoteWeaponFiredEvent @event)
+        {
+            try
+            {
+                var fireData = @event.FireData;
+                var localPlayerId = GameContext.Instance.PlayerManager?.LocalPlayer?.Info.SteamId;
+                if (!string.IsNullOrEmpty(localPlayerId) && localPlayerId == fireData.PlayerId)
+                {
+                    return;
+                }
+
+                var remotePlayer = GameContext.Instance.PlayerManager?.GetRemotePlayer(fireData.PlayerId);
+                if (remotePlayer == null || remotePlayer.CharacterObject == null)
+                {
+                    return;
+                }
+
+                WeaponFireEffectsPlayer.PlayFireEffects(remotePlayer.CharacterObject, fireData);
+            }
+            catch (Exception ex)
+            {
+                LogError($"[PlayerManager] 播放开枪特效失败: {ex.Message}");
+            }
+        }
+
+        private void ApplyEquipmentToCharacter(RemotePlayer remotePlayer, EquipmentSlotType slotType, int? itemTypeId)
+        {
+            try
+            {
+                var characterMainControl = remotePlayer.CharacterObject?.GetComponent<CharacterMainControl>();
+                if (characterMainControl == null || characterMainControl.CharacterItem == null)
+                {
+                    LogWarning($"[PlayerManager] 角色组件无效");
+                    return;
+                }
+
+                int slotHash = GetEquipmentSlotHash(slotType);
+                var slot = characterMainControl.CharacterItem.Slots.GetSlot(slotHash);
+                if (slot == null)
+                {
+                    LogWarning($"[PlayerManager] 槽位不存在: {slotType}");
+                    return;
+                }
+
+                if (itemTypeId.HasValue && itemTypeId.Value > 0)
+                {
+                    bool success = EquipmentTools.CreateAndEquip(
+                        itemTypeId.Value,
+                        slot,
+                        unpluggedItem => unpluggedItem.DestroyTree()
+                    );
+
+                    if (!success)
+                    {
+                        LogWarning($"[PlayerManager] 应用装备失败: {slotType}");
+                    }
+                }
+                else
+                {
+                    if (slot.Content != null)
+                    {
+                        var removed = slot.Unplug();
+                        if (removed != null)
+                        {
+                            removed.DestroyTree();
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogError($"[PlayerManager] 应用装备失败: {ex.Message}");
+            }
+        }
+
+        private void ApplyAllEquipmentToCharacter(RemotePlayer remotePlayer)
+        {
+            try
+            {
+                var equipmentData = remotePlayer.GetEquipmentData();
+                if (equipmentData == null)
+                {
+                    Log("[PlayerManager] 该玩家没有装备数据");
+                    return;
+                }
+
+                foreach (var kvp in equipmentData.Equipment)
+                {
+                    EquipmentSlotType slotType = kvp.Key;
+                    int? itemTypeId = kvp.Value;
+
+                    if (itemTypeId.HasValue && itemTypeId.Value > 0)
+                    {
+                        ApplyEquipmentToCharacter(remotePlayer, slotType, itemTypeId);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogError($"[PlayerManager] 应用所有装备失败: {ex.Message}");
+            }
+        }
+
+        private int GetEquipmentSlotHash(EquipmentSlotType slotType)
+        {
+            return slotType switch
+            {
+                EquipmentSlotType.Armor => CharacterEquipmentController.armorHash,
+                EquipmentSlotType.Helmet => CharacterEquipmentController.helmatHash,
+                EquipmentSlotType.FaceMask => CharacterEquipmentController.faceMaskHash,
+                EquipmentSlotType.Backpack => CharacterEquipmentController.backpackHash,
+                EquipmentSlotType.Headset => CharacterEquipmentController.headsetHash,
+                _ => 0
+            };
+        }
+
+        private void ApplyWeaponToCharacter(RemotePlayer remotePlayer, WeaponSlotType slotType, WeaponItemData? weaponData)
+        {
+            try
+            {
+                var characterMainControl = remotePlayer.CharacterObject?.GetComponent<CharacterMainControl>();
+                if (characterMainControl == null || characterMainControl.CharacterItem == null)
+                {
+                    LogWarning($"[PlayerManager] 角色组件无效");
+                    return;
+                }
+
+                int slotHash = GetWeaponSlotHash(slotType);
+                var slot = characterMainControl.CharacterItem.Slots.GetSlot(slotHash);
+
+                if (slot == null)
+                {
+                    LogWarning($"[PlayerManager] 槽位不存在: {slotType}, Hash={slotHash}");
+                    return;
+                }
+
+                if (weaponData != null && weaponData.ItemTypeId > 0)
+                {
+                    Item? weaponItem = WeaponSyncHelper.DeserializeItem(
+                        weaponData.ItemDataCompressed,
+                        weaponData.ItemTypeId
+                    );
+
+                    if (weaponItem != null)
+                    {
+                        bool success = slot.Plug(weaponItem, out Item unpluggedItem);
+
+                        if (success)
+                        {
+                            if (unpluggedItem != null)
+                            {
+                                unpluggedItem.DestroyTree();
+                            }
+
+                            var currentSlot = remotePlayer.GetWeaponData()?.CurrentWeaponSlot;
+                            if (currentSlot.HasValue && currentSlot.Value == slotType)
+                            {
+                                try
+                                {
+                                    characterMainControl.ChangeHoldItem(weaponItem);
+                                }
+                                catch (Exception agentEx)
+                                {
+                                    LogError($"[PlayerManager] ChangeHoldItem 失败: {agentEx.Message}");
+                                }
+                            }
+                        }
+                        else
+                        {
+                            weaponItem.DestroyTree();
+                        }
+                    }
+                }
+                else
+                {
+                    if (slot.Content != null)
+                    {
+                        var removed = slot.Unplug();
+                        if (removed != null)
+                        {
+                            try
+                            {
+                                if (characterMainControl.CurrentHoldItemAgent?.Item == removed)
+                                {
+                                    characterMainControl.ChangeHoldItem(null);
+                                }
+                            }
+                            catch (Exception agentEx)
+                            {
+                                LogError($"[PlayerManager] 清除武器显示失败: {agentEx.Message}");
+                            }
+
+                            removed.DestroyTree();
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogError($"[PlayerManager] 应用武器失败: {ex.Message}");
+            }
+        }
+
+        private void ApplyAllWeaponsToCharacter(RemotePlayer remotePlayer)
+        {
+            try
+            {
+                var weaponData = remotePlayer.GetWeaponData();
+                if (weaponData == null)
+                {
+                    Log("[PlayerManager] 该玩家没有武器数据");
+                    return;
+                }
+
+                var weaponSlots = new[]
+                {
+                    (WeaponSlotType.PrimaryWeapon, weaponData.PrimaryWeapon),
+                    (WeaponSlotType.SecondaryWeapon, weaponData.SecondaryWeapon),
+                    (WeaponSlotType.MeleeWeapon, weaponData.MeleeWeapon)
+                };
+
+                foreach (var (slotType, weapon) in weaponSlots)
+                {
+                    if (weapon != null && weapon.ItemTypeId > 0)
+                    {
+                        ApplyWeaponToCharacter(remotePlayer, slotType, weapon);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogError($"[PlayerManager] 应用所有武器失败: {ex.Message}");
+            }
+        }
+
+        private int GetWeaponSlotHash(WeaponSlotType slotType)
+        {
+            return slotType switch
+            {
+                WeaponSlotType.PrimaryWeapon => "PrimaryWeapon".GetHashCode(),
+                WeaponSlotType.SecondaryWeapon => "SecondaryWeapon".GetHashCode(),
+                WeaponSlotType.MeleeWeapon => "MeleeWeapon".GetHashCode(),
+                _ => 0
+            };
         }
 
         /// <summary>

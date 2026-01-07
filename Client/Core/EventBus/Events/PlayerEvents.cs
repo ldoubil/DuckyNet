@@ -36,4 +36,19 @@ namespace DuckyNet.Client.Core.EventBus.Events
             Player = player;
         }
     }
+
+    /// <summary>
+    /// 服务器消息事件
+    /// </summary>
+    public class ServerMessageReceivedEvent : EventBase
+    {
+        public string Message { get; }
+        public MessageType MessageType { get; }
+
+        public ServerMessageReceivedEvent(string message, MessageType messageType)
+        {
+            Message = message;
+            MessageType = messageType;
+        }
+    }
 }

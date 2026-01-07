@@ -56,6 +56,7 @@ namespace DuckyNet.Client.Core
 
                 // 订阅聊天消息事件（通过全局 EventBus）
                 _eventSubscriber.Subscribe<ChatMessageReceivedEvent>(OnChatMessageReceived);
+                _eventSubscriber.Subscribe<ServerMessageReceivedEvent>(OnServerMessageReceived);
                 // 创建玩家列表窗口
                 _playerListWindow = new PlayerListWindow(_rpcClient);
                 RegisterWindow("PlayerList", _playerListWindow);
@@ -103,6 +104,20 @@ namespace DuckyNet.Client.Core
             }
             _windows[name] = window;
             UnityEngine.Debug.Log($"[UIManager] 窗口 '{name}' 已注册");
+        }
+
+        private void OnServerMessageReceived(ServerMessageReceivedEvent evt)
+        {
+            string prefix = evt.MessageType switch
+            {
+                MessageType.Info => "[Server/Info]",
+                MessageType.Warning => "[Server/Warning]",
+                MessageType.Error => "[Server/Error]",
+                MessageType.Success => "[Server/Success]",
+                _ => "[Server]"
+            };
+
+            UnityEngine.Debug.Log($"{prefix} {evt.Message}");
         }
 
         /// <summary>
@@ -281,4 +296,3 @@ namespace DuckyNet.Client.Core
         void OnGUI();
     }
 }
-

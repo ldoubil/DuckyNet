@@ -72,6 +72,9 @@ namespace DuckyNet.Client.Core
             _eventSub.Subscribe<CharacterSpawnedEvent>(OnNpcSpawned);
             _eventSub.Subscribe<CharacterDestroyedEvent>(OnNpcDestroyed);
             _eventSub.Subscribe<CharacterDeathEvent>(OnNpcDeath);
+            _eventSub.Subscribe<RemoteNpcSpawnedEvent>(OnRemoteNpcSpawned);
+            _eventSub.Subscribe<RemoteNpcBatchTransformEvent>(OnRemoteNpcBatchTransform);
+            _eventSub.Subscribe<RemoteNpcDestroyedEvent>(OnRemoteNpcDestroyed);
             
             // 订阅场景进入事件（中途加入时请求场景 NPC）
             _eventSub.Subscribe<SceneLoadedDetailEvent>(OnSceneLoaded);
@@ -178,6 +181,103 @@ namespace DuckyNet.Client.Core
             {
                 npcInfo.IsAlive = false;
                 npcInfo.DeathTime = Time.time;
+            }
+        }
+
+        /// <summary>
+        /// 远程 NPC 生成事件
+        /// </summary>
+        private void OnRemoteNpcSpawned(RemoteNpcSpawnedEvent evt)
+        {
+            try
+            {
+                var spawnData = evt.SpawnData;
+                Debug.Log($"[NpcManager] 📦 收到远程 NPC 生成: {spawnData.NpcType} (ID: {spawnData.NpcId})");
+                Debug.Log($"    场景: {spawnData.SceneName}/{spawnData.SubSceneName}");
+                Debug.Log($"    位置: ({spawnData.PositionX:F2}, {spawnData.PositionY:F2}, {spawnData.PositionZ:F2})");
+
+                var localSceneData = GameContext.Instance.PlayerManager?.LocalPlayer?.Info?.CurrentScenelData;
+                if (localSceneData == null) return;
+
+                bool isSameScene = localSceneData.SceneName == spawnData.SceneName &&
+                                   localSceneData.SubSceneName == spawnData.SubSceneName;
+
+                if (!isSameScene)
+                {
+                    Debug.Log($"[NpcManager] 不在同一场景，跳过创建");
+                    return;
+                }
+
+                AddRemoteNpc(spawnData.NpcId, spawnData);
+
+                Debug.Log($"[NpcManager] ✅ 远程 NPC 已创建并注册（使用对象池）");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[NpcManager] 处理 NPC 生成失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 远程 NPC 批量位置更新事件
+        /// </summary>
+        private void OnRemoteNpcBatchTransform(RemoteNpcBatchTransformEvent evt)
+        {
+            try
+            {
+                var batchData = evt.BatchData;
+                int missingCount = 0;
+                int updatedCount = 0;
+
+                for (int i = 0; i < batchData.Count; i++)
+                {
+                    string npcId = batchData.NpcIds[i];
+                    Vector3 position = new Vector3(
+                        batchData.PositionsX[i],
+                        batchData.PositionsY[i],
+                        batchData.PositionsZ[i]
+                    );
+
+                    var npc = GetNpc(npcId);
+                    if (npc != null)
+                    {
+                        UpdateRemoteNpcTransform(npcId, position, batchData.RotationsY[i]);
+                        updatedCount++;
+                    }
+                    else
+                    {
+                        if (CheckAndRequestMissingNpc(npcId))
+                        {
+                            missingCount++;
+                            Debug.Log($"[NpcManager] 🔍 发现缺失 NPC，已请求: {npcId}");
+                        }
+                    }
+                }
+
+                if (missingCount > 0)
+                {
+                    Debug.Log($"[NpcManager] 位置更新完成: {updatedCount} 个更新, {missingCount} 个请求创建");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[NpcManager] 处理位置更新失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 远程 NPC 销毁事件
+        /// </summary>
+        private void OnRemoteNpcDestroyed(RemoteNpcDestroyedEvent evt)
+        {
+            try
+            {
+                Debug.Log($"[NpcManager] 🗑️ 收到远程 NPC 销毁: {evt.DestroyData.NpcId} (原因: {evt.DestroyData.Reason})");
+                RemoveRemoteNpc(evt.DestroyData.NpcId);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[NpcManager] 处理 NPC 销毁失败: {ex.Message}");
             }
         }
 
@@ -790,4 +890,3 @@ namespace DuckyNet.Client.Core
         }
     }
 }
-

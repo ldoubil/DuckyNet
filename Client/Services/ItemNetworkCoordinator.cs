@@ -11,6 +11,8 @@ using System.Linq;
 using System.IO;
 using System.Threading.Tasks;
 using NetSerializer;
+using DuckyNet.Client.Core.EventBus;
+using DuckyNet.Client.Core.EventBus.Events;
 
 namespace DuckyNet.Client.Services
 {
@@ -18,9 +20,10 @@ namespace DuckyNet.Client.Services
     /// 物品网络协调器 - 协调本地与远程玩家的物品掉落和拾取
     /// 包含优化：对象池、LZ4压缩、增量同步
     /// </summary>
-    public class ItemNetworkCoordinator
+    public class ItemNetworkCoordinator : IDisposable
     {
         private readonly ItemSyncServiceClientProxy _itemSyncService;
+        private readonly EventSubscriberHelper _eventSubscriber = new EventSubscriberHelper();
 
         // 核心映射：DropId <-> Agent 双向映射
         private readonly Dictionary<uint, DuckovItemAgent> _dropIdToAgent = new Dictionary<uint, DuckovItemAgent>();
@@ -51,6 +54,10 @@ namespace DuckyNet.Client.Services
                 typeof(List<SerializableInventoryItem>),
                 typeof(List<int>)
             });
+
+            _eventSubscriber.EnsureInitializedAndSubscribe();
+            _eventSubscriber.Subscribe<RemoteItemDroppedEvent>(OnRemoteItemDroppedEvent);
+            _eventSubscriber.Subscribe<RemoteItemPickedUpEvent>(OnRemoteItemPickedUpEvent);
         }
 
         #region 本地操作
@@ -192,6 +199,21 @@ namespace DuckyNet.Client.Services
             {
                 Debug.LogError($"[ItemNetworkCoordinator] 处理远程拾取失败: {ex.Message}\n{ex.StackTrace}");
             }
+        }
+
+        private void OnRemoteItemDroppedEvent(RemoteItemDroppedEvent @event)
+        {
+            OnRemoteItemDropped(@event.DropData);
+        }
+
+        private void OnRemoteItemPickedUpEvent(RemoteItemPickedUpEvent @event)
+        {
+            OnRemoteItemPickedUp(@event.DropId, @event.PickedByPlayerId);
+        }
+
+        public void Dispose()
+        {
+            _eventSubscriber.Dispose();
         }
 
         #endregion
@@ -711,4 +733,3 @@ namespace DuckyNet.Client.Services
         }
     }
 }
-
