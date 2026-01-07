@@ -13,6 +13,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DuckyNetRPC", "RPC\DuckyNet
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DuckyNetConsole", "Console\DuckyNetConsole.csproj", "{C7D8F4A3-2B1E-4F8C-9A5D-1E6F7C8D9B0A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DuckyNet.RPC.Tests", "Tests\DuckyNet.RPC.Tests\DuckyNet.RPC.Tests.csproj", "{A4BE350B-D024-4B5A-BA0D-794B4A100AA0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DuckyNet.Shared.Tests", "Tests\DuckyNet.Shared.Tests\DuckyNet.Shared.Tests.csproj", "{608A5810-8E00-42CB-B193-19A6B2025A9E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -39,6 +43,14 @@ Global
 		{C7D8F4A3-2B1E-4F8C-9A5D-1E6F7C8D9B0A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C7D8F4A3-2B1E-4F8C-9A5D-1E6F7C8D9B0A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C7D8F4A3-2B1E-4F8C-9A5D-1E6F7C8D9B0A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A4BE350B-D024-4B5A-BA0D-794B4A100AA0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A4BE350B-D024-4B5A-BA0D-794B4A100AA0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A4BE350B-D024-4B5A-BA0D-794B4A100AA0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A4BE350B-D024-4B5A-BA0D-794B4A100AA0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{608A5810-8E00-42CB-B193-19A6B2025A9E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{608A5810-8E00-42CB-B193-19A6B2025A9E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{608A5810-8E00-42CB-B193-19A6B2025A9E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{608A5810-8E00-42CB-B193-19A6B2025A9E}.Release|Any CPU.Build.0 = Release|Any CPU
 		{F8A1B2C3-D4E5-4F6A-8B7C-9D0E1F2A3B4C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{F8A1B2C3-D4E5-4F6A-8B7C-9D0E1F2A3B4C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F8A1B2C3-D4E5-4F6A-8B7C-9D0E1F2A3B4C}.Release|Any CPU.ActiveCfg = Release|Any CPU
