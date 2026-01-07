@@ -2,6 +2,7 @@ using DuckyNet.Server.Managers;
 using DuckyNet.RPC;
 using DuckyNet.RPC.Core;
 using DuckyNet.Server.Events;
+using System;
 
 namespace DuckyNet.Server.Plugin
 {
@@ -27,6 +28,11 @@ namespace DuckyNet.Server.Plugin
         RpcServer RpcServer { get; }
 
         /// <summary>
+        /// 服务提供者
+        /// </summary>
+        IServiceProvider ServiceProvider { get; }
+
+        /// <summary>
         /// 事件总线
         /// </summary>
         IEventBus EventBus { get; }
@@ -37,4 +43,3 @@ namespace DuckyNet.Server.Plugin
         IPluginLogger Logger { get; }
     }
 }
-

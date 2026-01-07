@@ -1,4 +1,7 @@
 using System;
+using DuckyNet.RPC.Core;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DuckyNet.Server.Plugin
 {
@@ -35,6 +38,24 @@ namespace DuckyNet.Server.Plugin
         void OnLoad(IPluginContext context);
 
         /// <summary>
+        /// 注册插件依赖注入服务
+        /// </summary>
+        /// <param name="services">服务集合</param>
+        void ConfigureServices(IServiceCollection services);
+
+        /// <summary>
+        /// 注册插件 RPC 服务
+        /// </summary>
+        /// <param name="server">RPC 服务器</param>
+        void ConfigureRpc(RpcServer server);
+
+        /// <summary>
+        /// 注册 Web 端点（可选）
+        /// </summary>
+        /// <param name="endpoints">端点路由构建器</param>
+        void ConfigureWeb(IEndpointRouteBuilder endpoints);
+
+        /// <summary>
         /// 插件卸载时调用
         /// </summary>
         void OnUnload();
@@ -45,4 +66,3 @@ namespace DuckyNet.Server.Plugin
         void OnUpdate();
     }
 }
-

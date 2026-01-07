@@ -10,7 +10,6 @@ using DuckyNet.RPC.Core;
 using DuckyNet.Server.Managers;
 using DuckyNet.Server.Plugin;
 using DuckyNet.Server.Events;
-using DuckyNet.Server.Web;
 
 #nullable enable
 
@@ -40,15 +39,13 @@ namespace DuckyNet.Server
                 // ========== 阶段1：配置依赖注入容器 ==========
                 Console.WriteLine("[Server] Configuring services...");
                 var services = new ServiceCollection();
-                
-                // 注册核心服务
-                services.AddDuckyNetCore();
-                
-                // 注册业务模块
-                services.AddDuckyNetModules();
-                
-                // 注册插件系统
-                services.AddPluginSystem();
+
+                // 加载插件配置并注册插件
+                var pluginConfigPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "server.plugins.json");
+                var pluginConfig = PluginManager.LoadConfiguration(pluginConfigPath);
+                _pluginManager = new PluginManager(pluginConfig);
+                _pluginManager.ConfigureServices(services);
+                services.AddSingleton(_pluginManager);
                 
                 // 构建服务提供者
                 _serviceProvider = services.BuildServiceProvider();
@@ -64,10 +61,20 @@ namespace DuckyNet.Server
                 _server = _serviceProvider.GetRequiredService<RpcServer>();
                 _playerManager = _serviceProvider.GetRequiredService<PlayerManager>();
                 _eventBus = _serviceProvider.GetRequiredService<EventBus>();
-                _pluginManager = _serviceProvider.GetRequiredService<PluginManager>();
                 
                 // 初始化服务器上下文并注册所有 RPC 服务
                 ServiceCollectionExtensions.InitializeServer(_serviceProvider);
+
+                var pluginContext = new PluginContext(
+                    _playerManager,
+                    _serviceProvider.GetRequiredService<RoomManager>(),
+                    _server,
+                    _serviceProvider,
+                    _eventBus,
+                    new PluginLogger("System")
+                );
+                _pluginManager.Initialize(pluginContext);
+                _pluginManager.LoadConfiguredPlugins(_server);
                 Console.WriteLine("[Server] ✓ Components initialized");
 
                 // ========== 阶段3：启动服务器 ==========
@@ -86,7 +93,7 @@ namespace DuckyNet.Server
 
                 // 加载插件
                 var pluginDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Plugins");
-                _pluginManager.LoadPluginsFromDirectory(pluginDir);
+                _pluginManager.LoadPluginsFromDirectory(pluginDir, _server);
                 Console.WriteLine($"[Server] ✓ Plugins loaded from: {pluginDir}");
                 Console.WriteLine();
 
@@ -95,7 +102,10 @@ namespace DuckyNet.Server
 
                 // ========== 阶段4：启动Web服务器 ==========
                 Console.WriteLine("[Server] Starting Web server...");
-                _webApp = WebServerStartup.CreateAndConfigureWebApp(_serviceProvider, args);
+                var builder = WebApplication.CreateBuilder(args);
+                _pluginManager.ConfigureWebServices(builder.Services);
+                _webApp = builder.Build();
+                _pluginManager.ConfigureWeb(_webApp);
                 var webTask = _webApp.RunAsync("http://localhost:5000");
                 Console.WriteLine("[Server] ✓ Web server started at http://localhost:5000");
                 Console.WriteLine("[Server] ✓ Admin dashboard: http://localhost:5000");

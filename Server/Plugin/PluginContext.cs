@@ -2,6 +2,7 @@ using DuckyNet.Server.Managers;
 using DuckyNet.RPC;
 using DuckyNet.RPC.Core;
 using DuckyNet.Server.Events;
+using System;
 
 namespace DuckyNet.Server.Plugin
 {
@@ -14,6 +15,7 @@ namespace DuckyNet.Server.Plugin
         public PlayerManager PlayerManager { get; }
         public RoomManager RoomManager { get; }
         public RpcServer RpcServer { get; }
+        public IServiceProvider ServiceProvider { get; }
         public IEventBus EventBus { get; }
         public IPluginLogger Logger { get; }
 
@@ -21,15 +23,16 @@ namespace DuckyNet.Server.Plugin
             PlayerManager playerManager,
             RoomManager roomManager,
             RpcServer rpcServer,
+            IServiceProvider serviceProvider,
             IEventBus eventBus,
             IPluginLogger logger)
         {
             PlayerManager = playerManager;
             RoomManager = roomManager;
             RpcServer = rpcServer;
+            ServiceProvider = serviceProvider;
             EventBus = eventBus;
             Logger = logger;
         }
     }
 }
-
