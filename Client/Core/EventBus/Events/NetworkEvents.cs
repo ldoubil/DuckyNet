@@ -1,9 +1,11 @@
+using DuckyNet.Shared.Events;
+
 namespace DuckyNet.Client.Core.EventBus.Events
 {
     /// <summary>
     /// 网络连接成功事件
     /// </summary>
-    public class NetworkConnectedEvent
+    public class NetworkConnectedEvent : EventBase
     {
         public static NetworkConnectedEvent Instance { get; } = new NetworkConnectedEvent();
         private NetworkConnectedEvent() { }
@@ -12,7 +14,7 @@ namespace DuckyNet.Client.Core.EventBus.Events
     /// <summary>
     /// 网络断开连接事件
     /// </summary>
-    public class NetworkDisconnectedEvent
+    public class NetworkDisconnectedEvent : EventBase
     {
         public string Reason { get; }
         
@@ -25,7 +27,7 @@ namespace DuckyNet.Client.Core.EventBus.Events
     /// <summary>
     /// 网络连接失败事件
     /// </summary>
-    public class NetworkConnectionFailedEvent
+    public class NetworkConnectionFailedEvent : EventBase
     {
         public string Reason { get; }
         
@@ -35,4 +37,3 @@ namespace DuckyNet.Client.Core.EventBus.Events
         }
     }
 }
-

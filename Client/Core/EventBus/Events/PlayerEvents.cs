@@ -1,3 +1,4 @@
+using DuckyNet.Shared.Events;
 using DuckyNet.Shared.Services;
 
 namespace DuckyNet.Client.Core.EventBus.Events
@@ -6,7 +7,7 @@ namespace DuckyNet.Client.Core.EventBus.Events
     /// 玩家加入游戏事件
     /// 当有新玩家成功登录加入游戏时触发此事件
     /// </summary>
-    public class PlayerJoinedEvent
+    public class PlayerJoinedEvent : EventBase
     {
         /// <summary>
         /// 加入游戏的玩家信息
@@ -23,7 +24,7 @@ namespace DuckyNet.Client.Core.EventBus.Events
     /// 玩家离开游戏事件
     /// 当玩家登出或断开连接时触发此事件
     /// </summary>
-    public class PlayerLeftEvent
+    public class PlayerLeftEvent : EventBase
     {
         /// <summary>
         /// 离开游戏的玩家信息
@@ -36,4 +37,3 @@ namespace DuckyNet.Client.Core.EventBus.Events
         }
     }
 }
-

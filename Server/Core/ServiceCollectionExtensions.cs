@@ -46,10 +46,6 @@ namespace DuckyNet.Server.Core
             services.AddSingleton<RoomManager>();
             services.AddSingleton<SceneManager>();
             
-            // 事件系统
-            services.AddSingleton<Server.Events.EventBus>();
-            services.AddSingleton<Server.Events.IEventBus>(sp => sp.GetRequiredService<Server.Events.EventBus>());
-            
             // 玩家清理事件处理器
             services.AddSingleton<Server.Events.Handlers.PlayerCleanupHandler>();
             
@@ -189,4 +185,3 @@ namespace DuckyNet.Server.Core
         }
     }
 }
-

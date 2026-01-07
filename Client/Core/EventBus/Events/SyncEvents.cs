@@ -1,11 +1,12 @@
 using DuckyNet.Shared.Data;
+using DuckyNet.Shared.Events;
 
 namespace DuckyNet.Client.Core.EventBus.Events
 {
     /// <summary>
     /// 请求启动同步事件
     /// </summary>
-    public class SyncStartRequestEvent
+    public class SyncStartRequestEvent : EventBase
     {
         public static SyncStartRequestEvent Instance { get; } = new SyncStartRequestEvent();
         private SyncStartRequestEvent() { }
@@ -14,7 +15,7 @@ namespace DuckyNet.Client.Core.EventBus.Events
     /// <summary>
     /// 请求停止同步事件
     /// </summary>
-    public class SyncStopRequestEvent
+    public class SyncStopRequestEvent : EventBase
     {
         public static SyncStopRequestEvent Instance { get; } = new SyncStopRequestEvent();
         private SyncStopRequestEvent() { }
@@ -24,7 +25,7 @@ namespace DuckyNet.Client.Core.EventBus.Events
     /// 玩家位置同步事件
     /// 当接收到其他玩家的位置同步数据时触发此事件
     /// </summary>
-    public class PlayerUnitySyncEvent
+    public class PlayerUnitySyncEvent : EventBase
     {
         /// <summary>
         /// 其他玩家的位置同步数据（包含位置、旋转、速度等）
@@ -43,7 +44,7 @@ namespace DuckyNet.Client.Core.EventBus.Events
     /// 远程玩家动画更新事件
     /// 当接收到其他玩家的动画同步数据时触发此事件
     /// </summary>
-    public class RemoteAnimatorUpdateEvent
+    public class RemoteAnimatorUpdateEvent : EventBase
     {
         /// <summary>
         /// 玩家ID
@@ -62,4 +63,3 @@ namespace DuckyNet.Client.Core.EventBus.Events
         }
     }
 }
-

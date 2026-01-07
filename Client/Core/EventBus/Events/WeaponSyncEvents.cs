@@ -1,3 +1,4 @@
+using DuckyNet.Shared.Events;
 using ItemStatsSystem;
 using ItemStatsSystem.Items;
 using WeaponSlotType = DuckyNet.Shared.Data.WeaponSlotType;
@@ -17,7 +18,7 @@ namespace DuckyNet.Client.Core.EventBus.Events
     /// - Weapon 对象可能在事件处理后被销毁，不要在异步操作中使用
     /// - 订阅者应在不再需要时取消订阅，避免内存泄漏
     /// </summary>
-    public class WeaponSlotChangedEvent
+    public class WeaponSlotChangedEvent : EventBase
     {
         /// <summary>槽位对象</summary>
         public object? Slot { get; }
@@ -49,4 +50,3 @@ namespace DuckyNet.Client.Core.EventBus.Events
         }
     }
 }
-

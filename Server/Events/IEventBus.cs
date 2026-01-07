@@ -1,4 +1,5 @@
 using System;
+using DuckyNet.Shared.Events;
 
 namespace DuckyNet.Server.Events
 {
@@ -13,21 +14,20 @@ namespace DuckyNet.Server.Events
         /// </summary>
         /// <typeparam name="TEvent">事件类型</typeparam>
         /// <param name="handler">事件处理器</param>
-        void Subscribe<TEvent>(Action<TEvent> handler) where TEvent : class;
+        void Subscribe<TEvent>(Action<TEvent> handler) where TEvent : IEvent;
 
         /// <summary>
         /// 取消订阅事件
         /// </summary>
         /// <typeparam name="TEvent">事件类型</typeparam>
         /// <param name="handler">事件处理器</param>
-        void Unsubscribe<TEvent>(Action<TEvent> handler) where TEvent : class;
+        void Unsubscribe<TEvent>(Action<TEvent> handler) where TEvent : IEvent;
 
         /// <summary>
         /// 发布事件
         /// </summary>
         /// <typeparam name="TEvent">事件类型</typeparam>
         /// <param name="eventData">事件数据</param>
-        void Publish<TEvent>(TEvent eventData) where TEvent : class;
+        void Publish<TEvent>(TEvent eventData) where TEvent : IEvent;
     }
 }
-

@@ -1,3 +1,4 @@
+using DuckyNet.Shared.Events;
 using UnityEngine;
 
 namespace DuckyNet.Client.Core.EventBus.Events
@@ -6,7 +7,7 @@ namespace DuckyNet.Client.Core.EventBus.Events
     /// 本地玩家开枪事件
     /// 当主角开枪时触发（订阅自 ItemAgent_Gun.OnMainCharacterShootEvent）
     /// </summary>
-    public class LocalPlayerShootEvent
+    public class LocalPlayerShootEvent : EventBase
     {
         /// <summary>
         /// 枪械对象（ItemAgent_Gun）
@@ -37,4 +38,3 @@ namespace DuckyNet.Client.Core.EventBus.Events
         }
     }
 }
-
