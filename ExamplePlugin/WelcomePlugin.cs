@@ -6,6 +6,8 @@ using DuckyNet.Server.RPC;
 using DuckyNet.Shared.Services;
 using DuckyNet.RPC;
 using DuckyNet.Shared.Data;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace ExamplePlugin
 {
@@ -53,6 +55,18 @@ namespace ExamplePlugin
             _context.Logger.Info($"{Name} 已卸载");
         }
 
+        public void ConfigureServices(IServiceCollection services)
+        {
+        }
+
+        public void ConfigureRpc(RpcServer server)
+        {
+        }
+
+        public void ConfigureWeb(IEndpointRouteBuilder endpoints)
+        {
+        }
+
 
         // ========== 事件处理器 ==========
 
@@ -77,4 +91,3 @@ namespace ExamplePlugin
         }
     }
 }
-

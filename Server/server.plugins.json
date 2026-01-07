@@ -1,0 +1,36 @@
+{
+  "corePlugins": [
+    {
+      "name": "CorePlugin",
+      "enabled": true
+    }
+  ],
+  "modulePlugins": [
+    {
+      "name": "PlayerModule",
+      "enabled": true
+    },
+    {
+      "name": "RoomModule",
+      "enabled": true
+    },
+    {
+      "name": "SceneModule",
+      "enabled": true
+    },
+    {
+      "name": "NpcModule",
+      "enabled": true
+    },
+    {
+      "name": "SyncModule",
+      "enabled": true
+    }
+  ],
+  "webPlugins": [
+    {
+      "name": "WebPlugin",
+      "enabled": true
+    }
+  ]
+}
