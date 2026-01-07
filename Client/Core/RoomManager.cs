@@ -33,6 +33,7 @@ namespace DuckyNet.Client.Core
             _eventSubscriber.Subscribe<RoomJoinedEvent>(OnRoomJoined);
             _eventSubscriber.Subscribe<RoomLeftEvent>(OnRoomLeft);
             _eventSubscriber.Subscribe<NetworkDisconnectedEvent>(OnNetworkDisconnected);
+            _eventSubscriber.Subscribe<PlayerUnitySyncEvent>(OnPlayerUnitySyncReceived);
             Debug.Log("[RoomManager] 构造函数完成 (事件已订阅)");
             var serverContext = new ClientServerContext(GameContext.Instance.RpcClient);
             _roomServiceClient = new RoomServiceClientProxy(serverContext);
@@ -219,6 +220,21 @@ namespace DuckyNet.Client.Core
             CurrentRoom = null;
             RoomPlayers.Clear();
             Debug.Log($"[RoomManager] ✅ 房间状态已清理");
+        }
+
+        private void OnPlayerUnitySyncReceived(PlayerUnitySyncEvent evt)
+        {
+            var localPlayer = GameContext.Instance.PlayerManager?.LocalPlayer;
+            if (localPlayer == null) return;
+
+            var playerToUpdate = RoomPlayers.Find(p => p.SteamId == evt.SteamID);
+            if (playerToUpdate == null) return;
+
+            if (playerToUpdate.CurrentScenelData?.SceneName != localPlayer.Info.CurrentScenelData.SceneName)
+            {
+                playerToUpdate.CurrentScenelData = localPlayer.Info.CurrentScenelData;
+                Debug.Log($"[RoomManager] 更新玩家 {evt.SteamID} 的场景为: {localPlayer.Info.CurrentScenelData.SceneName}");
+            }
         }
 
         public void Dispose()

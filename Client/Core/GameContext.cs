@@ -249,6 +249,7 @@ namespace DuckyNet.Client.Core
                 _instance.UIManager?.Dispose();
                 _instance.AvatarManager?.Dispose();
                 _instance.AnimatorSyncManager?.Dispose();
+                _instance.ItemNetworkCoordinator?.Dispose();
                 _instance.RpcClient?.Disconnect();
                 _instance.PlayerManager?.Dispose();
                 _instance.SceneClientManager?.Dispose();
@@ -276,7 +277,6 @@ namespace DuckyNet.Client.Core
             PlayerManager?.Update();
             NpcManager?.Update(); // 同步 NPC 位置
             AnimatorSyncManager?.Update();
-            AnimatorSyncClientService?.Update(); // 平滑插值远程玩家动画
         }
 
         /// <summary>
@@ -297,4 +297,3 @@ namespace DuckyNet.Client.Core
         }
     }
 }
-

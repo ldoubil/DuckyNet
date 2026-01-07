@@ -1,4 +1,5 @@
 using DuckyNet.Shared.Events;
+using DuckyNet.Shared.Data;
 using UnityEngine;
 
 namespace DuckyNet.Client.Core.EventBus.Events
@@ -80,9 +81,9 @@ namespace DuckyNet.Client.Core.EventBus.Events
     public class CharacterAppearanceReceivedEvent : EventBase
     {
         public string SteamId { get; }
-        public byte[] AppearanceData { get; }
+        public CharacterAppearanceData AppearanceData { get; }
         
-        public CharacterAppearanceReceivedEvent(string steamId, byte[] appearanceData)
+        public CharacterAppearanceReceivedEvent(string steamId, CharacterAppearanceData appearanceData)
         {
             SteamId = steamId;
             AppearanceData = appearanceData;

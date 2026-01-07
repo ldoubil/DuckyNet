@@ -16,8 +16,12 @@ EventBus/
 │   ├── RoomEvents.cs           # 房间相关事件
 │   ├── PlayerEvents.cs         # 玩家相关事件
 │   ├── CharacterEvents.cs      # 角色相关事件
+│   ├── EquipmentSyncEvents.cs  # 装备同步事件
+│   ├── RemoteWeaponSyncEvents.cs # 武器同步事件
 │   ├── SyncEvents.cs           # 同步相关事件
 │   ├── ChatEvents.cs           # 聊天相关事件
+│   ├── ItemEvents.cs           # 物品同步事件
+│   ├── NpcEvents.cs            # NPC 同步事件
 │   └── AllEvents.cs            # 事件索引文档
 └── README.md                   # 本文档
 ```
@@ -117,6 +121,7 @@ GameContext.Instance.EventBus.PublishAsync(new ChatMessageReceivedEvent(sender, 
 ### 玩家事件 (PlayerEvents.cs)
 - `PlayerJoinedEvent` - 玩家加入游戏
 - `PlayerLeftEvent` - 玩家离开游戏
+- `ServerMessageReceivedEvent` - 服务器消息
 
 ### 角色事件 (CharacterEvents.cs)
 - `CharacterCreatedEvent` - 角色创建完成
@@ -132,6 +137,16 @@ GameContext.Instance.EventBus.PublishAsync(new ChatMessageReceivedEvent(sender, 
 - `PlayerUnitySyncEvent` - 玩家位置同步
 - `RemoteAnimatorUpdateEvent` - 远程玩家动画更新
 
+### 装备同步事件 (EquipmentSyncEvents.cs)
+- `RemoteEquipmentSlotUpdatedEvent` - 远程玩家装备槽位更新
+- `AllPlayersEquipmentReceivedEvent` - 批量装备数据接收
+
+### 武器同步事件 (RemoteWeaponSyncEvents.cs)
+- `RemoteWeaponSlotUpdatedEvent` - 远程玩家武器槽位更新
+- `AllPlayersWeaponReceivedEvent` - 批量武器数据接收
+- `RemoteWeaponSwitchedEvent` - 远程玩家武器切换
+- `RemoteWeaponFiredEvent` - 远程玩家开火特效
+
 ### 聊天事件 (ChatEvents.cs)
 - `ChatMessageReceivedEvent` - 聊天消息接收
 
@@ -139,6 +154,15 @@ GameContext.Instance.EventBus.PublishAsync(new ChatMessageReceivedEvent(sender, 
 - `CharacterSpawnedEvent` - 单位（怪物/NPC）创建
 - `CharacterDestroyedEvent` - 单位销毁
 - `CharacterDeathEvent` - 单位死亡（生命值为0）
+
+### 物品同步事件 (ItemEvents.cs)
+- `RemoteItemDroppedEvent` - 远程物品丢弃
+- `RemoteItemPickedUpEvent` - 远程物品拾取
+
+### NPC 同步事件 (NpcEvents.cs)
+- `RemoteNpcSpawnedEvent` - 远程 NPC 生成
+- `RemoteNpcBatchTransformEvent` - 远程 NPC 位置更新
+- `RemoteNpcDestroyedEvent` - 远程 NPC 销毁
 
 ## 设计特点
 
@@ -155,6 +179,14 @@ GameContext.Instance.EventBus.PublishAsync(new ChatMessageReceivedEvent(sender, 
 3. **异常处理**: 事件处理器中的异常会被捕获并记录，不会影响其他订阅者
 4. **避免循环依赖**: 不要在事件处理器中发布会导致循环的事件
 5. **命名规范**: 事件名称应清晰描述事件内容，使用 Event 后缀
+6. **事件定义目录**: 客户端事件统一放在 `Client/Core/EventBus/Events`（或 Shared/Events）
+
+## RPC 回调定位（网络入站适配）
+
+RPC 回调只做“网络入站适配”，**仅负责发布 EventBus 事件**，不做业务逻辑：
+
+- `Client/Services/*ClientServiceImpl.cs` 仅调用 `EventBus.Publish(...)`
+- 业务逻辑统一在 `Client/Core/*` 中订阅 EventBus 处理
 
 ## 迁移指南
 
@@ -179,4 +211,3 @@ GameContext.Instance.EventBus.PublishAsync(new ChatMessageReceivedEvent(sender, 
    ```csharp
    using DuckyNet.Client.Core.EventBus;
    ```
-
