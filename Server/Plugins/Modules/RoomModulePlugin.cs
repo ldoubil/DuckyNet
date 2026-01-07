@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace DuckyNet.Server.Plugins.Modules
 {
+    [DependsOn("CorePlugin")]
     public class RoomModulePlugin : IPlugin
     {
         public string Name => "RoomModule";

@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace DuckyNet.Server.Plugins.Modules
 {
+    [DependsOn("CorePlugin")]
     public class NpcModulePlugin : IPlugin
     {
         public string Name => "NpcModule";

@@ -52,6 +52,10 @@ namespace DuckyNet.Server.Core
                 serviceProvider.GetRequiredService<EventBus>()
             );
 
+            var pluginManager = serviceProvider.GetRequiredService<Plugin.PluginManager>();
+            var rpcServer = serviceProvider.GetRequiredService<RpcServer>();
+            pluginManager.ConfigureRpc(rpcServer);
+
         }
         
         /// <summary>

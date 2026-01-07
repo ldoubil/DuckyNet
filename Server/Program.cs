@@ -62,9 +62,6 @@ namespace DuckyNet.Server
                 _playerManager = _serviceProvider.GetRequiredService<PlayerManager>();
                 _eventBus = _serviceProvider.GetRequiredService<EventBus>();
                 
-                // 初始化服务器上下文并注册所有 RPC 服务
-                ServiceCollectionExtensions.InitializeServer(_serviceProvider);
-
                 var pluginContext = new PluginContext(
                     _playerManager,
                     _serviceProvider.GetRequiredService<RoomManager>(),
@@ -74,7 +71,10 @@ namespace DuckyNet.Server
                     new PluginLogger("System")
                 );
                 _pluginManager.Initialize(pluginContext);
-                _pluginManager.LoadConfiguredPlugins(_server);
+                _pluginManager.LoadConfiguredPlugins();
+
+                // 初始化服务器上下文并注册所有 RPC 服务
+                ServiceCollectionExtensions.InitializeServer(_serviceProvider);
                 Console.WriteLine("[Server] ✓ Components initialized");
 
                 // ========== 阶段3：启动服务器 ==========

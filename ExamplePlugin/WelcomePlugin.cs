@@ -15,6 +15,7 @@ namespace ExamplePlugin
     /// 欢迎插件 - 简洁版
     /// 功能：玩家登录时发送欢迎消息
     /// </summary>
+    [DependsOn("CorePlugin")]
     public class WelcomePlugin : IPlugin
     {
         public string Name => "欢迎插件";
