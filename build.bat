@@ -4,7 +4,7 @@ echo DuckyNet RPC Framework Build
 echo ================================
 
 echo.
-echo [1/5] Building Shared...
+echo [1/6] Building Shared...
 dotnet build Shared/DuckyNetShared.csproj -c Debug
 
 if %ERRORLEVEL% NEQ 0 (
@@ -14,7 +14,7 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 echo.
-echo [2/5] Running Code Generator...
+echo [2/6] Running Code Generator...
 dotnet run --project RPC/DuckyNet.RPC.csproj -c Debug
 
 if %ERRORLEVEL% NEQ 0 (
@@ -24,7 +24,7 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 echo.
-echo [3/5] Rebuilding Shared (with generated code)...
+echo [3/6] Rebuilding Shared (with generated code)...
 dotnet build Shared/DuckyNetShared.csproj -c Debug
 
 if %ERRORLEVEL% NEQ 0 (
@@ -34,7 +34,7 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 echo.
-echo [4/5] Building Server...
+echo [4/6] Building Server...
 dotnet build Server/DuckyNetServer.csproj -c Debug
 
 if %ERRORLEVEL% NEQ 0 (
@@ -44,11 +44,29 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 echo.
-echo [5/5] Building Client...
+echo [5/6] Building Client...
 dotnet build Client/DuckyNetClient.csproj -c Debug
 
 if %ERRORLEVEL% NEQ 0 (
     echo [ERROR] Client build failed!
+    pause
+    exit /b 1
+)
+
+echo.
+echo [6/6] Running Tests...
+dotnet test Tests\DuckyNet.RPC.Tests\DuckyNet.RPC.Tests.csproj -c Debug
+
+if %ERRORLEVEL% NEQ 0 (
+    echo [ERROR] RPC tests failed!
+    pause
+    exit /b 1
+)
+
+dotnet test Tests\DuckyNet.Shared.Tests\DuckyNet.Shared.Tests.csproj -c Debug
+
+if %ERRORLEVEL% NEQ 0 (
+    echo [ERROR] Shared tests failed!
     pause
     exit /b 1
 )
@@ -67,7 +85,7 @@ echo   cd Server\bin\Debug\net8.0
 echo   DuckyNetServer.exe
 echo.
 echo To test:
-echo   run_test.bat
+echo   dotnet test Tests\DuckyNet.RPC.Tests\DuckyNet.RPC.Tests.csproj -c Debug
+echo   dotnet test Tests\DuckyNet.Shared.Tests\DuckyNet.Shared.Tests.csproj -c Debug
 echo.
 pause
-
